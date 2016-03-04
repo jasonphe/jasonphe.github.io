@@ -1,7 +1,27 @@
+.navbar{
+	background-color: #E8E8E8; 
+}
 body {
     background-color: #d0e4fe;
+    font: 20px Montserrat, sans-serif;
+    line-height: 1.8;
 }
 .bg-1 { 
       background-color: #d0e4fe; 
-      
   }
+
+.bg-2 { 
+      
+      background-color: #2f2f2f; 
+      color: #fff;
+  }
+
+.bg-3 { 
+      background-color: #003399; 
+      color: #fff;
+  }
+
+.name-1{
+	font: Verdana, sans-serif;
+}
+  
