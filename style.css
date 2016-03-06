@@ -14,13 +14,16 @@ body {
       
       background-color: #2f2f2f; 
       color: #fff;
+
   }
 
 .bg-3 { 
       background-color: #003399; 
       color: #fff;
   }
-
+.vid{
+  padding-top: 2cm;
+}
 .name-1{
 	font: Verdana, sans-serif;
 }
