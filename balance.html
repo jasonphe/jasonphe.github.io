@@ -14,6 +14,15 @@
 <body>
 	<h1>League Team Balancer</h1>
 	<div class="container-fluid" id="inputs">
+
+		<div class="row">
+			<div class = "col-md-5">
+				<p>Generates balanced 5 man League of Legends teams based on ranking. 
+				Input summoner names in the left column and their corresponding rank in the form of<br>  
+				[First letter of league][Division].
+				Make sure your number of players divisible by 5.</p>
+			</div>
+		</div>
 		<div class="row">
     		<div class="col-md-3">
 				<p>Input Names:</p>
@@ -133,6 +142,7 @@ g3</textarea>
 			</div>
 		</div>
 		<button type="button" onclick="calc()">Submit</button>
+		<p id ="nump"></p>
 	</div>
 
 	<div class="container-fluid" id="output"> 

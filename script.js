@@ -4,6 +4,9 @@ function calc() {
     val2 = document.getElementById("ranks").value; 
     names = val1.split("\n");
     ranks = val2.split("\n");
+    var numoutput = "";
+    numoutput += "Players input: " + String(names.length) + "<br> Ranks input: " + String(ranks.length);
+    document.getElementById("nump").innerHTML = numoutput;
     players = [];
     for (i=0; i<ranks.length; i++)
     {
