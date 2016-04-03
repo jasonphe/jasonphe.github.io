@@ -1,25 +1,42 @@
+html, body {
+        height: 100%;
+        margin: 0;
+      }
+
+
 .navbar{
 	background-color: #E8E8E8; 
 }
 body {
-    background-color: #d0e4fe;
+
     font: 20px Montserrat, sans-serif;
     line-height: 1.8;
 }
 .bg-1 { 
-      background-color: #d0e4fe; 
+      background: url(background.jpg);
+
+      min-height: 100%; 
+      color: #fff;
   }
+.content{
+      font-size: 300%;
+      padding-top: 200px;
+      padding-bottom: 50px;
+}
 
 .bg-2 { 
-      
-      background-color: #2f2f2f; 
+      padding-top: 50px;
+      background-color:   #191970;
       color: #fff;
+      min-height: 100%; 
 
   }
 
 .bg-3 { 
-      background-color: #003399; 
-      color: #fff;
+      padding-top: 50px;
+      background-color: #fff; 
+      color: #000;
+      min-height: 100%; 
   }
 .vid{
   padding-top: 2cm;
