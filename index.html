@@ -3,46 +3,27 @@
 <head>
   <title>Jason He</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="favicon.ico" />
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
 </head>
 
 <body>
-<nav class="navbar navbar-fixed-top">
-  <div class="container">
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>                        
-      </button>
-      <a class="navbar-brand" href="#">Jason He</a>
-    </div>
-    <div class="collapse navbar-collapse" id="myNavbar">
-      <ul class="nav navbar-nav navbar-right">
-        <li><a class="scroll" href="#about">About</a></li>
-        <li><a class="scroll" href="#projects">Projects</a></li>
+  
+  <nav class="navbar navbar-expand-md fixed-top navbar-dark bg-dark">
+      <ul class="navbar-nav">
+        <li class="nav-item active">
+          <a class="nav-link" href="#about">About</a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link" href="#projects">Projects</a>
+        </li>
       </ul>
-    </div>
-  </div>
-</nav>
+    </nav>
 
-
-<div class="container-fluid bg-1 name-1" id="about">
-  <div class="content text-center">
-    <p><b>Jason He</b></p>
-  </div>
-  <div class="row">
-    <div class="text-center">
-      <p>Computer Science Student at the University of Michigan, graduated May 2016 <br></p>
-      <a href="docs/resume_jasonphe.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
-    </div>
-  </div>
-</div>
+  <a href="docs/resume_jasonphe.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
 
 
 <div class="container-fluid bg-2" id="projects">
@@ -91,31 +72,6 @@
   </div>
 
 
-
-
-<script>
-$(document).ready(function(){
-  // Add smooth scrolling to all links in navbar + footer link
-  $(".navbar a, footer a[href='#myPage']").on('click', function(event) {
-
-  // Prevent default anchor click behavior
-  event.preventDefault();
-
-  // Store hash
-  var hash = this.hash;
-
-  // Using jQuery's animate() method to add smooth page scroll
-  // The optional number (900) specifies the number of milliseconds it takes to scroll to the specified area
-  $('html, body').animate({
-    scrollTop: $(hash).offset().top
-  }, 900, function(){
-
-    // Add hash (#) to URL when done scrolling (default click behavior)
-    window.location.hash = hash;
-    });
-  });
-})
-</script>
 
 </body>
 </html>
