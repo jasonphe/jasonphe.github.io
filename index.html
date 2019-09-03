@@ -6,72 +6,114 @@
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="favicon.ico" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js"></script> 
   <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
   <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="personal.js"></script>
 </head>
 
+<nav class="navbar navbar-expand-md fixed-top navbar-dark bg-dark">
+  <ul class="navbar-nav">
+    <li class="nav-item">
+      <a class="nav-link" href="#about">About</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#projects">Projects</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#experience">Experience</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#skills">Skills</a>
+    </li>
+  </ul>
+</nav>
 <body>
   
-  <nav class="navbar navbar-expand-md fixed-top navbar-dark bg-dark">
-      <ul class="navbar-nav">
-        <li class="nav-item active">
-          <a class="nav-link" href="#about">About</a>
-        </li>
-        <li class="nav-item active">
-          <a class="nav-link" href="#projects">Projects</a>
-        </li>
-      </ul>
-    </nav>
 
-  <a href="docs/resume_jasonphe.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
-
-
-<div class="container-fluid bg-2" id="projects">
-  <div class="row">
-    <div class="text-center">
-          <h1><bold>Projects</bold></h1>
-    </div>
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Vision</bold></h2>
-      <p>Developed with a team of four in about two months, Vision is a first person puzzle platformer built in Unity and C#. </p>
-      
-      <a href="http://www-personal.umich.edu/~jasonphe/VisionFinal/web%20final.html">Play here! </a> 
-      <p>Note: The game doesn't work in Chrome! Try Safari or Firefox. It can take a while to load.</p>
-      <a href="https://github.com/spencewenski/Vision">Source code</a>
-    </div>
-
-    <div class="col-lg-5 vid" >
-      <iframe width="420" height="315" 
-        src="https://www.youtube.com/embed/5lL2Lj9S29w">
-      </iframe>
-    </div>
-  </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Example Web App Wiki and Tutorial</bold></h2>
-        <p>Wiki and tutorials for new web developers using Parse as a back-end.</p>
-        <a href="https://github.com/umich-software-prototyping-clinic/web-app/wiki">Link</a>
-    </div>
-  </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Older projects</bold></h2>
-        <p>Projects from Data structures and Algorithms/Information Retrieval. </p>
-        <a href="https://github.com/foodmonkey/Projects">Link</a>
-    </div>
-  </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>League balance</bold></h2>
-        <a href="balance.html">Link</a>
-        <br><br>
+  <div class="container-fluid" id="about">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>ABOUT<hr></h2>
+        <p>Hey, I'm Jason</p>
+        <a href="docs/Jason_He_Resume_2019.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
+      </div>
     </div>
   </div>
 
+  <div class="container-fluid" id="experience">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>EXPERIENCE AND EDUCATION<hr></h2>
+        <p>Reynolds and Reynolds</p>
+        <p>Proposed and configured Phabricator code review server that is now used by dozens of development teams throughout the company. </p>
+        <P>Converted our PDF editing library (adding text/images, merging, printing, etc) to use free open source library instead of a non-free library, saving the company considerable licensing costs. </p>
+      </div>
+    </div>
+  </div>
 
+  <div class="container-fluid" id="projects">
+    <div class="row">
+      <div class="col-full">
+            <h1>Projects</h1>
+      </div>
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Vision</bold></h2>
+        <p>Developed with a team of four in about two months, Vision is a first person puzzle platformer built in Unity and C#. </p>
+        
+        <a href="http://www-personal.umich.edu/~jasonphe/VisionFinal/web%20final.html">Play here! </a> 
+        <p>Note: The game doesn't work in Chrome! Try Safari or Firefox. It can take a while to load.</p>
+        <a href="https://github.com/spencewenski/Vision">Source code</a>
+      </div>
 
+      <div class="col-lg-5 vid" >
+        <iframe width="420" height="315" 
+        <!--src="https://www.youtube.com/embed/5lL2Lj9S29w">-->
+        </iframe>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Example Web App Wiki and Tutorial</bold></h2>
+          <p>Wiki and tutorials for new web developers using Parse as a back-end.</p>
+          <a href="https://github.com/umich-software-prototyping-clinic/web-app/wiki">Link</a>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Older projects</bold></h2>
+          <p>Projects from Data structures and Algorithms/Information Retrieval. </p>
+          <a href="https://github.com/foodmonkey/Projects">Link</a>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>League balance</bold></h2>
+          <a href="balance.html">Link</a>
+          <br><br>
+      </div>
+    </div>
+  </div>
+  <div class="container-fluid bg-2" id="skills">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>TECHNICAL SKILLS<hr></h2>
+      </div>
+    </div>
+    </br>
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
+        <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
+      </div>
+    </div>
+    </br>
+    <div id="container" style="height: 500px">
+        <canvas id="canvas"></canvas>
+    </div>
+  </div>
 </body>
 </html>
