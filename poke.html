@@ -23,26 +23,20 @@
     var audio2 = new Audio('resources/pokeSound2.mp3');
     audio1.loop = false;
     audio2.loop = false;
-    var sound;
     var count = 1;
     function poke(){
-        if (sound)
+        if (count % 10 == 0 && audio2.paused)
         {
-            sound.pause();
-        }
-        if (count % 5 == 0)
-        {
-            sound = audio2;
+            audio2.currentTime = 0;
+            audio2.play(); 
         }
         else
         {
-            sound = audio1;
+            audio1.currentTime = 0;
+            audio1.play(); 
         }
         document.getElementById("first").style = "display: none";
         document.getElementById("second").style = "display: block";
-        sound.currentTime = 0;
-        sound.play(); 
-        
         count++;
     }
     function unpoke(){
