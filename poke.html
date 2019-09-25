@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>POKE THAT PLATELET</title>
+</head>
+<style>
+    html,body{
+    margin:0;
+    height:100%;
+    }
+    img{
+    display:block;
+    width:100%; height:100%;
+    object-fit: cover;
+    }
+</style>
+<body onmousedown="poke()" onmouseup="unpoke()">
+    <img id="first" src="resources/poke-1.jpg" style="display: block">
+    <img id="second" src="resources/poke-2.jpg" style="display: none">
+</body>
+<script>
+    var audio = new Audio('resources/poke.mp3');
+    audio.loop = false;
+    function poke(){
+        document.getElementById("first").style = "display: none";
+        document.getElementById("second").style = "display: block";
+        audio.currentTime = 0;
+        audio.play(); 
+    }
+    function unpoke(){
+        document.getElementById("first").style = "display: block";
+        document.getElementById("second").style = "display: none";
+    }
+</script>
+</html>
