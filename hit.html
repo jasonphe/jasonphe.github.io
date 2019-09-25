@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>HIT THAT GUY?</title>
+</head>
+<style>
+    html,body{
+    margin:0;
+    height:100%;
+    }
+    img{
+    display:block;
+    width:100%; height:100%;
+    object-fit: cover;
+    }
+</style>
+<body onmousedown="hit()" ontouchstart="hit()">
+    <img id="first" src="resources/hit1.png" style="display: none">
+    <img id="second" src="resources/hit2.png" style="display: none">
+    <img id="rest" src="resources/rest.png" style="display: block">
+</body>
+<script>
+    var restTime = 3000;
+    var audio1 = new Audio('resources/hitSound1.mp3');
+    var audio2 = new Audio('resources/hitSound2.mp3');
+    var audio3 = new Audio('resources/yah.mp3');
+   
+    var count = 1;
+    var myVar = setTimeout(restFunc, restTime);
+    function hit(){
+        document.getElementById("rest").style = "display: none";
+        if (count % 2 == 0)
+        {
+            document.getElementById("first").style = "display: none";
+            document.getElementById("second").style = "display: block";
+            if (audio2.paused)
+            {
+                audio2.play(); 
+            }
+        }
+        else
+        {
+            document.getElementById("first").style = "display: block";
+            document.getElementById("second").style = "display: none";
+            if (audio1.paused)
+            {
+                audio1.play(); 
+            }
+        }
+       
+        count++;
+        clearTimeout(myVar);
+        myVar = setTimeout(restFunc, restTime);
+    }
+    function restFunc(){
+        document.getElementById("first").style = "display: none";
+        document.getElementById("second").style = "display: none";
+        document.getElementById("rest").style = "display: block";
+        if (audio3.paused)
+        {
+            audio3.play(); 
+        }
+    }
+</script>
+</html>
