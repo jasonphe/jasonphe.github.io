@@ -15,17 +15,35 @@
     }
 </style>
 <body onmousedown="poke()" onmouseup="unpoke()">
-    <img id="first" src="resources/poke-1.jpg" style="display: block">
-    <img id="second" src="resources/poke-2.jpg" style="display: none">
+    <img id="first" src="resources/poke1.jpg" style="display: block">
+    <img id="second" src="resources/poke2.jpg" style="display: none">
 </body>
 <script>
-    var audio = new Audio('resources/poke.mp3');
-    audio.loop = false;
+    var audio1 = new Audio('resources/pokeSound1.mp3');
+    var audio2 = new Audio('resources/pokeSound2.mp3');
+    audio1.loop = false;
+    audio2.loop = false;
+    var sound;
+    var count = 1;
     function poke(){
+        if (sound)
+        {
+            sound.pause();
+        }
+        if (count % 5 == 0)
+        {
+            sound = audio2;
+        }
+        else
+        {
+            sound = audio1;
+        }
         document.getElementById("first").style = "display: none";
         document.getElementById("second").style = "display: block";
-        audio.currentTime = 0;
-        audio.play(); 
+        sound.currentTime = 0;
+        sound.play(); 
+        
+        count++;
     }
     function unpoke(){
         document.getElementById("first").style = "display: block";
