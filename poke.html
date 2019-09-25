@@ -14,7 +14,7 @@
     object-fit: cover;
     }
 </style>
-<body onmousedown="poke()" onmouseup="unpoke()">
+<body onmousedown="poke()" ontouchstart="poke()" onmouseup="unpoke()" ontouchend="unpoke()">
     <img id="first" src="resources/poke1.jpg" style="display: block">
     <img id="second" src="resources/poke2.jpg" style="display: none">
 </body>
