@@ -73,8 +73,8 @@
                         index = 0;
                     }
                 }
+                prevIndex = index;
                 let audio = audios[index];
-                console.log(index);
                 if (audio.readyState == 4 && audio.paused)
                 {
                     audio.play();
