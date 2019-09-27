@@ -14,17 +14,23 @@
     object-fit: cover;
     }
 </style>
-<body onmousedown="poke()" ontouchstart="poke()" onmouseup="unpoke()" ontouchend="unpoke()">
+<body id="pic">
     <img id="first" src="resources/poke1.jpg" style="display: block">
     <img id="second" src="resources/poke2.jpg" style="display: none">
 </body>
 <script>
+    document.getElementById("pic").addEventListener("touchstart", poke);
+    document.getElementById("pic").addEventListener("mousedown", poke);
+    document.getElementById("pic").addEventListener("touchend", unpoke);
+    document.getElementById("pic").addEventListener("mouseup", unpoke);
     var audio1 = new Audio('resources/pokeSound1.mp3');
     var audio2 = new Audio('resources/pokeSound2.mp3');
     audio1.loop = false;
     audio2.loop = false;
     var count = 1;
-    function poke(){
+
+    function poke(e){
+        e.preventDefault();
         if (count % 10 == 0 && audio2.paused)
         {
             audio2.currentTime = 0;
@@ -39,7 +45,8 @@
         document.getElementById("second").style = "display: block";
         count++;
     }
-    function unpoke(){
+    function unpoke(e){
+        e.preventDefault();
         document.getElementById("first").style = "display: block";
         document.getElementById("second").style = "display: none";
     }
