@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>PET THAT BUNNY THING</title>
+</head>
+<style>
+    #anim {
+    background-image: url('resources/spritesheet.png');
+    width: 996px;
+    height: 550px;
+    animation: anim .7s steps(7) infinite;
+    }
+    @keyframes anim {
+     from { background-position:    0px; }
+     to { background-position: 6972px; } 
+    }
+</style>
+<body id="pic">
+    <div id="anim"></div>
+</body>
+<script>
+    var el = document.getElementById('anim');
+    var stopTime = 500;
+    var timer = setTimeout(pause, stopTime);
+    var prevDir = 0;
+    var prevX = -1;
+    el.addEventListener('mousemove', e => {
+        
+        if (e.clientY > 300)
+        {
+            return;
+        }
+        let currDir = 0;
+        if (e.clientX > prevX)
+        {
+            currDir = 2;
+        }
+        else if (e.clientX < prevX)
+        {
+            currDir = 1;
+        }
+        else
+        {
+            return;
+        }
+        prevX = e.clientX;
+        if (prevDir != currDir)
+        {
+            play();
+            clearTimeout(timer);
+            timer = setTimeout(pause, stopTime);
+        }
+        prevDir = currDir;
+    });
+
+    function play() {
+    el.style.animationPlayState = 'running';
+    }
+    function pause() {
+    el.style.animationPlayState = 'paused';
+    }
+    function reset() {
+    el.style.animation = 'none';
+    el.offsetHeight; /* trigger reflow to apply the change immediately */
+    el.style.animation = null;
+    }
+    function stop() {
+    reset();
+    pause();
+    }
+</script>
+</html>
+
+
+
+
