@@ -10,27 +10,40 @@
     height: 550px;
     animation: anim .7s steps(7) infinite;
     }
+    #pet {  
+        cursor: url(resources/cursor.png), pointer;
+        width: 796px;
+        height: 300px;
+        margin-left: 100px;
+    }
+    #counter {
+        font-size: 38px;
+    }
     @keyframes anim {
      from { background-position:    0px; }
      to { background-position: 6972px; } 
     }
 </style>
 <body id="pic">
-    <div id="anim"></div>
+    <div id="anim">
+        <div id="pet">
+        </div>
+    </div>
+    <div>
+        <p id="counter">Times pet: 0</p>
+    </div>
 </body>
 <script>
     var el = document.getElementById('anim');
+    var petArea = document.getElementById('pet');
     pause();
     var stopTime = 500;
     var timer = setTimeout(pause, stopTime);
     var prevDir = 0;
     var prevX = -1;
-    el.addEventListener('mousemove', e => {
-        
-        if (e.clientY > 300)
-        {
-            return;
-        }
+    var count = 0;
+    var audios = [new Audio('resources/naaa1.mp3'), new Audio('resources/naaa2.mp3'), new Audio('resources/naaa3.mp3'), new Audio('resources/naaa4.mp3'), new Audio('resources/naaa5.mp3')];
+    petArea.addEventListener('mousemove', e => {
         let currDir = 0;
         if (e.clientX > prevX)
         {
@@ -47,6 +60,18 @@
         prevX = e.clientX;
         if (prevDir != currDir)
         {
+            count++;
+            if (count % 10 == 0)
+            {
+                let index = Math.floor(Math.random() * audios.length);
+                let audio = audios[index];
+                console.log(index);
+                if (audio.readyState == 4 && audio.paused)
+                {
+                    audio.play();
+                }
+            }
+            document.getElementById('counter').innerHTML = "Times pet: " + count;
             play();
             clearTimeout(timer);
             timer = setTimeout(pause, stopTime);
