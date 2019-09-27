@@ -42,6 +42,7 @@
     var prevDir = 0;
     var prevX = -1;
     var count = 0;
+    var prevIndex = -1;
     var audios = [new Audio('resources/naaa1.mp3'), new Audio('resources/naaa2.mp3'), new Audio('resources/naaa3.mp3'), new Audio('resources/naaa4.mp3'), new Audio('resources/naaa5.mp3')];
     petArea.addEventListener('mousemove', e => {
         let currDir = 0;
@@ -61,9 +62,17 @@
         if (prevDir != currDir)
         {
             count++;
-            if (count % 10 == 0)
+            if (count % 20 == 0)
             {
                 let index = Math.floor(Math.random() * audios.length);
+                if (index == prevIndex)
+                {
+                    index++;
+                    if (index > audios.length - 1)
+                    {
+                        index = 0;
+                    }
+                }
                 let audio = audios[index];
                 console.log(index);
                 if (audio.readyState == 4 && audio.paused)
@@ -71,7 +80,7 @@
                     audio.play();
                 }
             }
-            document.getElementById('counter').innerHTML = "Times pet: " + count;
+            document.getElementById('counter').innerHTML = "Times pet: " + Math.floor(count/2);
             play();
             clearTimeout(timer);
             timer = setTimeout(pause, stopTime);
