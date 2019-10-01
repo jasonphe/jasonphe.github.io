@@ -18,13 +18,13 @@
       <a class="nav-link" href="#about">About</a>
     </li>
     <li class="nav-item">
-      <a class="nav-link" href="#projects">Projects</a>
-    </li>
-    <li class="nav-item">
         <a class="nav-link" href="#experience">Experience</a>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="#skills">Skills</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#projects">Projects</a>
     </li>
   </ul>
 </nav>
@@ -35,8 +35,13 @@
     <div class="row justify-content-center">
       <div class="col-full">
         <h2>ABOUT<hr></h2>
-        <p>Hey, I'm Jason</p>
-        <a href="docs/Jason_He_Resume_2019.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
+      </div>
+    </div>
+    <div class="row justify-content-center">
+      <div class="col-full">
+        
+      <p>Hey, I'm Jason</p>
+      <a href="docs/Jason_He_Resume_2019.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
       </div>
     </div>
   </div>
@@ -45,12 +50,33 @@
     <div class="row justify-content-center">
       <div class="col-full">
         <h2>EXPERIENCE AND EDUCATION<hr></h2>
-        <p>Reynolds and Reynolds</p>
+        
+      </div>
+      
+    </div>
+    <p>Reynolds and Reynolds</p>
         <p>Proposed and configured Phabricator code review server that is now used by dozens of development teams throughout the company. </p>
         <P>Converted our PDF editing library (adding text/images, merging, printing, etc) to use free open source library instead of a non-free library, saving the company considerable licensing costs. </p>
+  </div>
+
+  <div class="container-fluid bg-2" id="skills">
+      <div class="row justify-content-center">
+        <div class="col-full">
+          <h2>TECHNICAL SKILLS<hr></h2>
+        </div>
+      </div>
+      </br>
+      <div class="row justify-content-center">
+        <div class="col-full">
+          <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
+          <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
+        </div>
+      </div>
+      </br>
+      <div id="container" style="height: 500px">
+          <canvas id="canvas"></canvas>
       </div>
     </div>
-  </div>
 
   <div class="container-fluid" id="projects">
     <div class="row">
@@ -95,24 +121,6 @@
           <a href="balance.html">Link</a>
           <br><br>
       </div>
-    </div>
-  </div>
-  <div class="container-fluid bg-2" id="skills">
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <h2>TECHNICAL SKILLS<hr></h2>
-      </div>
-    </div>
-    </br>
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
-        <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
-      </div>
-    </div>
-    </br>
-    <div id="container" style="height: 500px">
-        <canvas id="canvas"></canvas>
     </div>
   </div>
 </body>
