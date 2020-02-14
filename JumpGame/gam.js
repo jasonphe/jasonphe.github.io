@@ -519,7 +519,7 @@ allObjects =
 		{
 			type: "yuyukos",
 			x: 600,
-			y: 450,
+			y: 425,
 			width: yuyukosImg.width,
 			height: yuyukosImg.height,
 		},
