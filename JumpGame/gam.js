@@ -36,7 +36,7 @@ powerImg.src = imgFolder + "power.png";
 var heartImg = new Image();
 heartImg.src = imgFolder + "heart.png";
 var grassImg = new Image();
-grassImg.src = imgFolder + "grass.png";
+grassImg.src = imgFolder + "icePlatform.png";
 var woodImg = new Image();
 woodImg.src = imgFolder + "wood.png";
 var doorImg = new Image();
@@ -509,7 +509,7 @@ allObjects =
 		{
 			type: "door",
 			x: 830,
-			y: 400,
+			y: 390,
 			width: doorImg.width,
 			height: doorImg.height,
 			stage: 5,
@@ -558,7 +558,7 @@ allObjects =
 		{
 			type: "door",
 			x: 950,
-			y: 120,
+			y: 110,
 			width: doorImg.width,
 			height: doorImg.height,
 			stage: 9,
@@ -579,7 +579,7 @@ allObjects =
 		{
 			type: "door",
 			x: 0,
-			y: 400,
+			y: 390,
 			width: doorImg.width,
 			height: doorImg.height,
 			stage: 0,
@@ -753,7 +753,7 @@ allObjects =
 		{
 			type: "door",
 			x: -100,
-			y: 120,
+			y: 110,
 			width: doorImg.width,
 			height: doorImg.height,
 			stage: 4,
@@ -894,6 +894,13 @@ function loadStage()
 	}
 }
 
+function loadNewStage(newStage)
+{
+	stage = newStage;
+	loadStage();
+}
+
+
 function addClouds(stage)
 {
 	allClouds.push([]);
@@ -947,7 +954,7 @@ function drawPlatforms()
 		let mainColor = "#907020";
 		let secondaryColor = "#000000";
 		let platformImg = woodImg;
-		let imgSize = 40;
+		
 		if ("type" in platform)
 		{
 			switch (platform.type)
@@ -966,7 +973,6 @@ function drawPlatforms()
 				case "wall2":
 				{
 					platformImg = wall2Img;
-					imgSize = wall2Img.width;
 					break;
 				}
 			}
@@ -977,12 +983,12 @@ function drawPlatforms()
 		
 		let right = platform.x + platform.width;
 		let bottom = platform.y + platform.height;
-		for (let i = platform.x; i < right; i += imgSize)
+		for (let i = platform.x; i < right; i += platformImg.width)
 		{
-			for (let j = platform.y - 2; j < bottom; j+= imgSize)
+			for (let j = platform.y - 2; j < bottom; j+= platformImg.height)
 			{
-				let drawWidth = Math.min(right- i, imgSize);
-				let drawHeight = Math.min(bottom - j, imgSize);
+				let drawWidth = Math.min(right- i, platformImg.width);
+				let drawHeight = Math.min(bottom - j, platformImg.height);
 				context.drawImage(platformImg, 0, 0, drawWidth, drawHeight, i, j, drawWidth, drawHeight);
 			}
 		}
