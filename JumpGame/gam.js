@@ -727,7 +727,7 @@ allObjects =
 		{
 			type: "zucc",
 			x: 100,
-			y: 200,
+			y: 180,
 			width: zuccImg.width,
 			height: zuccImg.height,
 		},
