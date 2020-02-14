@@ -630,6 +630,14 @@ allObjects =
 			height: signImg.height,
 			text: ["Hearts contain special objects that", "increase your jump power!"],
 		},
+		{
+			type: "sign",
+			x: 150,
+			y: 0,
+			width: signImg.width,
+			height: signImg.height,
+			text: ["Jump up to reach the next stage!"],
+		},
 	],
 	//6
 	[
@@ -1456,7 +1464,7 @@ function drawSpeech(object, text)
 	
 	let backWidth = widestText + 10;
 	let xRect = object.x - ((backWidth - object.width) / 2);
-	let yRect = object.y - 5 - backHeight;
+	let yRect = Math.max(0, object.y - 5 - backHeight);
 	context.fillStyle = "#FFEBCD";
 	context.fillRect(xRect, yRect, backWidth, backHeight);
 	context.fillStyle = "black";
