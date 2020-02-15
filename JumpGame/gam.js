@@ -6,9 +6,9 @@ var stage = 0;
 var friction = 0.8;
 var gravity = 0.5;
 var angle = 90;
-var fps = 60;
+/*var fps = 60;
 var fpsInterval = 1000/fps;
-var then = Date.now();
+var then = Date.now();*/
 var keys = [];
 var charger;
 var paused = false;
@@ -913,7 +913,7 @@ function loadStage()
 	}
 }
 
-function loadNewStage(newStage)
+function setStage(newStage)
 {
 	stage = newStage;
 	loadStage();
@@ -1226,18 +1226,7 @@ function draw()
 
 function loop()
 {
-	requestAnimationFrame(loop);
-	let now = Date.now();
-    let elapsed = now - then;
-
-    // if enough time has elapsed, draw the next frame
-
-    if (elapsed <= fpsInterval)
-	{
-		return;
-	}
-	then = now - (elapsed % fpsInterval);
-	
+	requestAnimationFrame(loop);	
 	if (paused)
 	{
 		if (keys[13])
