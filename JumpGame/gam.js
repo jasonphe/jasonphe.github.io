@@ -1245,7 +1245,7 @@ function loop()
 		charger = setInterval(chargeJump, 25);
 	}
 	
-	if (player.grounded && player.jumpStrength == 0)
+	if (player.grounded && player.jumpStrength == 0 && !player.jumping)
 	{
 		if(keys[39] || keys[68]){
 			player.position = "right";
