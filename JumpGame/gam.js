@@ -5,6 +5,7 @@ const castleLevels = 5;
 var stage = 0;
 var friction = 0.8;
 var gravity = 0.5;
+var angle = 90;
 var keys = [];
 var charger;
 var paused = false;
@@ -15,6 +16,9 @@ var drawText = none;
 var hasDoidos = false;
 var giftedDoidos = 0;
 const imgFolder = "assets/";
+var jumpSound = new Audio(imgFolder + "jumpSound.mp3");
+var jumpSound2 = new Audio(imgFolder + "jumpSound2.mp3");
+var yoshiSound = new Audio(imgFolder + "yoshi.mp3");
 var rightImg = new Image();
 rightImg.src = imgFolder + "right.png";
 var leftImg = new Image();
@@ -75,6 +79,8 @@ cloud4Img.src = imgFolder + "cloud4.png";
 var platforms = [];
 var objects = [];
 var clouds = [];
+var mp = 50; //max particles
+var particles = [];
 
 var platform_width = 180;
 var platform_height = 15;
@@ -104,6 +110,16 @@ function incrementCounter() {
 
 function SetProperties()
 {
+	
+	for(let i = 0; i < mp; i++)
+	{
+		particles.push({
+			x: Math.random()*canvas.width, //x-coordinate
+			y: Math.random()*canvas.height, //y-coordinate
+			r: Math.random()*4+1, //radius
+			d: Math.random()*mp //density
+		})
+	}
 allPlatforms = 
 [
 	//0
@@ -675,7 +691,7 @@ allObjects =
 			y: 480,
 			width: 40,
 			height: 40,
-			item: "red panda"
+			item: "bigYoshi"
 		},
 	],
 	//7
@@ -745,7 +761,7 @@ allObjects =
 			y: 120,
 			width: 40,
 			height: 40,
-			item: "bigYoshi"
+			item: "red panda"
 		},
 	],
 	//9
@@ -927,24 +943,42 @@ document.body.addEventListener("keyup", function(event)
 	keys[event.keyCode] = false;
 	if (event.keyCode == 32)
 	{
-		clearInterval(charger);
-		player.charging = false;
-		if (player.jumpStrength > 0)
-		{
-			player.velY = - 5 - player.jumpStrength * .8;
-			player.jumping = true;
-			if (player.position == "left")
-			{
-				player.velX = -5 - player.jumpStrength * .2;
-			}
-			else
-			{
-				player.velX = 5 + player.jumpStrength * .2;
-			}
-		}
-		player.jumpStrength = 0;
+		jump();
 	}
 });
+
+function jump()
+{
+	clearInterval(charger);
+	player.charging = false;
+	
+	if (player.jumpStrength > 0)
+	{
+		player.velY = - 5 - player.jumpStrength * .8;
+		player.jumping = true;
+		if (player.position == "left")
+		{
+			player.velX = -5 - player.jumpStrength * .2;
+		}
+		else
+		{
+			player.velX = 5 + player.jumpStrength * .2;
+		}
+		
+		let jumpSoundClone;
+		if (player.jumpStrength == player.maxJumpStrength)
+		{
+			jumpSoundClone = jumpSound2.cloneNode();
+		}
+		else
+		{
+			jumpSoundClone = jumpSound.cloneNode();
+		}
+		jumpSoundClone.volume = 0.6;
+		jumpSoundClone.play();
+	}
+	player.jumpStrength = 0;
+}
 
 function drawPlatforms()
 {
@@ -1114,6 +1148,65 @@ function chargeJump()
 	player.jumpStrength = Math.min(player.jumpStrength, player.maxJumpStrength);
 }
 
+function drawSnow()
+{
+	if (stage >= castleLevels)
+	{
+		return;
+	}
+	context.fillStyle = "rgba(255, 255, 255, 0.8)";
+	context.beginPath();
+	for(let i = 0; i < mp; i++)
+	{
+		let p = particles[i];
+		context.moveTo(p.x, p.y);
+		context.arc(p.x, p.y, p.r, 0, Math.PI*2, true);
+	}
+	context.fill();
+	update();
+}
+
+function update()
+{
+	//angle += 0.01;
+	for(var i = 0; i < mp; i++)
+	{
+		var p = particles[i];
+		let W = canvas.width;
+		let H = canvas.height;
+		//Updating X and Y coordinates
+		//We will add 1 to the cos function to prevent negative values which will lead flakes to move upwards
+		//Every particle has its own density which can be used to make the downward movement different for each flake
+		//Lets make it more random by adding in the radius
+		p.y += Math.cos(angle+p.d) + 1 + p.r/2;
+		p.x += Math.sin(angle) * 2;
+		
+		//Sending flakes back from the top when it exits
+		//Lets make it a bit more organic and let flakes enter from the left and right also.
+		if(p.x > W+5 || p.x < -5 || p.y > H)
+		{
+			if(i%3 > 0) //66.67% of the flakes
+			{
+				particles[i] = {x: Math.random()*W, y: -10, r: p.r, d: p.d};
+			}
+			else
+			{
+				//If the flake is exitting from the right
+				if(Math.sin(angle) > 0)
+				{
+					//Enter from the left
+					particles[i] = {x: -5, y: Math.random()*H, r: p.r, d: p.d};
+				}
+				else
+				{
+					//Enter from the right
+					particles[i] = {x: W+5, y: Math.random()*H, r: p.r, d: p.d};
+				}
+			}
+		}
+	}
+}
+
 function draw()
 {
 	clearCanvas();
@@ -1121,6 +1214,7 @@ function draw()
 	drawClouds();
 	drawPlatforms();
 	drawObjects();
+	drawSnow();
 	drawText();
 	drawText = none;
 	player.draw();
@@ -1409,6 +1503,9 @@ function itemPickup(item)
 			text1 = "You found Big Yoshi!!!";
 			text2 = "He plays you some sick jams.";
 			itemImg = bigYoshiImg;
+			yoshiSound.currentTime = 0;
+			yoshiSound.volume = .5;
+			yoshiSound.play();
 			break;
 		}		
 		case "josuke":
