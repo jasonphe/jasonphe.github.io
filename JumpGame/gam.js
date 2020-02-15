@@ -974,7 +974,7 @@ function jump()
 		{
 			jumpSoundClone = jumpSound.cloneNode();
 		}
-		jumpSoundClone.volume = 0.6;
+		jumpSoundClone.volume = 0.3;
 		jumpSoundClone.play();
 	}
 	player.jumpStrength = 0;
@@ -1504,7 +1504,7 @@ function itemPickup(item)
 			text2 = "He plays you some sick jams.";
 			itemImg = bigYoshiImg;
 			yoshiSound.currentTime = 0;
-			yoshiSound.volume = .5;
+			yoshiSound.volume = .1;
 			yoshiSound.play();
 			break;
 		}		
