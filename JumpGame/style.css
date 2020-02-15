@@ -1,4 +1,10 @@
-html, body{
-	width:70%;
-	height:70%;
+html
+{
+	background-color: black;
+}
+
+canvas 
+{
+    display: block;
+    margin: 0 auto;
 }
