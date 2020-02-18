@@ -3,119 +3,137 @@
 <head>
   <title>Jason He</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="favicon.ico" />
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js"></script> 
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <script src="personal.js"></script>
 </head>
 
 <body>
-<nav class="navbar navbar-fixed-top">
-  <div class="container">
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>                        
-      </button>
-      <a class="navbar-brand" href="#">Jason He</a>
+  <nav class="navbar navbar-expand-md fixed-top navbar-dark bg-dark">
+	  <ul class="navbar-nav">
+		<li class="nav-item">
+		  <a class="nav-link" href="#about">About</a>
+		</li>
+		<!--<li class="nav-item">
+			<a class="nav-link" href="#experience">Experience</a>
+		</li>
+		<li class="nav-item">
+			<a class="nav-link" href="#skills">Skills</a>
+		</li>-->
+		<li class="nav-item">
+		  <a class="nav-link" href="#projects">Projects</a>
+		</li>
+	  </ul>
+	</nav>
+
+  <div class="container-fluid" id="about">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>ABOUT<hr></h2>
+      </div>
     </div>
-    <div class="collapse navbar-collapse" id="myNavbar">
-      <ul class="nav navbar-nav navbar-right">
-        <li><a class="scroll" href="#about">About</a></li>
-        <li><a class="scroll" href="#projects">Projects</a></li>
-      </ul>
+	<div class="row justify-content-center">
+		<p>This website is a WORK IN PROGRESS</p>
+	</div>
+	<br>
+    <div class="row justify-content-center">
+      <div class="col-full">
+        
+      <p>Hey, I'm Jason.</p>
+      <a href="docs/Jason_He_Resume_2019.pdf" target="_blank" class="btn btn-primary btn-lg">My Resume</a>
+      </div>
     </div>
   </div>
-</nav>
-
-
-<div class="container-fluid bg-1 name-1" id="about">
-  <div class="content text-center">
-    <p><b>Jason He</b></p>
-  </div>
-  <div class="row">
-    <div class="text-center">
-      <p>Computer Science Student at the University of Michigan, graduated May 2016 <br></p>
-      <a href="docs/resume_jasonphe.pdf" role="button"  class="btn btn-primary btn-lg">My Résumé</a>
-    </div>
-  </div>
-</div>
-
-
-<div class="container-fluid bg-2" id="projects">
-  <div class="row">
-    <div class="text-center">
-          <h1><bold>Projects</bold></h1>
-    </div>
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Vision</bold></h2>
-      <p>Developed with a team of four in about two months, Vision is a first person puzzle platformer built in Unity and C#. </p>
+	<br>
+	<br>
+  <!--<div class="container-fluid" id="experience">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>EXPERIENCE AND EDUCATION<hr></h2>
+        
+      </div>
       
-      <a href="http://www-personal.umich.edu/~jasonphe/VisionFinal/web%20final.html">Play here! </a> 
-      <p>Note: The game doesn't work in Chrome! Try Safari or Firefox. It can take a while to load.</p>
-      <a href="https://github.com/spencewenski/Vision">Source code</a>
+    </div>
+    <p>Reynolds and Reynolds</p>
+        <p>Proposed and configured Phabricator code review server that is now used by dozens of development teams throughout the company. </p>
+        <P>Converted our PDF editing library (adding text/images, merging, printing, etc) to use free open source library instead of a non-free library, saving the company considerable licensing costs. </p>
+  </div>-->
+
+  <div class="container-fluid bg-2" id="skills">
+      <div class="row justify-content-center">
+        <div class="col-full">
+          <h2>TECHNICAL SKILLS<hr></h2>
+        </div>
+      </div>
+      <div class="row justify-content-center">
+        <div class="col-full">
+          <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
+          <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
+        </div>
+      </div>
+      </br>
+      <div id="container" style="height: 500px">
+          <canvas id="canvas"></canvas>
+      </div>
     </div>
 
-    <div class="col-lg-5 vid" >
-      <iframe width="420" height="315" 
-        src="https://www.youtube.com/embed/5lL2Lj9S29w">
-      </iframe>
+  <div class="container-fluid" id="projects">
+    <div class="row justify-content-center">
+        <div class="col-full">
+          <h2>PROJECTS<hr></h2>
+        </div>
+      </div>
+	<br>
+	<div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Pengu's Bizarre Adventure</bold></h2>
+          <a href="JumpGame/jump.html">Link</a>
+          <br><br>
+      </div>
+    </div>
+	
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Vision</bold></h2>
+        <p>Developed with a team of four in about two months, Vision is a first person puzzle platformer built in Unity and C#. </p>
+        
+        <!--<a href="http://www-personal.umich.edu/~jasonphe/VisionFinal/web%20final.html">Play here! </a> 
+        <p>Note: The game doesn't work in Chrome! Try Safari or Firefox. It can take a while to load.</p>-->
+        <a href="https://github.com/spencewenski/Vision">Source code</a>
+      </div>
+
+      <div class="col-lg-5 vid" >
+        <iframe width="560" height="315" src="https://www.youtube.com/embed/5lL2Lj9S29w" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Example Web App Wiki and Tutorial</bold></h2>
+          <p>Wiki and tutorials for new web developers using Parse as a back-end.</p>
+          <a href="https://github.com/umich-software-prototyping-clinic/web-app/wiki">Link</a>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>Older projects</bold></h2>
+          <p>Projects from Data structures and Algorithms/Information Retrieval. </p>
+          <a href="https://github.com/jasonphe/Projects">Link</a>
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-lg-5 col-sm-offset-1">
+        <h2><bold>League balance</bold></h2>
+          <a href="balance.html">Link</a>
+          <br><br>
+      </div>
     </div>
   </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Example Web App Wiki and Tutorial</bold></h2>
-        <p>Wiki and tutorials for new web developers using Parse as a back-end.</p>
-        <a href="https://github.com/umich-software-prototyping-clinic/web-app/wiki">Link</a>
-    </div>
-  </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>Older projects</bold></h2>
-        <p>Projects from Data structures and Algorithms/Information Retrieval. </p>
-        <a href="https://github.com/foodmonkey/Projects">Link</a>
-    </div>
-  </div>
-  <br>
-  <div class="row">
-    <div class="col-lg-5 col-sm-offset-1">
-      <h2><bold>League balance</bold></h2>
-        <a href="balance.html">Link</a>
-        <br><br>
-    </div>
-  </div>
-
-
-
-
-<script>
-$(document).ready(function(){
-  // Add smooth scrolling to all links in navbar + footer link
-  $(".navbar a, footer a[href='#myPage']").on('click', function(event) {
-
-  // Prevent default anchor click behavior
-  event.preventDefault();
-
-  // Store hash
-  var hash = this.hash;
-
-  // Using jQuery's animate() method to add smooth page scroll
-  // The optional number (900) specifies the number of milliseconds it takes to scroll to the specified area
-  $('html, body').animate({
-    scrollTop: $(hash).offset().top
-  }, 900, function(){
-
-    // Add hash (#) to URL when done scrolling (default click behavior)
-    window.location.hash = hash;
-    });
-  });
-})
-</script>
-
 </body>
 </html>
