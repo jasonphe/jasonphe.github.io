@@ -6,9 +6,9 @@ var stage = 0;
 var friction = 0.8;
 var gravity = 0.5;
 var angle = 90;
-/*var fps = 60;
+var fps = 60;
 var fpsInterval = 1000/fps;
-var then = Date.now();*/
+var then = Date.now();
 var keys = [];
 var charger;
 var paused = false;
@@ -18,6 +18,7 @@ var counter = 0;
 var drawText = none;
 var hasDoidos = false;
 var giftedDoidos = 0;
+var performJump = false;
 const imgFolder = "assets/";
 var jumpSound = new Audio(imgFolder + "jumpSound.mp3");
 var jumpSound2 = new Audio(imgFolder + "jumpSound2.mp3");
@@ -511,6 +512,10 @@ allPlatforms =
 			 height: platform_height,
 		},
 	],
+	//10
+	[
+		
+	],
 ];
 
 allObjects = 
@@ -793,6 +798,10 @@ allObjects =
 			item: "josuke"
 		},
 	],
+	//10
+	[
+		
+	],
 ];
 
 player = {
@@ -875,7 +884,6 @@ function startGame()
 	
 	loadStage();
 	requestAnimationFrame(loop);
-	
 }
 
 function addSideWalls(platforms)
@@ -946,19 +954,23 @@ document.body.addEventListener("keyup", function(event)
 	keys[event.keyCode] = false;
 	if (event.keyCode == 32)
 	{
-		jump();
+		stopCharging();
+		performJump = true;
 	}
 });
 
-function jump()
+function stopCharging()
 {
 	clearInterval(charger);
 	player.charging = false;
-	
+}
+
+function jump()
+{
 	if (player.jumpStrength > 0)
 	{
-		player.velY = - 5 - player.jumpStrength * .8;
 		player.jumping = true;
+		player.velY = - 5 - player.jumpStrength * .8;
 		if (player.position == "left")
 		{
 			player.velX = -5 - player.jumpStrength * .2;
@@ -981,6 +993,7 @@ function jump()
 		jumpSoundClone.play();
 	}
 	player.jumpStrength = 0;
+	performJump = false;
 }
 
 function drawPlatforms()
@@ -1166,10 +1179,9 @@ function drawSnow()
 		context.arc(p.x, p.y, p.r, 0, Math.PI*2, true);
 	}
 	context.fill();
-	update();
 }
 
-function update()
+function updateSnow()
 {
 	//angle += 0.01;
 	for(var i = 0; i < mp; i++)
@@ -1210,6 +1222,22 @@ function update()
 	}
 }
 
+function checkStageBounds()
+{
+	if (player.y <= 0)
+	{
+		setStage(stage + 1);
+		player.y = canvas.height - player.height;
+		return;
+	}
+	else if (player.y + player.height >= canvas.height)
+	{
+		setStage(stage - 1);
+		player.y = 0;
+		return;
+	}
+}
+
 function draw()
 {
 	clearCanvas();
@@ -1221,12 +1249,12 @@ function draw()
 	drawText();
 	drawText = none;
 	player.draw();
-	drawJumpPower();
+	drawJumpPower();	
 }
-
-function loop()
+var lastRender = Date.now();
+function loop(timestamp)
 {
-	requestAnimationFrame(loop);	
+	requestAnimationFrame(loop);
 	if (paused)
 	{
 		if (keys[13])
@@ -1238,11 +1266,64 @@ function loop()
 			return;
 		}
 	}
+
+	let progress = timestamp - lastRender;
+	
 	draw();
+	update(progress);
+	lastRender = timestamp;
+}
+
+function update(progress)
+{
+	/*Limit the frame rate
+	now = Date.now();
+	let elapsed = now - then;
+	if (elapsed <= fpsInterval)
+	{
+		return;
+	}
+	then = now - (elapsed % fpsInterval);*/
+	updateSnow();
+	checkStageBounds();
+	let grounded = false;
+	for(var i = 0; i < platforms.length; i++){
+		var direction = platformCollisionCheck(platforms[i]);
+
+		if(direction == "left" || direction == "right"){
+			player.velX *= -.4;
+		} else if(direction == "bottom"){
+			player.jumping = false;
+			grounded = true;
+		} else if(direction == "top"){
+			player.velY = 0;
+		}
+	}
+	player.grounded = grounded;
+
+	if (player.grounded)
+	{
+		player.velX *= friction;
+		player.velY = 0;
+		player.jumping = false;
+	}
+	else
+	{
+		player.velY += gravity;
+		player.velY = Math.min(10, player.velY);
+		stopCharging();
+		player.jumpStrength = 0;
+	}
+
 	if(keys[32] && !player.charging && player.grounded)
 	{
 		player.charging = true;
 		charger = setInterval(chargeJump, 25);
+	}
+
+	if (performJump)
+	{
+		jump();
 	}
 	
 	if (player.grounded && player.jumpStrength == 0 && !player.jumping)
@@ -1259,56 +1340,10 @@ function loop()
 			player.velX = Math.max(player.velX, -player.speed);
 		}
 	}
+
 	player.x += player.velX;
 	player.y += player.velY;
-	
-	if (player.grounded)
-	{
-		player.velX *= friction;
-	}
-	
-	player.velY += gravity;
-	player.velY = Math.min(10, player.velY);
-	
-	let grounded = false;
-	for(var i = 0; i < platforms.length; i++){
-		var direction = platformCollisionCheck(platforms[i]);
-
-		if(direction == "left" || direction == "right"){
-			player.velX *= -.4;
-		} else if(direction == "bottom"){
-			player.jumping = false;
-			grounded = true;
-		} else if(direction == "top"){
-			player.velY = 0;
-		}
-	}
-	player.grounded = grounded;
-	
-	
-	if (player.y <= 0)
-	{
-		stage++;
-		loadStage();
-		player.y = canvas.height - player.height;
-		return;
-	}
-	else if (player.y + player.height >= canvas.height)
-	{
-		stage--;
-		loadStage();
-		player.y = 0;
-		return;
-	}
-	
 	itemCollisionCheck();
-	
-	if(player.grounded)
-	{
-		player.velY = 0;
-		player.jumping = false;
-	}
-	
 }
 
 function platformCollisionCheck(platform){
@@ -1323,7 +1358,7 @@ function platformCollisionCheck(platform){
 	var halfWidths = (player.width/2) + (platform.width/2);
 	var halfHeights = (player.height/2) + (platform.height/2);
 
-	if(Math.abs(vectorX) < halfWidths && Math.abs(vectorY) < halfHeights){
+	if(Math.abs(vectorX) <= halfWidths && Math.abs(vectorY) <= halfHeights){
 
 		var offsetX = halfWidths - Math.abs(vectorX);
 		var offsetY = halfHeights - Math.abs(vectorY);
