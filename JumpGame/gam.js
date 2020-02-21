@@ -2,7 +2,7 @@ var canvas = document.getElementById('game');
 var context = canvas.getContext('2d');
 
 const castleLevels = 5;
-var stage = 0;
+var stage = {x : 0, y : 0};
 var defaultFriction = 0.8;
 var gravity = 0.5;
 var angle = 90;
@@ -88,8 +88,6 @@ var particles = [];
 
 var platform_width = 180;
 var platform_height = 15;
-var allPlatforms;
-var allObjects;
 var allClouds = [];
 var player;
 var imgs = [rightImg, leftImg, jumpLeftImg, jumpRightImg, wallImg, wall2Img, torchImg, windowImg, powerImg, 
@@ -124,685 +122,735 @@ function SetProperties()
 			d: Math.random()*mp //density
 		})
 	}
-allPlatforms = 
-[
-	//0
-	[
-		{
-			type: "ice",
-			x: 0,
-			y: 550,
-			width: 1024,
-			height: 50,
-		},
-		{
-			type: "ice",
-			x: 0,
-			y: 100,
-			width: 400,
-			height: platform_height,
-		},
-		{
-			type: "ice",
-			x: 700,
-			y: 100,
-			width: 100,
-			height: platform_height,
-		},
-		{
-			type: "wall2",
-			x: 800,
-			y: 0,
-			width: 300,
-			height: 550,
-			intangible: true,
-		},
-	],
-	//1
-	[
-		{
-			type: "wall2",
-			x: 800,
-			y: 0,
-			width: 300,
-			height: canvas.height,
-			intangible: true,
-		},
-	],
-	//2
-	[
-		{
-			type: "wall2",
-			x: 800,
-			y: 0,
-			width: 300,
-			height: canvas.height,
-			intangible: true,
-		},
-	],
-	//3
-	[
-		{
-			type: "wall2",
-			x: 800,
-			y: 0,
-			width: 300,
-			height: canvas.height,
-			intangible: true,
-		},
-	],
-	//4
-	[
-		{
-			type: "wall2",
-			x: 800,
-			y: 0,
-			width: 300,
-			height: canvas.height,
-			intangible: true,
-		},
-		{
-			 x: 700,
-			 y: 275,
-			 width: 400,
-			 height: platform_height,
-		},
-		{
-			 x: 0,
-			 y: 0,
-			 width: canvas.width,
-			 height: 30,
-			 type: "invis",
-		},
-	],
-	//5
-	[
-		{
-			 x: 750,
-			 y: 500,
-			 width: 300,
-			 height: platform_height,
-		},
-		{
-			 x: 250,
-			 y: 440,
-			 width: 400,
-			 height: platform_height,
-		},
-		{
-			 x: 500,
-			 y: 300,
-			 width: 400,
-			 height: platform_height,
-		},
-		{
-			 x: 200,
-			 y: 350,
-			 width: platform_width,
-			 height: platform_height,
-		},
-		{
-			 x: 0,
-			 y: 300,
-			 width: platform_width,
-			 height: platform_height,
-		},
-		{
-			 x: 650,
-			 y: 225,
-			 width: platform_width,
-			 height: platform_height,
-		},
-		{
-			 x: 250,
-			 y: 150,
-			 width: 300,
-			 height: platform_height,
-		},
-		{
-			 x: 50,
-			 y: 70,
-			 width: platform_width,
-			 height: platform_height,
-		},
-		{
-			x: 0,
-			y: 550,
-			width: canvas.width,
-			height: 30
-		}
-	],
-	//6
-	[
-		{
-			 x: 250,
-			 y: 550,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 750,
-			 y: 550,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 400,
-			 y: 500,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 200,
-			 y: 425,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 125,
-			 y: 400,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 50,
-			 y: 375,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 200,
-			 y: 300,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 350,
-			 y: 300,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 500,
-			 y: 270,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 750,
-			 y: 230,
-			 width: 300,
-			 height: platform_height,
-		},
-		{
-			 x: 900,
-			 y: 180,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 50,
-			 y: 100,
-			 width: 800,
-			 height: platform_height,
-		},
-	],
-	//7
-	[
-		{
-			 x: 200,
-			 y: 550,
-			 width: 250,
-			 height: platform_height,
-		},
-		{
-			 x: 450,
-			 y: 325,
-			 width: 50,
-			 height: 270,
-		},
-		{
-			 x: 450,
-			 y: 0,
-			 width: 50,
-			 height: 200,
-		},
-		{
-			 x: 250,
-			 y: 0,
-			 width: 50,
-			 height: 480,
-		},
-		{
-			 x: 300,
-			 y: 450,
-			 width: 70,
-			 height: platform_height,
-		},
-		{
-			 x: 380,
-			 y: 350,
-			 width: 70,
-			 height: platform_height,
-		},
-		{
-			 x: 300,
-			 y: 250,
-			 width: 70,
-			 height: platform_height,
-		},
-		{
-			 x: 380,
-			 y: 150,
-			 width: 70,
-			 height: platform_height,
-		},
-		{
-			 x: 300,
-			 y: 50,
-			 width: 70,
-			 height: platform_height,
-		},
-		{
-			 x: 500,
-			 y: 325,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 800,
-			 y: 300,
-			 width: 100,
-			 height: platform_height,
-		},
-	],
-	//8
-	[
-		{
-			 x: 450,
-			 y: 530,
-			 width: 50,
-			 height: 100,
-		},
-		{
-			 x: 250,
-			 y: 530,
-			 width: 50,
-			 height: 100,
-		},
-		{
-			 x: 50,
-			 y: 530,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 0,
-			 y: 450,
-			 width: 150,
-			 height: platform_height,
-		},
-		{
-			 x: 500,
-			 y: 530,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 850,
-			 y: 530,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 850,
-			 y: 420,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 300,
-			 y: 400,
-			 width: 550,
-			 height: platform_height,
-		},
-		{
-			 x: 100,
-			 y: 300,
-			 width: 250,
-			 height: platform_height,
-		},
-		{
-			 x: 850,
-			 y: 200,
-			 width: 100,
-			 height: platform_height,
-		},
-		{
-			 x: 600,
-			 y: 100,
-			 width: 150,
-			 height: platform_height,
-		},
-		{
-			 x: 800,
-			 y: 300,
-			 width: 250,
-			 height: platform_height,
-		},
-	],
-	//9
-	[
-		{
-			 x: 750,
-			 y: 550,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 350,
-			 y: 450,
-			 width: 200,
-			 height: platform_height,
-		},
-		{
-			 x: 0,
-			 y: 275,
-			 width: 200,
-			 height: platform_height,
-		},
-	],
-	//10
-	[
-		
-	],
-];
-
-allObjects = 
-[
-	//0
-	[
-		{
-			type: "heart",
-			x: 730,
-			y: 30,
-			width: 40,
-			height: 40,
-			item: "secret"
-		},
-		{
-			type: "door",
-			x: 830,
-			y: 390,
-			width: doorImg.width,
-			height: doorImg.height,
-			stage: 5,
-			newx: 200,
-			newy: 500,
-		},
-		{
-			type: "yuyukos",
-			x: 600,
-			y: 440,
-			width: yuyukosImg.width,
-			height: yuyukosImg.height,
-		},
-		{
-			type: "sign",
-			x: 150,
-			y: 490,
-			width: signImg.width,
-			height: signImg.height,
-			text: ["Use the left and right arrow keys to move."],
-		},
-		{
-			type: "torch",
-			x: 880,
-			y: 30,
-		},
-		{
-			type: "torch",
-			x: 820,
-			y: 250,
-		},
-		{
-			type: "torch",
-			x: 950,
-			y: 250,
-		},
-	],
-	//1
-	[],
-	//2
-	[],
-	//3
-	[],
-	//4
-	[
-		{
-			type: "door",
-			x: 950,
-			y: 110,
-			width: doorImg.width,
-			height: doorImg.height,
-			stage: 9,
-			newx: 80,
-			newy: 200,
-		},
-		{
-			type: "heart",
-			x: 750,
-			y: 200,
-			width: 40,
-			height: 40,
-			item: "monkey"
-		},
-	],
-	//5
-	[
-		{
-			type: "door",
-			x: 0,
-			y: 390,
-			width: doorImg.width,
-			height: doorImg.height,
-			stage: 0,
-			newx: 750,
-			newy: 500,
-		},
-		{
-			type: "torch",
-			x: 50,
-			y: 25,
-		},
-		{
-			type: "torch",
-			x: 500,
-			y: 225,
-		},
-		{
-			type: "window",
-			x: 700,
-			y: 85,
-		},
-		{
-			type: "torch",
-			x: 400,
-			y: 480,
-		},
-		{
-			type: "heart",
-			x: 400,
-			y: 370,
-			width: 40,
-			height: 40,
-			item: "ibis"
-		},
-		{
-			type: "sign",
-			x: 600,
-			y: 480,
-			width: signImg.width,
-			height: signImg.height,
-			text: ["Hold down the space bar to charge up a", "jump! The top left bar shows your jump power."],
-		},
-		{
-			type: "sign",
-			x: 500,
-			y: 370,
-			width: signImg.width,
-			height: signImg.height,
-			text: ["Hearts contain special objects that", "increase your jump power!"],
-		},
-		{
-			type: "sign",
-			x: 150,
-			y: 0,
-			width: signImg.width,
-			height: signImg.height,
-			text: ["Jump up to reach the next stage!"],
-		},
-	],
-	//6
-	[
-		{
-			type: "heart",
-			x: 70,
-			y: 30,
-			width: 40,
-			height: 40,
-			item: "tpose"
-		},
-		{
-			type: "torch",
-			x: 450,
-			y: 425,
-		},
-		{
-			type: "torch",
-			x: 700,
-			y: 300,
-		},
-		{
-			type: "torch",
-			x: 450,
-			y: 200,
-		},
-		{
-			type: "window",
-			x: 190,
-			y: 162,
-		},
-		{
-			type: "heart",
-			x: 850,
-			y: 480,
-			width: 40,
-			height: 40,
-			item: "bigYoshi"
-		},
-	],
-	//7
-	[
-		{
-			type: "torch",
-			x: 575,
-			y: 225,
-		},
-		{
-			type: "torch",
-			x: 350,
-			y: 125,
-		},
-		{
-			type: "window",
-			x: 790,
-			y: 160,
-		},
-		{
-			type: "heart",
-			x: 825,
-			y: 230,
-			width: 40,
-			height: 40,
-			item: "mochi"
-		},
-		{
-			type: "sign",
-			x: 450,
-			y: 260,
-			width: signImg.width,
-			height: signImg.height,
-			text: ["ZUCC wuz here"],
-		},
-	],
-	//8
-	[
-		{
-			type: "torch",
-			x: 350,
-			y: 450,
-		},
-		{
-			type: "torch",
-			x: 900,
-			y: 350,
-		},
-		{
-			type: "zucc",
-			x: 100,
-			y: 180,
-			width: zuccImg.width,
-			height: zuccImg.height,
-		},
-		{
-			type: "heart",
-			x: 750,
-			y: 430,
-			width: 40,
-			height: 40,
-			item: "yuumi"
-		},
-		{
-			type: "heart",
-			x: 875,
-			y: 120,
-			width: 40,
-			height: 40,
-			item: "red panda"
-		},
-	],
-	//9
-	[
-		{
-			type: "door",
-			x: -100,
-			y: 110,
-			width: doorImg.width,
-			height: doorImg.height,
-			stage: 4,
-			newx: 900,
-			newy: 200,
-		},
-		{
-			type: "torch",
-			x: 825,
-			y: 470,
-		},
-		{
-			type: "heart",
-			x: 650,
-			y: 275,
-			width: 40,
-			height: 40,
-			item: "josuke"
-		},
-	],
-	//10
-	[
-		
-	],
-];
+	allStages = [
+		[
+			//0,0
+			{
+				platforms: 
+				[
+					{
+						type: "ice",
+						x: 0,
+						y: 550,
+						width: 1024,
+						height: 50,
+					},
+					{
+						type: "ice",
+						x: 0,
+						y: 100,
+						width: 400,
+						height: platform_height,
+					},
+					{
+						type: "ice",
+						x: 700,
+						y: 100,
+						width: 100,
+						height: platform_height,
+					},
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: 550,
+						intangible: true,
+					},
+				],
+				objects:
+				[
+					{
+						type: "heart",
+						x: 730,
+						y: 30,
+						width: 40,
+						height: 40,
+						item: "secret"
+					},
+					{
+						type: "door",
+						x: 830,
+						y: 390,
+						width: doorImg.width,
+						height: doorImg.height,
+						stage: {x: 1, y: 0},
+						newx: 200,
+						newy: 500,
+					},
+					{
+						type: "yuyukos",
+						x: 600,
+						y: 434,
+						width: yuyukosImg.width,
+						height: yuyukosImg.height,
+					},
+					{
+						type: "sign",
+						x: 150,
+						y: 478,
+						width: signImg.width,
+						height: signImg.height,
+						text: ["Use the left and right arrow keys to move."],
+					},
+					{
+						type: "torch",
+						x: 880,
+						y: 30,
+					},
+					{
+						type: "torch",
+						x: 820,
+						y: 250,
+					},
+					{
+						type: "torch",
+						x: 950,
+						y: 250,
+					},
+				],
+			},
+			//0,1
+			{
+				platforms:
+				[
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: canvas.height,
+						intangible: true,
+					},
+				],
+				objects:
+				[
+				],
+			},
+			//0,2
+			{
+				platforms:
+				[
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: canvas.height,
+						intangible: true,
+					},
+				],
+				objects:
+				[
+				],
+			},
+			//0,3
+			{
+				platforms:
+				[
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: canvas.height,
+						intangible: true,
+					},
+				],
+				objects:
+				[
+				],
+			},
+			//0,4
+			{
+				platforms:
+				[
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: canvas.height,
+						intangible: true,
+					},
+					{
+						 x: 700,
+						 y: 275,
+						 width: 400,
+						 height: platform_height,
+					},
+					{
+						 x: 0,
+						 y: 0,
+						 width: canvas.width,
+						 height: 30,
+						 type: "invis",
+					},
+				],
+				objects:
+				[
+					{
+						type: "door",
+						x: 950,
+						y: 110,
+						width: doorImg.width,
+						height: doorImg.height,
+						stage: {x: 1, y: 4},
+						newx: 80,
+						newy: 200,
+					},
+					{
+						type: "heart",
+						x: 750,
+						y: 200,
+						width: 40,
+						height: 40,
+						item: "monkey"
+					},
+				],
+			},
+			//0,5
+			{
+				platforms:
+				[
+					{
+						type: "wall2",
+						x: 800,
+						y: 0,
+						width: 300,
+						height: canvas.height,
+						intangible: true,
+					},
+				],
+				objects:
+				[
+				],
+			},
+		],
+		[
+			//1,0
+			{
+				platforms:
+				[
+					{
+						x: 750,
+						y: 500,
+						width: 300,
+						height: platform_height,
+				   },
+				   {
+						x: 250,
+						y: 440,
+						width: 400,
+						height: platform_height,
+				   },
+				   {
+						x: 500,
+						y: 300,
+						width: 400,
+						height: platform_height,
+				   },
+				   {
+						x: 200,
+						y: 350,
+						width: platform_width,
+						height: platform_height,
+				   },
+				   {
+						x: 0,
+						y: 300,
+						width: platform_width,
+						height: platform_height,
+				   },
+				   {
+						x: 650,
+						y: 225,
+						width: platform_width,
+						height: platform_height,
+				   },
+				   {
+						x: 250,
+						y: 150,
+						width: 300,
+						height: platform_height,
+				   },
+				   {
+						x: 50,
+						y: 70,
+						width: platform_width,
+						height: platform_height,
+				   },
+				   {
+					   x: 0,
+					   y: 550,
+					   width: canvas.width,
+					   height: 30
+				   },
+				],
+				objects:
+				[
+					{
+						type: "door",
+						x: 0,
+						y: 390,
+						width: doorImg.width,
+						height: doorImg.height,
+						stage: {x: 0, y: 0},
+						newx: 750,
+						newy: 500,
+					},
+					{
+						type: "torch",
+						x: 50,
+						y: 25,
+					},
+					{
+						type: "torch",
+						x: 500,
+						y: 225,
+					},
+					{
+						type: "window",
+						x: 700,
+						y: 85,
+					},
+					{
+						type: "torch",
+						x: 400,
+						y: 480,
+					},
+					{
+						type: "heart",
+						x: 400,
+						y: 370,
+						width: 40,
+						height: 40,
+						item: "ibis"
+					},
+					{
+						type: "sign",
+						x: 600,
+						y: 480,
+						width: signImg.width,
+						height: signImg.height,
+						text: ["Hold down the space bar to charge up a", "jump! The top left bar shows your jump power."],
+					},
+					{
+						type: "sign",
+						x: 500,
+						y: 370,
+						width: signImg.width,
+						height: signImg.height,
+						text: ["Hearts contain special objects that", "increase your jump power!"],
+					},
+					{
+						type: "sign",
+						x: 150,
+						y: 0,
+						width: signImg.width,
+						height: signImg.height,
+						text: ["Jump up to reach the next stage!"],
+					},
+				],
+			},
+			//1,1
+			{
+				platforms:
+				[
+					{
+						x: 250,
+						y: 550,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 750,
+						y: 550,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 400,
+						y: 500,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 200,
+						y: 425,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 125,
+						y: 400,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 50,
+						y: 375,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 200,
+						y: 300,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 350,
+						y: 300,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 500,
+						y: 270,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 750,
+						y: 230,
+						width: 300,
+						height: platform_height,
+				   },
+				   {
+						x: 900,
+						y: 180,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 50,
+						y: 100,
+						width: 800,
+						height: platform_height,
+				   },
+				],
+				objects:
+				[
+					{
+						type: "heart",
+						x: 70,
+						y: 30,
+						width: 40,
+						height: 40,
+						item: "tpose"
+					},
+					{
+						type: "torch",
+						x: 450,
+						y: 425,
+					},
+					{
+						type: "torch",
+						x: 700,
+						y: 300,
+					},
+					{
+						type: "torch",
+						x: 450,
+						y: 200,
+					},
+					{
+						type: "window",
+						x: 190,
+						y: 162,
+					},
+					{
+						type: "heart",
+						x: 850,
+						y: 480,
+						width: 40,
+						height: 40,
+						item: "bigYoshi"
+					},
+				],
+			},
+			//1,2
+			{
+				platforms:
+				[
+					{
+						x: 200,
+						y: 550,
+						width: 250,
+						height: platform_height,
+				   },
+				   {
+						x: 450,
+						y: 325,
+						width: 50,
+						height: 270,
+				   },
+				   {
+						x: 450,
+						y: 0,
+						width: 50,
+						height: 200,
+				   },
+				   {
+						x: 250,
+						y: 0,
+						width: 50,
+						height: 480,
+				   },
+				   {
+						x: 300,
+						y: 450,
+						width: 70,
+						height: platform_height,
+				   },
+				   {
+						x: 380,
+						y: 350,
+						width: 70,
+						height: platform_height,
+				   },
+				   {
+						x: 300,
+						y: 250,
+						width: 70,
+						height: platform_height,
+				   },
+				   {
+						x: 380,
+						y: 150,
+						width: 70,
+						height: platform_height,
+				   },
+				   {
+						x: 300,
+						y: 50,
+						width: 70,
+						height: platform_height,
+				   },
+				   {
+						x: 500,
+						y: 325,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 800,
+						y: 300,
+						width: 100,
+						height: platform_height,
+				   },
+				],
+				objects:
+				[
+					{
+						type: "torch",
+						x: 575,
+						y: 225,
+					},
+					{
+						type: "torch",
+						x: 350,
+						y: 125,
+					},
+					{
+						type: "window",
+						x: 790,
+						y: 160,
+					},
+					{
+						type: "heart",
+						x: 825,
+						y: 230,
+						width: 40,
+						height: 40,
+						item: "mochi"
+					},
+					{
+						type: "sign",
+						x: 450,
+						y: 260,
+						width: signImg.width,
+						height: signImg.height,
+						text: ["ZUCC wuz here"],
+					},
+				],
+			},
+			//1,3
+			{
+				platforms:
+				[
+					{
+						x: 450,
+						y: 530,
+						width: 50,
+						height: 100,
+				   },
+				   {
+						x: 250,
+						y: 530,
+						width: 50,
+						height: 100,
+				   },
+				   {
+						x: 50,
+						y: 530,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 0,
+						y: 450,
+						width: 150,
+						height: platform_height,
+				   },
+				   {
+						x: 500,
+						y: 530,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 850,
+						y: 530,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 850,
+						y: 420,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 300,
+						y: 400,
+						width: 550,
+						height: platform_height,
+				   },
+				   {
+						x: 100,
+						y: 300,
+						width: 250,
+						height: platform_height,
+				   },
+				   {
+						x: 850,
+						y: 200,
+						width: 100,
+						height: platform_height,
+				   },
+				   {
+						x: 600,
+						y: 100,
+						width: 150,
+						height: platform_height,
+				   },
+				   {
+						x: 800,
+						y: 300,
+						width: 250,
+						height: platform_height,
+				   },
+				],
+				objects:
+				[
+					{
+						type: "torch",
+						x: 350,
+						y: 450,
+					},
+					{
+						type: "torch",
+						x: 900,
+						y: 350,
+					},
+					{
+						type: "zucc",
+						x: 100,
+						y: 180,
+						width: zuccImg.width,
+						height: zuccImg.height,
+					},
+					{
+						type: "heart",
+						x: 750,
+						y: 430,
+						width: 40,
+						height: 40,
+						item: "yuumi"
+					},
+					{
+						type: "heart",
+						x: 875,
+						y: 120,
+						width: 40,
+						height: 40,
+						item: "red panda"
+					},
+				],
+			},
+			//1,4
+			{
+				platforms:
+				[
+					{
+						x: 750,
+						y: 550,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 350,
+						y: 450,
+						width: 200,
+						height: platform_height,
+				   },
+				   {
+						x: 0,
+						y: 275,
+						width: 200,
+						height: platform_height,
+				   },
+				],
+				objects:
+				[
+					{
+						type: "door",
+						x: -100,
+						y: 110,
+						width: doorImg.width,
+						height: doorImg.height,
+						stage: {x: 0, y: 4},
+						newx: 900,
+						newy: 200,
+					},
+					{
+						type: "torch",
+						x: 825,
+						y: 470,
+					},
+					{
+						type: "heart",
+						x: 650,
+						y: 275,
+						width: 40,
+						height: 40,
+						item: "josuke"
+					},
+				],
+			},
+			//1,5
+			{
+				platforms:
+				[
+				],
+				objects:
+				[
+				],
+			},
+		],
+	];
 
 player = {
 	x: 150,
@@ -872,14 +920,20 @@ startGame();
 
 function startGame()
 {
-	for (let i = 0; i < allPlatforms.length; i++)
+	for (let i = 0; i < allStages.length; i++)
 	{
-		addSideWalls(allPlatforms[i]);
-	}
-	
-	for (let j = 0; j < allObjects.length; j++)
-	{
-		addClouds(j);
+		for (let j = 0; j < allStages[i].length; j++)
+		{
+			addSideWalls(allStages[i][j].platforms);
+			if (isCoordOutside(i, j))
+			{
+				allStages[i][j].clouds = addClouds();
+			}
+			else
+			{
+				allStages[i][j].clouds = [];
+			}
+		}
 	}
 	
 	loadStage();
@@ -906,18 +960,19 @@ function addSideWalls(platforms)
 
 function loadStage()
 {
-	if (stage >= allPlatforms.length)
+	try 
+	{
+		let currStage = allStages[stage.x][stage.y];
+		platforms = currStage.platforms;
+		objects = currStage.objects;
+		clouds = currStage.clouds;
+	}
+	catch (error)
 	{
 		platforms = [];
 		addSideWalls(platforms);
 		objects = [];
 		clouds = [];
-	}
-	else
-	{
-		platforms = allPlatforms[stage];
-		objects = allObjects[stage];
-		clouds = allClouds[stage];
 	}
 }
 
@@ -928,20 +983,18 @@ function setStage(newStage)
 }
 
 
-function addClouds(stage)
+function addClouds()
 {
-	allClouds.push([]);
-	if (stage < castleLevels)
+	let newClouds = [];
+	for (let i = 1; i <= 4; i++)
 	{
-		for (let i = 1; i <= 4; i++)
-		{
-			allClouds[stage].push({
-				type: "cloud" + (i % 5),
-				x: Math.random() * 600,
-				y: Math.random() * (canvas.height - 200),
-				});
-		}
+		newClouds.push({
+			type: "cloud" + (i % 5),
+			x: Math.random() * 600,
+			y: Math.random() * (canvas.height - 200),
+			});
 	}
+	return newClouds;
 }
 
 document.body.addEventListener("keydown", function(event)
@@ -1074,13 +1127,15 @@ function drawObjects()
 
 function drawBackground()
 {
-	if (stage < 5)
+	//outside
+	if (stage.x != 1)
 	{
 		context.fillStyle = "#87CEEB";
 		context.fillRect(0, 0, canvas.width, canvas.height);
 		return;
 	}
 	
+	//in castle
 	let imgSize = wallImg.width;
 	for (let i = 0; i < canvas.width; i += imgSize)
 	{
@@ -1144,9 +1199,18 @@ function chargeJump()
 	player.jumpStrength = Math.min(player.jumpStrength, player.maxJumpStrength);
 }
 
+function isOutside()
+{
+	return isCoordOutside(stage.x, stage.y);
+}
+function isCoordOutside(x,y)
+{
+	return x != 1;
+}
+
 function drawSnow()
 {
-	if (stage >= castleLevels)
+	if (!isOutside())
 	{
 		return;
 	}
@@ -1206,12 +1270,12 @@ function changeStage()
 {
 	if (player.y <= 0)
 	{
-		setStage(stage + 1);
+		setStage({x: stage.x, y: stage.y + 1});
 		player.y = canvas.height - player.height;
 	}
 	else if (player.y + player.height >= canvas.height)
 	{
-		setStage(stage - 1);
+		setStage({x: stage.x, y: stage.y - 1});
 		player.y = 0;
 	}
 }
@@ -1327,7 +1391,8 @@ function update(progress)
 	player.y += player.velY;
 }
 
-function platformCollisionCheck(platform){
+function platformCollisionCheck(platform)
+{
 	if ("intangible" in platform && platform.intangible)
 	{
 		return;
@@ -1389,12 +1454,11 @@ function itemCollisionCheck()
 				}
 				case "door":
 				{
-					stage = object.stage;
 					player.x = object.newx;
 					player.y = object.newy;
 					player.velX = 0;
 					player.velY = 0;
-					loadStage();
+					setStage(object.stage);
 					break;
 				}
 				case "yuyukos":
@@ -1467,7 +1531,7 @@ function getPlatformInfo(platform)
 		{
 			case "invis":
 			{
-				secondaryColor = "invis";
+				platformInfo.secondaryColor = "invis";
 				break;
 			}
 			case "ice":
