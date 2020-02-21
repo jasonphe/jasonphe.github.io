@@ -3,7 +3,7 @@ var context = canvas.getContext('2d');
 
 const castleLevels = 5;
 var stage = 0;
-var friction = 0.8;
+var defaultFriction = 0.8;
 var gravity = 0.5;
 var angle = 90;
 var fps = 60;
@@ -43,8 +43,8 @@ var powerImg = new Image();
 powerImg.src = imgFolder + "power.png";
 var heartImg = new Image();
 heartImg.src = imgFolder + "heart.png";
-var grassImg = new Image();
-grassImg.src = imgFolder + "icePlatform.png";
+var iceImg = new Image();
+iceImg.src = imgFolder + "icePlatform.png";
 var woodImg = new Image();
 woodImg.src = imgFolder + "wood.png";
 var doorImg = new Image();
@@ -93,7 +93,7 @@ var allObjects;
 var allClouds = [];
 var player;
 var imgs = [rightImg, leftImg, jumpLeftImg, jumpRightImg, wallImg, wall2Img, torchImg, windowImg, powerImg, 
-	heartImg, grassImg, woodImg, doorImg, binChickenImg, redPandaImg, tposeImg, yuyukosImg, zuccImg, signImg,
+	heartImg, iceImg, woodImg, doorImg, binChickenImg, redPandaImg, tposeImg, yuyukosImg, zuccImg, signImg,
 	monkeyImg, mochiImg, yuumiImg, josukeImg, bigYoshiImg, cloud1Img, cloud2Img, cloud3Img, cloud4Img];
 var len = imgs.length;
 var counter = 0;
@@ -129,21 +129,21 @@ allPlatforms =
 	//0
 	[
 		{
-			type: "grass",
+			type: "ice",
 			x: 0,
 			y: 550,
 			width: 1024,
 			height: 50,
 		},
 		{
-			type: "grass",
+			type: "ice",
 			x: 0,
 			y: 100,
 			width: 400,
 			height: platform_height,
 		},
 		{
-			type: "grass",
+			type: "ice",
 			x: 700,
 			y: 100,
 			width: 100,
@@ -1001,34 +1001,14 @@ function drawPlatforms()
 	for(let i = 0; i < platforms.length; i++)
 	{
 		let platform = platforms[i];
-		let mainColor = "#907020";
-		let secondaryColor = "#000000";
-		let platformImg = woodImg;
-		
-		if ("type" in platform)
+		let platformInfo = getPlatformInfo(platform);
+		let platformImg = platformInfo.platformImg;
+		if (platformInfo.secondaryColor == "invis")
 		{
-			switch (platform.type)
-			{
-				case "invis":
-				{
-					continue;
-					break;
-				}
-				case "grass":
-				{
-					platformImg = grassImg;
-					secondaryColor = "#907020";
-					break;
-				}
-				case "wall2":
-				{
-					platformImg = wall2Img;
-					break;
-				}
-			}
+			continue;
 		}
 		
-		context.fillStyle = secondaryColor;
+		context.fillStyle = platformInfo.secondaryColor;
 		context.fillRect(platform.x + 5, platform.y, platform.width - 10, platform.height + 5);
 		
 		let right = platform.x + platform.width;
@@ -1286,14 +1266,17 @@ function update(progress)
 	updateSnow();
 	changeStage();
 	let grounded = false;
+	let platformFriction = defaultFriction;
 	for(var i = 0; i < platforms.length; i++){
-		var direction = platformCollisionCheck(platforms[i]);
+		let platform = platforms[i];
+		var direction = platformCollisionCheck(platform);
 
 		if(direction == "left" || direction == "right"){
 			player.velX *= -.4;
 		} else if(direction == "bottom"){
 			player.jumping = false;
 			grounded = true;
+			platformFriction = getPlatformInfo(platform).friction;
 		} else if(direction == "top"){
 			player.velY = 0;
 		}
@@ -1302,7 +1285,7 @@ function update(progress)
 
 	if (player.grounded)
 	{
-		player.velX *= friction;
+		player.velX *= platformFriction;
 		player.velY = 0;
 		player.jumping = false;
 	}
@@ -1468,6 +1451,40 @@ function itemCollisionCheck()
 			}
 		}
 	}
+}
+
+function getPlatformInfo(platform)
+{
+	let platformInfo = 
+	{ 
+		platformImg : woodImg,
+		secondaryColor : "#000000",
+		friction : defaultFriction,
+	}
+	if ("type" in platform)
+	{
+		switch (platform.type)
+		{
+			case "invis":
+			{
+				secondaryColor = "invis";
+				break;
+			}
+			case "ice":
+			{
+				platformInfo.platformImg = iceImg;
+				platformInfo.secondaryColor = "#907020";
+				platformInfo.friction = 0.95;
+				break;
+			}
+			case "wall2":
+			{
+				platformInfo.platformImg = wall2Img;
+				break;
+			}
+		}
+	}
+	return platformInfo;
 }
 
 function itemPickup(item)
