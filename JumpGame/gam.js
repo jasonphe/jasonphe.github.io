@@ -973,11 +973,11 @@ function jump()
 		player.velY = - 5 - player.jumpStrength * .8;
 		if (player.position == "left")
 		{
-			player.velX = -5 - player.jumpStrength * .2;
+			player.velX = -4 - player.jumpStrength * .2;
 		}
 		else
 		{
-			player.velX = 5 + player.jumpStrength * .2;
+			player.velX = 4 + player.jumpStrength * .2;
 		}
 		
 		let jumpSoundClone;
@@ -1222,19 +1222,17 @@ function updateSnow()
 	}
 }
 
-function checkStageBounds()
+function changeStage()
 {
 	if (player.y <= 0)
 	{
 		setStage(stage + 1);
 		player.y = canvas.height - player.height;
-		return;
 	}
 	else if (player.y + player.height >= canvas.height)
 	{
 		setStage(stage - 1);
 		player.y = 0;
-		return;
 	}
 }
 
@@ -1284,8 +1282,9 @@ function update(progress)
 		return;
 	}
 	then = now - (elapsed % fpsInterval);*/
+	itemCollisionCheck();
 	updateSnow();
-	checkStageBounds();
+	changeStage();
 	let grounded = false;
 	for(var i = 0; i < platforms.length; i++){
 		var direction = platformCollisionCheck(platforms[i]);
@@ -1343,7 +1342,6 @@ function update(progress)
 
 	player.x += player.velX;
 	player.y += player.velY;
-	itemCollisionCheck();
 }
 
 function platformCollisionCheck(platform){
