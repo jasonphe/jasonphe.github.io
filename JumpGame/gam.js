@@ -11,6 +11,7 @@ var fpsInterval = 1000/fps;
 var then = Date.now();
 var keys = [];
 var charger;
+var startTime;
 var paused = false;
 var animationCounter = 0;
 var animator = setInterval(function(){ animationCounter++;}, 100);
@@ -839,6 +840,17 @@ function startGame()
 	
 	loadStage();
 	requestAnimationFrame(loop);
+}
+
+function startTimer()
+{
+	startTime = Date.now();
+	setInterval(function() {
+		var delta = Date.now() - start; // milliseconds elapsed since start
+		output(Math.floor(delta / 1000)); // in seconds
+		// alternatively just show wall clock time:
+		//output(new Date().toUTCString());
+	}, 1000); // update about every second
 }
 
 function addSideWalls(platforms)
