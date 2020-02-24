@@ -12,6 +12,8 @@ var then = Date.now();
 var keys = [];
 var charger;
 var startTime;
+var timerInterval;
+var timerText = "00:00:00";
 var paused = false;
 var animationCounter = 0;
 var animator = setInterval(function(){ animationCounter++;}, 100);
@@ -225,13 +227,6 @@ function SetProperties()
 						 y: 275,
 						 width: 400,
 						 height: platform_height,
-					},
-					{
-						 x: 0,
-						 y: 0,
-						 width: canvas.width,
-						 height: 30,
-						 type: "invis",
 					},
 				],
 				objects:
@@ -839,18 +834,30 @@ function startGame()
 	}
 	
 	loadStage();
+	startTimer();
 	requestAnimationFrame(loop);
 }
 
 function startTimer()
 {
 	startTime = Date.now();
-	setInterval(function() {
-		var delta = Date.now() - start; // milliseconds elapsed since start
-		output(Math.floor(delta / 1000)); // in seconds
+	timerInterval = setInterval(function() {
+		let  delta = Date.now() - startTime; // milliseconds elapsed since start
+		let seconds = Math.floor(delta / 1000);
+		timerText = new Date(seconds * 1000).toISOString().substr(11, 8);
 		// alternatively just show wall clock time:
 		//output(new Date().toUTCString());
 	}, 1000); // update about every second
+}
+
+function clearTimer()
+{
+	if (timerInterval)
+	{
+		timerText = "Final:" + timerText;
+	}
+	clearInterval(timerInterval);
+	timerInterval = false;
 }
 
 function addSideWalls(platforms)
@@ -1152,6 +1159,15 @@ function changeStage()
 	}
 }
 
+function drawTimer()
+{
+	context.fillStyle = "black";
+	context.fillRect(canvas.width - 150, 0, context.measureText(timerText).width, 15);
+	context.fillStyle = "white";
+	context.font = "15px Arial";
+	context.fillText(timerText, canvas.width - 150, 15);
+}
+
 function draw()
 {
 	clearCanvas();
@@ -1163,7 +1179,8 @@ function draw()
 	drawText();
 	drawText = none;
 	player.draw();
-	drawJumpPower();	
+	drawJumpPower();
+	drawTimer();
 }
 var lastRender = Date.now();
 function loop(timestamp)
@@ -1358,6 +1375,11 @@ function itemCollisionCheck()
 						}
 						giftedDoidos++;
 					}
+					if (giftedDoidos > 0)
+					{
+						clearTimer();
+					}
+
 					break;
 				}
 				case "zucc":
