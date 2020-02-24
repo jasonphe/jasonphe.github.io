@@ -1478,6 +1478,7 @@ function itemPickup(item)
 		{
 			text1 = "Wow! Great job! You found the secret heart!";
 			text2 = "It's a bin chicken as well...";
+			itemImg = imgDict["ibis"];
 			break;
 		}
 		case "yuumi":
