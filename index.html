@@ -13,43 +13,33 @@
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-md fixed-top navbar-dark bg-dark">
+  <nav class="navbar navbar-expand-md fixed-top navbar-default">
 	  <ul class="navbar-nav">
 		<li class="nav-item">
 		  <a class="nav-link" href="#about">About</a>
 		</li>
 		<!--<li class="nav-item">
 			<a class="nav-link" href="#experience">Experience</a>
-		</li>
+		</li>-->
 		<li class="nav-item">
 			<a class="nav-link" href="#skills">Skills</a>
-		</li>-->
+		</li>
 		<li class="nav-item">
 		  <a class="nav-link" href="#projects">Projects</a>
 		</li>
 	  </ul>
 	</nav>
 
-  <div class="container-fluid" id="about">
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <h2>ABOUT<hr></h2>
+  <section class="container-fluid" id="about">
+    <div class="vertical-center">
+      <div class="row justify-content-center">
+        <h2>Hey, I'm Jason</h2>
+      </div>
+      <div class="row justify-content-center">
+        <a href="docs/Jason_He_Resume_2019.pdf" target="_blank" class="btn btn-primary btn-lg">My Resume</a>
       </div>
     </div>
-	<div class="row justify-content-center">
-		<p>This website is a WORK IN PROGRESS</p>
-	</div>
-	<br>
-    <div class="row justify-content-center">
-      <div class="col-full">
-        
-      <p>Hey, I'm Jason.</p>
-      <a href="docs/Jason_He_Resume_2019.pdf" target="_blank" class="btn btn-primary btn-lg">My Resume</a>
-      </div>
-    </div>
-  </div>
-	<br>
-	<br>
+  </section>
   <!--<div class="container-fluid" id="experience">
     <div class="row justify-content-center">
       <div class="col-full">
@@ -63,71 +53,84 @@
         <P>Converted our PDF editing library (adding text/images, merging, printing, etc) to use free open source library instead of a non-free library, saving the company considerable licensing costs. </p>
   </div>-->
 
-  <div class="container-fluid bg-2" id="skills">
-      <div class="row justify-content-center">
-        <div class="col-full">
-          <h2>TECHNICAL SKILLS<hr></h2>
-        </div>
-      </div>
-      <div class="row justify-content-center">
-        <div class="col-full">
-          <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
-          <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
-        </div>
-      </div>
-      </br>
-      <div id="container" style="height: 500px">
-          <canvas id="canvas"></canvas>
+  <section class="container" id="skills">
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <h2>Technical Skills<hr></h2>
       </div>
     </div>
+    <div class="row justify-content-center">
+      <div class="col-full">
+        <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
+        <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
+      </div>
+    </div>
+    </br>
+    <div id="container" style="height: 500px">
+        <canvas id="canvas"></canvas>
+    </div>
+  </section>
 
-  <div class="container-fluid" id="projects">
+
+  <section class="container" id="projects">
     <div class="row justify-content-center">
         <div class="col-full">
-          <h2>PROJECTS<hr></h2>
+          <h2>Projects<hr></h2>
         </div>
       </div>
-	<br>
-	<div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>Games</bold></h2>
-		<div class="row">
-			<div class="col-md-4">
-				<a href="JumpGame/jump.html">
-					<img src="resources/pengusba.PNG" width="300" height="200" alt="Pengu's Bizzare Adventure">
-					<p>Pengu's Bizarre Adventure</p>
-				</a>
-			</div>
-		  </div>
+
+  <div id="portfolio">
+    <div class="row">
+      <h2><bold>Games</bold></h2>
+    </div>
+    <div class="row">
+      <div class="col-lg-4 col-md-6 portfolio-item">
+        <a href="JumpGame/jump.html">
+          <img src="resources/pengusba.PNG" alt="">
+          <div class="details">
+            <h4>Pengu's Bizarre Adventure</h4>
+            <span>Jump to reach the top!</span>
+          </div>
+        </a>
       </div>
     </div>
-	<br>
-	<div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>Weeb stuff for Friends (I'm not a weeb tho)</bold></h2>
-		  <div class="row">
-			  <div class="col-md-4">
-				<a href="poke.html">
-				<img src="resources/poke1.jpg" width="300" height="200" alt="Poking Platelets">
-				<p>Poking Platelets</p>
-				</a>
-			  </div>
-			  <div class="col-md-4 ">
-				  <a href="hit.html">
-					<img src="resources/hit1.png" width="300" height="200" alt="angy">
-					<p>Angry child</p>
-				  </a>
-			  </div>
-			  <div class="col-md-4">
-				  <a href="pet.html">
-					<img src="resources/nan.jpg" width="300" height="200" alt="nanachi">
-					<p>Nanachi</p>
-				  </a>
-			  </div>
-		  </div>
+  </div>
+
+  <div id="portfolio">
+    <div class="row">
+      <h2><bold>Weeb stuff for Friends</bold></h2>
+    </div>
+    <div class="row">
+      <div class="col-lg-4 col-md-6 portfolio-item">
+        <a href="poke.html">
+          <img src="resources/poke1.jpg" alt="">
+          <div class="details">
+            <h4>Poking Platelets</h4>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-lg-4 col-md-6 portfolio-item">
+        <a href="hit.html">
+          <img src="resources/hit1.png" alt="">
+          <div class="details">
+            <h4>Angry child</h4>
+          </div>
+        </a>
+      </div>
+
+      <div class="col-lg-4 col-md-6 portfolio-item">
+        <a href="pet.html">
+          <img src="resources/nan.jpg" alt="">
+          <div class="details">
+            <h4>Nanachi</h4>
+          </div>
+        </a>
       </div>
     </div>
-	<br>
+  </div>
+  </section>
+	<section class="container" id="misc">
     <div class="row">
       <div class="col-lg-5 col-sm-offset-1">
         <h2><bold>Vision</bold></h2>
@@ -163,9 +166,8 @@
       <div class="col-lg-5 col-sm-offset-1">
         <h2><bold>League balance</bold></h2>
           <a href="balance.html">Link</a>
-          <br><br>
       </div>
     </div>
-  </div>
+  </section>
 </body>
 </html>
