@@ -30,7 +30,8 @@ section {
 
 #about{
     color: white;
-    background-image: url("resources/background.jpg");
+    background-image: url("resources/background.png");
+	background-size: cover;
     height: 800px;
 }
 
