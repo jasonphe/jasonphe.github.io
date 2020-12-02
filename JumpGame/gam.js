@@ -1207,15 +1207,16 @@ function loop(timestamp)
 
 function update(progress)
 {
-	/*Limit the frame rate
+	itemCollisionCheck();
+	//Limit the frame rate
 	now = Date.now();
 	let elapsed = now - then;
 	if (elapsed <= fpsInterval)
 	{
 		return;
 	}
-	then = now - (elapsed % fpsInterval);*/
-	itemCollisionCheck();
+	then = now - (elapsed % fpsInterval);
+	
 	updateSnow();
 	changeStage();
 	let grounded = false;
