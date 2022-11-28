@@ -7,7 +7,7 @@ class Obstacle extends Collider {
     static speedX = 1;
 
     canDraw() {
-        if (this.x > canvas.width || this.x + this.w < 0) {
+        if (this.x > baseWidth || this.x + this.w < 0) {
             return false;
         }
         return true;
@@ -39,16 +39,19 @@ class Obstacle extends Collider {
 }
 
 class Gate extends Obstacle {
-    constructor(x, y, w, h, value, type) {
+    constructor(x, y, w, h, value, type, parent) {
         super(x, y, w, h);
         this.value = value;
         this.type = type;
+        this.parent = parent;
     }
 
     draw() {
         ctx.beginPath();
         ctx.lineWidth = "6";
-        ctx.strokeStyle = "red";
+        if (this.enabled) {
+            ctx.strokeStyle = this.enabled ? "green" : "red";
+        }
         ctx.rect(this.x, this.y, this.w, this.h);
         ctx.stroke();
 
@@ -61,6 +64,36 @@ class Gate extends Obstacle {
 
     trigger() {
         this.enabled = false;
+        if (this.parent) {
+            this.parent.setEnabled(false);
+        }
         player.addPengus(this.value);
+    }
+}
+
+class GateParent {
+    constructor(x, coords) {
+        this.x = x;
+        this.y = 0;
+        this.gates = [];
+        coords.forEach(element => {
+            this.addGate(element.heightRatio, element.width, element.value, element.type);
+        })
+    }
+
+    addGate(heightRatio, width, value, type) {
+        if (this.y >= baseHeight) {
+            console.log("No more room for gates");
+            return;
+        }
+        let height = Math.min(baseHeight - this.y, heightRatio * baseHeight);
+        this.gates.push(new Gate(this.x, this.y, width, height, value, type, this));
+        this.y += height;
+    }
+
+    setEnabled(isEnabled) {
+        this.gates.forEach(element => {
+            element.enabled = isEnabled;
+        });
     }
 }

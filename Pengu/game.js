@@ -27,19 +27,24 @@ function incrementCounter() {
     }
 }
 
-function restartGame() {
+function loadLevel(level) {
     player = new Player();
     player.addPengus(5);
+    let levelIndex = level - 1;
     obstacles = [];
-    obstacles.push(new Gate(600, 0, 100, canvas.height, 10));
-    obstacles.push(new Gate(1000, 0, 100, canvas.height, 2));
-    obstacles.push(new Gate(2000, 0, 100, canvas.height, 2));
-    obstacles.push(new Gate(3000, 0, 100, canvas.height, 2));
-    obstacles.push(new Gate(4000, 0, 100, canvas.height, 2));
+    levels[levelIndex].gateParents.forEach(element => {
+        obstacles = obstacles.concat(element.gates);
+    });
+    /*obstacles = [];
+    obstacles.push(new Gate(600, 0, 100, baseHeight, 10));
+    obstacles.push(new Gate(1000, 0, 100, baseHeight, 2));
+    obstacles.push(new Gate(2000, 0, 100, baseHeight, 2));
+    obstacles.push(new Gate(3000, 0, 100, baseHeight, 2));
+    obstacles.push(new Gate(4000, 0, 100, baseHeight, 2));*/
 }
 
 function beginGame() { 
-    restartGame();
+    loadLevel(1);
     requestAnimationFrame(loop);
 }
 
@@ -50,7 +55,7 @@ function loop() {
 		if (keys["a"])
 		{
 			paused = false;
-            restartGame();
+            loadLevel(1);
 		}
 		else
 		{
@@ -123,7 +128,7 @@ function draw() {
 }
 
 function clearCanvas() {
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.clearRect(0, 0, baseWidth, baseHeight);
 }
 
 
