@@ -7,7 +7,7 @@ export class Obstacle extends Collider {
         this.enabled = true;
     }
 
-    static speedX = 1;
+    static speedX = 1.3;
 
     canDraw() {
         if (this.x > baseWidth || this.x + this.w < 0) {
@@ -52,9 +52,7 @@ export class Gate extends Obstacle {
     draw() {
         ctx.beginPath();
         ctx.lineWidth = "6";
-        if (this.enabled) {
-            ctx.strokeStyle = this.enabled ? "green" : "red";
-        }
+        ctx.strokeStyle = this.enabled ? "green" : "red";
         ctx.rect(this.x, this.y, this.w, this.h);
         ctx.stroke();
 
@@ -80,17 +78,17 @@ export class GateParent {
         this.y = 0;
         this.gates = [];
         coords.forEach(element => {
-            this.addGate(element.heightRatio, element.width, element.value, element.type);
+            this.addGate(element.heightRatio, element.value, element.type);
         })
     }
 
-    addGate(heightRatio, width, value, type) {
+    addGate(heightRatio, value, type) {
         if (this.y >= baseHeight) {
             console.log("No more room for gates");
             return;
         }
         let height = Math.min(baseHeight - this.y, heightRatio * baseHeight);
-        this.gates.push(new Gate(this.x, this.y, width, height, value, type, this));
+        this.gates.push(new Gate(this.x, this.y, 50, height, value, type, this));
         this.y += height;
     }
 

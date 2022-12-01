@@ -6,28 +6,17 @@ import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
 var imgFolder = "assets/";
 let imgsToLoad = ["right"];
 let keys = [];
-let counter = 0;
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;
-
 
 var player;
 var lastCalledTime;
 var fps;
 var paused = false;
 var obstacles = [];
-var levelsJson;
 var levelsObj;
-/*fetch('./levels.json').then(response => {
-    return response.json();
-  }).then(data => {
-    levelsJson = data;
-    levelsObj = JSON.parse(levelJson);
-  }).catch(err => {
-    // Do something for an error here
-  });
-*/
+
 async function loadImages() {
     let promises = [];
 	imgsToLoad.forEach(imgString => {
@@ -63,8 +52,7 @@ async function loadJSON() {
 } 
 
 function loadAssets() {
-    let loadJsonProm = loadJSON();
-    Promise.all([loadImages(), loadJsonProm]).then(results => {
+    Promise.all([loadImages(), loadJSON()]).then(results => {
         if (results.every(res => res)) {
             beginGame();
             console.log('all images loaded successfully');
@@ -72,22 +60,8 @@ function loadAssets() {
         else
             console.log('some images failed to load, all finished loading');
     });
-
-    /*for (const [ string, img ] of Object.entries(imgDict))
-    {
-        if(img.complete)
-            incrementCounter();
-        else
-            img.addEventListener( 'load', incrementCounter, false );
-    }*/
 }
 loadAssets();
-/*function incrementCounter() {
-    counter++;
-    if ( counter === imgsToLoad.length ) {
-        beginGame();
-    }
-}*/
 
 function loadLevel(level) {
     player = new Player();
@@ -98,12 +72,6 @@ function loadLevel(level) {
         let gateParent = new GateParent(element.x, element.gates)
         obstacles = obstacles.concat(gateParent.gates);
     });
-    /*obstacles = [];
-    obstacles.push(new Gate(600, 0, 100, baseHeight, 10));
-    obstacles.push(new Gate(1000, 0, 100, baseHeight, 2));
-    obstacles.push(new Gate(2000, 0, 100, baseHeight, 2));
-    obstacles.push(new Gate(3000, 0, 100, baseHeight, 2));
-    obstacles.push(new Gate(4000, 0, 100, baseHeight, 2));*/
 }
 
 function beginGame() { 
