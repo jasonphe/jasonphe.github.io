@@ -1,4 +1,7 @@
-class Obstacle extends Collider {
+import { Collider } from "./collider.js";
+import { canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+
+export class Obstacle extends Collider {
     constructor(x, y, w, h) {
         super(x, y, w, h);
         this.enabled = true;
@@ -38,7 +41,7 @@ class Obstacle extends Collider {
     }
 }
 
-class Gate extends Obstacle {
+export class Gate extends Obstacle {
     constructor(x, y, w, h, value, type, parent) {
         super(x, y, w, h);
         this.value = value;
@@ -67,11 +70,11 @@ class Gate extends Obstacle {
         if (this.parent) {
             this.parent.setEnabled(false);
         }
-        player.addPengus(this.value);
+        return this.value;
     }
 }
 
-class GateParent {
+export class GateParent {
     constructor(x, coords) {
         this.x = x;
         this.y = 0;

@@ -1,4 +1,7 @@
-class Pengu extends Collider{
+import { Collider } from "./collider.js";
+import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+
+export class Pengu extends Collider{
 	constructor(relX, relY, player) {
 		super( relX, player.x + relY, 25, 25);
         this.relativeX = relX;

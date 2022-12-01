@@ -1,39 +1,102 @@
+import { Collider } from "./collider.js";
+import { Obstacle, Gate, GateParent } from "./obstacle.js";
+import { Player } from "./player.js";
+import { Pengu } from "./pengu.js";
+import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+var imgFolder = "assets/";
+let imgsToLoad = ["right"];
+let keys = [];
+let counter = 0;
+
+canvas.width = baseWidth;
+canvas.height = baseHeight;
+
+
 var player;
 var lastCalledTime;
 var fps;
 var paused = false;
 var obstacles = [];
-
-function loadAssets() {
+var levelsJson;
+var levelsObj;
+/*fetch('./levels.json').then(response => {
+    return response.json();
+  }).then(data => {
+    levelsJson = data;
+    levelsObj = JSON.parse(levelJson);
+  }).catch(err => {
+    // Do something for an error here
+  });
+*/
+async function loadImages() {
+    let promises = [];
 	imgsToLoad.forEach(imgString => {
 		let img = new Image();
 		img.src = imgFolder + imgString + ".png";
 		imgDict[imgString] = img;
 	});
-
     for (const [ string, img ] of Object.entries(imgDict))
+    {
+        if(img.complete)
+            promises.push(Promise.resolve(true));
+        else
+            promises.push(new Promise(resolve => {
+                img.addEventListener('load', () => resolve(true));
+                img.addEventListener('error', () => resolve(false));
+            }));
+    }
+
+    return promises;
+}
+
+async function loadJSON() {
+    return fetch('./levels.json').then(response => {
+        return response.json();
+      }).then(data => {
+        levelsObj = data;
+        console.log("levels loaded");
+        return Promise.resolve(true);
+      }).catch(err => {
+        console.log("levels failed" + err);
+        return Promise.resolve(false);
+      });
+} 
+
+function loadAssets() {
+    let loadJsonProm = loadJSON();
+    Promise.all([loadImages(), loadJsonProm]).then(results => {
+        if (results.every(res => res)) {
+            beginGame();
+            console.log('all images loaded successfully');
+        }
+        else
+            console.log('some images failed to load, all finished loading');
+    });
+
+    /*for (const [ string, img ] of Object.entries(imgDict))
     {
         if(img.complete)
             incrementCounter();
         else
             img.addEventListener( 'load', incrementCounter, false );
-    }
+    }*/
 }
 loadAssets();
-function incrementCounter() {
+/*function incrementCounter() {
     counter++;
     if ( counter === imgsToLoad.length ) {
         beginGame();
     }
-}
+}*/
 
 function loadLevel(level) {
     player = new Player();
     player.addPengus(5);
     let levelIndex = level - 1;
     obstacles = [];
-    levels[levelIndex].gateParents.forEach(element => {
-        obstacles = obstacles.concat(element.gates);
+    levelsObj.levels[levelIndex].gateParents.forEach(element => {
+        let gateParent = new GateParent(element.x, element.gates)
+        obstacles = obstacles.concat(gateParent.gates);
     });
     /*obstacles = [];
     obstacles.push(new Gate(600, 0, 100, baseHeight, 10));
@@ -52,7 +115,7 @@ function loop() {
     requestAnimationFrame(loop);
     if (paused)
 	{
-		if (keys["a"])
+		if (keys["r"])
 		{
 			paused = false;
             loadLevel(1);
@@ -109,7 +172,7 @@ function gameOver() {
 
 function move()
 {
-    player.movePengus();
+    player.movePengus(obstacles);
 }
 
 function processInputs() {
@@ -120,6 +183,10 @@ function processInputs() {
     else if (keys["ArrowDown"] || keys["s"])
     {
         player.moveDown();
+    }
+    else if (keys["p"])
+    {
+        paused = true;
     }
 }
 

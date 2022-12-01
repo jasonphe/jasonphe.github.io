@@ -1,0 +1,55 @@
+{
+    "levels": [
+        {
+            "title": 1,
+            "gateParents": [
+                {
+                    "x" : 500, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "width": 20,
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "width": 20,
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.75, 
+                            "width": 20,
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 1000, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "width": 20,
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "width": 20,
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.75, 
+                            "width": 20,
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

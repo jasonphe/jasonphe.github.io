@@ -1,4 +1,8 @@
-class Player extends Collider{
+import { Collider } from "./collider.js";
+import { Pengu } from "./pengu.js";
+import { canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+
+export class Player extends Collider{
 	constructor() {
         super(150, 150, 40, 40);
         this.animIndex = 0;
@@ -14,15 +18,15 @@ class Player extends Collider{
         }
         for (let i = 0; i < count; i++) {
             
-            this.pengus.push(new Pengu(Math.random() * this.x, Math.random() * canvas.height, this));
+            this.pengus.push(new Pengu(Math.random() * this.x, Math.random() * 200, this));
         }
     }
 
-    movePengus() {
+    movePengus(obstacles) {
         obstacles.forEach(obstacle => {
 			if (obstacle.enabled && this.collidesWith(obstacle))
             {
-                obstacle.trigger();
+                this.addPengus(obstacle.trigger());
             }
 		});
         this.pengus.forEach(pengu => {
@@ -36,7 +40,7 @@ class Player extends Collider{
 		if (animate)
 		{
 			let total = 20;
-			if (counter % total < (total/2))
+			if (this.counter % total < (total/2))
 			{
 				startX = 1;
 			}
@@ -44,12 +48,12 @@ class Player extends Collider{
 			{
 				startX = 0;
 			}
-			counter++;
+			this.counter++;
 		}
 		else
 		{
 			startX = 0;
-			counter = 0;
+			this.counter = 0;
 		}
         ctx.fillStyle = "black";
         ctx.textAlign="left";
