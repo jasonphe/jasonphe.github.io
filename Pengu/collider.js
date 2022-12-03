@@ -21,6 +21,11 @@ export class Collider {
         return false;
     }
 
+    collidesWithMiddle(other) {
+        let middleY = this.y + this.h/2;
+        return (middleY < other.y + other.h) && (middleY > other.y);
+    }
+
     collidesWithCircle(other) {
         const dx = (this.w/2 + this.x) - (other.w/2 + other.x);
         const dy = (this.h/2 + this.y) - (other.h/2 + other.y);

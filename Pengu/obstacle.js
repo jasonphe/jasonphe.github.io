@@ -1,4 +1,5 @@
 import { Collider } from "./collider.js";
+import { shuffle } from "./util.js";
 import { canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
 
 export class Obstacle extends Collider {
@@ -55,11 +56,18 @@ export class Gate extends Obstacle {
         ctx.strokeStyle = this.enabled ? "green" : "red";
         ctx.rect(this.x, this.y, this.w, this.h);
         ctx.stroke();
-
-        ctx.fillStyle = "black";
+        
+        ctx.fillStyle = "yellow";
         ctx.textAlign="center";
         ctx.textBaseline = "middle";
-        let valueText = this.value > 0 ? "+" + this.value : this.value;
+        let valueText = "";
+        if (this.type === "add") {
+            valueText = this.value > 0 ? "+" + this.value : this.value;
+        }
+        else if (this.type === "multiply") {
+            valueText = "X"+ this.value;
+        }
+        
         ctx.fillText(valueText, this.x + this.w/2, this.y + this.h/2);
     }
 
@@ -68,7 +76,7 @@ export class Gate extends Obstacle {
         if (this.parent) {
             this.parent.setEnabled(false);
         }
-        return this.value;
+        return { value: this.value, type: this.type };
     }
 }
 
@@ -77,7 +85,7 @@ export class GateParent {
         this.x = x;
         this.y = 0;
         this.gates = [];
-        coords.forEach(element => {
+        shuffle(coords).forEach(element => {
             this.addGate(element.heightRatio, element.value, element.type);
         })
     }

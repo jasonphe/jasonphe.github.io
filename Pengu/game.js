@@ -1,7 +1,7 @@
 import { Collider } from "./collider.js";
 import { Obstacle, Gate, GateParent } from "./obstacle.js";
 import { Player } from "./player.js";
-import { Pengu } from "./pengu.js";
+//import { Pengu } from "./pengu.js";
 import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
 var imgFolder = "assets/";
 let imgsToLoad = ["right"];
@@ -14,6 +14,7 @@ var player;
 var lastCalledTime;
 var fps;
 var paused = false;
+var canTogglePause = true;
 var obstacles = [];
 var levelsObj;
 
@@ -65,7 +66,6 @@ loadAssets();
 
 function loadLevel(level) {
     player = new Player();
-    player.addPengus(5);
     let levelIndex = level - 1;
     obstacles = [];
     levelsObj.levels[levelIndex].gateParents.forEach(element => {
@@ -79,20 +79,27 @@ function beginGame() {
     requestAnimationFrame(loop);
 }
 
+function togglePause() {
+    paused = !paused;
+    canTogglePause = false;
+    setTimeout(()=> { canTogglePause = true; }, 300);
+}
+
 function loop() {
     requestAnimationFrame(loop);
-    if (paused)
-	{
-		if (keys["r"])
-		{
-			paused = false;
+    if ((keys["p"] || keys["Escape"]) && canTogglePause) {
+        togglePause();
+    }
+    if (paused) {
+		if (keys["r"]) {
+            paused = false;
             loadLevel(1);
 		}
-		else
-		{
+		else {
 			return;
 		}
 	}
+
     /*if(!lastCalledTime) {
         lastCalledTime = Date.now();
         fps = 0;
@@ -102,7 +109,6 @@ function loop() {
      lastCalledTime = Date.now();
      fps = 1/delta;*/
 
-    move();
     draw();
     
     clearCanvas();
@@ -126,36 +132,31 @@ function loop() {
             i--;
         }
     }
-    player.draw();
     processInputs();
+    player.handleCollision(obstacles);
+    player.draw();
 
-    if (player.pengus.length <= 0) {
+    if (player.count <= 0) {
         gameOver();
     }
 }
 
 function gameOver() { 
-    paused = true;
-}
-
-function move()
-{
-    player.movePengus(obstacles);
+    togglePause();
 }
 
 function processInputs() {
-    if (keys["ArrowUp"] || keys["w"])
-    {
-        player.moveUp();
-    }
-    else if (keys["ArrowDown"] || keys["s"])
-    {
-        player.moveDown();
-    }
-    else if (keys["p"])
-    {
-        paused = true;
-    }
+    let direction = {
+        up : false,
+        down: false,
+        left: false,
+        right: false};
+    direction.up = keys["ArrowUp"] || keys["w"];
+    direction.down = keys["ArrowDown"] || keys["s"];
+    direction.left = keys["ArrowLeft"] || keys["a"];
+    direction.right = keys["ArrowRight"] || keys["d"];
+    
+    player.move(direction);
 }
 
 function draw() {
