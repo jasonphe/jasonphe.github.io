@@ -1,15 +1,13 @@
 import { Collider } from "./collider.js";
-//import { Pengu } from "./pengu.js";
-import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+import { imgDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
 
 export class Player extends Collider{
     static minSize = 40;
 	constructor() {
-        super(150, 150, Player.minSize, Player.minSize);
-        this.animIndex = 0;
-        this.counter = 0;
-        this.speed = 2;
+        super(20, baseHeight / 2, Player.minSize, Player.minSize);
+        this.speed = .3;
         this.count = 1;
+        this.movementBounds = { left: 0, right: baseWidth, top: 0, bottom: baseHeight};
     }
     
     applyEffect(effect) {
@@ -22,8 +20,20 @@ export class Player extends Collider{
             this.count *= effect.value;
         }
 
+        this.onSizeChanged();
+    }
+
+    onSizeChanged() {
+        let previousCenter = { x: this.x + (this.w/2), y: this.y + (this.h/2) }
         this.w = Player.minSize + this.count;
         this.h = Player.minSize + this.count;
+        this.x = previousCenter.x - (this.w/2);
+        this.y = previousCenter.y - (this.h/2);
+
+        this.y = Math.min(this.y, this.movementBounds.bottom - this.h);
+        this.y = Math.max(this.y, this.movementBounds.top);
+        this.x = Math.min(this.x, this.movementBounds.right - this.w);
+        this.x = Math.max(this.x, this.movementBounds.left);
     }
 
     handleCollision(obstacles) {
@@ -36,32 +46,14 @@ export class Player extends Collider{
     }
 
 	draw() {	
-        let animate = true;
-        let startX = 0;
-		if (animate)
-		{
-			let total = 20;
-			if (this.counter % total < (total/2))
-			{
-				startX = 1;
-			}
-			else 
-			{
-				startX = 0;
-			}
-			this.counter++;
-		}
-		else
-		{
-			startX = 0;
-			this.counter = 0;
-		}
-        ctx.fillStyle = "black";
+        let startX = Math.floor(oldTimeStamp/200) % 2;
+
+        /*ctx.fillStyle = "black";
         ctx.textAlign="left";
 		ctx.font = '48px serif';
-  		ctx.fillText("X: " + this.x + "Y: " + this.y, 50, 50);
-        
-        ctx.drawImage(imgDict["right"], startX * 40, 0, 40, 40, this.x, this.y, this.w, this.h);
+  		ctx.fillText("X: " + this.x + "WTFFF: " + this.speed, 50, 50);*/
+        let image = imgDict["right"];
+        ctx.drawImage(image, startX * 40, 0, 40, 40, this.x, this.y, this.w, this.h);
 
         //ctx.fillStyle = "#ADD8E6";
         ctx.font = '600 24px Verdana';
@@ -73,9 +65,9 @@ export class Player extends Collider{
 
 	}
 
-    move(direction)
+    move(direction, elapsedMS)
     {
-        let speed = this.speed;
+        let speed = this.speed * elapsedMS;
         if (direction.up != direction.down && direction.left != direction.right) {
             speed *= .5;
         }
@@ -83,13 +75,13 @@ export class Player extends Collider{
             this.y -= Math.min(this.y, speed);
         }
         if (!direction.up && direction.down) {
-            this.y += Math.min(canvas.height - this.y - this.h, speed);
+            this.y += Math.min(this.movementBounds.bottom - this.y - this.h, speed);
         }
         if (direction.left && !direction.right) {
             this.x -= Math.min(this.x, speed);
         }
         if (!direction.left && direction.right) {
-            this.x += Math.min(canvas.width - this.x - this.w, speed);
+            this.x += Math.min(this.movementBounds.right - this.x - this.w, speed);
         }
     }
 }

@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { shuffle } from "./util.js";
-import { canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+import { canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
 
 export class Obstacle extends Collider {
     constructor(x, y, w, h) {
@@ -8,7 +8,7 @@ export class Obstacle extends Collider {
         this.enabled = true;
     }
 
-    static speedX = 1.3;
+    static speedX = .2;
 
     canDraw() {
         if (this.x > baseWidth || this.x + this.w < 0) {
@@ -29,8 +29,8 @@ export class Obstacle extends Collider {
         ctx.stroke();
     }
 
-    move() {
-        this.x -= Obstacle.speedX;
+    move(elapsedMS) {
+        this.x -= Obstacle.speedX * elapsedMS;
     }
     
     isOut() {
@@ -47,16 +47,31 @@ export class Gate extends Obstacle {
         super(x, y, w, h);
         this.value = value;
         this.type = type;
+        this.alpha = .8;
         this.parent = parent;
     }
+    static fadeSpeed = .005;
 
     draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
         ctx.beginPath();
+        let gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y);
+        gradient.addColorStop(0, "#ADD8E6");
+        gradient.addColorStop(1, "blue");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+
+        ctx.beginPath();
+        ctx.fillStyle = "black";
         ctx.lineWidth = "6";
-        ctx.strokeStyle = this.enabled ? "green" : "red";
-        ctx.rect(this.x, this.y, this.w, this.h);
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.w, this.y);
         ctx.stroke();
-        
+        ctx.moveTo(this.x, this.y + this.h);
+        ctx.lineTo(this.x + this.w, this.y + this.h);
+        ctx.stroke();
+
         ctx.fillStyle = "yellow";
         ctx.textAlign="center";
         ctx.textBaseline = "middle";
@@ -65,10 +80,18 @@ export class Gate extends Obstacle {
             valueText = this.value > 0 ? "+" + this.value : this.value;
         }
         else if (this.type === "multiply") {
-            valueText = "X"+ this.value;
+            valueText = "x"+ this.value;
         }
         
         ctx.fillText(valueText, this.x + this.w/2, this.y + this.h/2);
+        ctx.restore();
+    }
+
+    move(elapsedMS) {
+        super.move(elapsedMS);
+        if (!this.enabled) {
+            this.alpha = Math.max(this.alpha - Gate.fadeSpeed, 0);
+        }
     }
 
     trigger() {
@@ -85,18 +108,18 @@ export class GateParent {
         this.x = x;
         this.y = 0;
         this.gates = [];
-        shuffle(coords).forEach(element => {
-            this.addGate(element.heightRatio, element.value, element.type);
-        })
+        shuffle(coords).forEach(props => {
+            this.addGate(props);
+        });
     }
 
-    addGate(heightRatio, value, type) {
+    addGate(props) {
         if (this.y >= baseHeight) {
             console.log("No more room for gates");
             return;
         }
-        let height = Math.min(baseHeight - this.y, heightRatio * baseHeight);
-        this.gates.push(new Gate(this.x, this.y, 50, height, value, type, this));
+        let height = Math.min(baseHeight - this.y, props.heightRatio * baseHeight);
+        this.gates.push(new Gate(this.x, this.y, 100, height, props.value, props.type, this));
         this.y += height;
     }
 

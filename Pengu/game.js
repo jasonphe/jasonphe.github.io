@@ -2,9 +2,9 @@ import { Collider } from "./collider.js";
 import { Obstacle, Gate, GateParent } from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
-import { imgDict, canvas, ctx, baseWidth, baseHeight } from "./canvas.js";
+import { imgDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
 var imgFolder = "assets/";
-let imgsToLoad = ["right"];
+let imgsToLoad = ["right", "background2"];
 let keys = [];
 
 canvas.width = baseWidth;
@@ -15,6 +15,8 @@ var lastCalledTime;
 var fps;
 var paused = false;
 var canTogglePause = true;
+var backgroundSpeed = 2;
+var backgroundPos = 0;
 var obstacles = [];
 var levelsObj;
 
@@ -85,21 +87,10 @@ function togglePause() {
     setTimeout(()=> { canTogglePause = true; }, 300);
 }
 
-function loop() {
-    requestAnimationFrame(loop);
+function loop(timeStamp) {
     if ((keys["p"] || keys["Escape"]) && canTogglePause) {
         togglePause();
     }
-    if (paused) {
-		if (keys["r"]) {
-            paused = false;
-            loadLevel(1);
-		}
-		else {
-			return;
-		}
-	}
-
     /*if(!lastCalledTime) {
         lastCalledTime = Date.now();
         fps = 0;
@@ -109,22 +100,29 @@ function loop() {
      lastCalledTime = Date.now();
      fps = 1/delta;*/
 
-    draw();
+    let elapsedMS = timeStamp - oldTimeStamp;
+    setTimestamp(timeStamp);
     
-    clearCanvas();
-    //ctx.fillStyle = "white";
-    //ctx.fillRect(0,0, canvas.width, canvas.height);
-    /*ctx.beginPath();
-    ctx.fillStyle = "black";
-    ctx.font = '48px serif';
-    ctx.fillText('fps: ' + fps, 100, 500);*/
+    if (paused) {
+		if (keys["r"]) {
+            paused = false;
+            loadLevel(1);
+		}
+	}
+    else {
+        update(elapsedMS);
+        draw();    
+    }
+
+    requestAnimationFrame(loop);
+}
+
+function update(elapsedMS) {
+    player.move(getDirection(), elapsedMS);
+    moveBackground() ;
     for (let i = 0; i < obstacles.length; i++) {
         let obstacle = obstacles[i];
-        if (obstacle.canDraw())
-        {
-            obstacle.draw();
-        }
-        obstacle.move();
+        obstacle.move(elapsedMS);
         if (obstacle.isOut())
         {
             obstacles[i] = obstacles[obstacles.length - 1];
@@ -132,9 +130,7 @@ function loop() {
             i--;
         }
     }
-    processInputs();
     player.handleCollision(obstacles);
-    player.draw();
 
     if (player.count <= 0) {
         gameOver();
@@ -145,22 +141,48 @@ function gameOver() {
     togglePause();
 }
 
-function processInputs() {
+function getDirection() {
     let direction = {
         up : false,
         down: false,
         left: false,
-        right: false};
+        right: false
+    };
     direction.up = keys["ArrowUp"] || keys["w"];
     direction.down = keys["ArrowDown"] || keys["s"];
     direction.left = keys["ArrowLeft"] || keys["a"];
     direction.right = keys["ArrowRight"] || keys["d"];
-    
-    player.move(direction);
+    return direction;
 }
 
 function draw() {
-    
+    clearCanvas();
+    drawBackground();
+    for (let i = 0; i < obstacles.length; i++) {
+        let obstacle = obstacles[i];
+        if (obstacle.canDraw()) {
+            obstacle.draw();
+        }
+    }   
+
+    player.draw();
+}
+
+function drawBackground() {
+    let background = imgDict["background2"];
+    let startX = backgroundPos % background.width;
+    for (let i = 0; i < baseWidth; i += (background.width - startX))
+	{
+        if (i > 0)
+        {
+            startX = 0;
+        }
+        ctx.drawImage(background, startX, 0, background.width - startX, background.height, i, 0, background.width - startX, background.height);
+	}
+}
+
+function moveBackground() {
+    backgroundPos += backgroundSpeed;
 }
 
 function clearCanvas() {
