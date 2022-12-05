@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { shuffle } from "./util.js";
-import { canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
+import { canvas, ctx, baseWidth, baseHeight, oldTimeStamp, audioDict } from "./globals.js";
 
 export class Obstacle extends Collider {
     constructor(x, y, w, h) {
@@ -54,8 +54,8 @@ export class Gate extends Obstacle {
 
     draw() {
         ctx.save();
+        ctx.lineWidth = "4";
         ctx.globalAlpha = this.alpha;
-        ctx.beginPath();
         let gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y);
         gradient.addColorStop(0, "#ADD8E6");
         gradient.addColorStop(1, "blue");

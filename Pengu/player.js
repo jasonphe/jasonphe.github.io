@@ -1,5 +1,5 @@
 import { Collider } from "./collider.js";
-import { imgDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
+import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
 
 export class Player extends Collider{
     static minSize = 40;
@@ -11,15 +11,35 @@ export class Player extends Collider{
     }
     
     applyEffect(effect) {
-        if (effect.type === "add")
-        {
+        let soundEffect = "";
+        let change = 0;
+        if (effect.type === "add") {
+            change = effect.value;
             this.count += effect.value;
         }
-        else if (effect.type === "multiply")
-        {
+        else if (effect.type === "multiply") {
+            change = this.count * (effect.value - 1);
             this.count *= effect.value;
         }
 
+        if (change< -20) {
+            soundEffect = "badCollect2.wav";
+        } else if (change < 0) {
+            soundEffect = "badCollect1.wav";
+        } else if (change < 5) {
+            soundEffect = "collect1.wav";
+        } else if (change< 10) {
+            soundEffect = "collect2.wav";
+        } else if (change < 20) {
+            soundEffect = "collect3.wav";
+        } else {
+            soundEffect = "collect4.wav";
+        } 
+        
+        if (soundEffect !== "")
+        {
+            audioDict[soundEffect].cloneNode(true).play();
+        }
         this.onSizeChanged();
     }
 

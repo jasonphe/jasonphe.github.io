@@ -2,9 +2,9 @@ import { Collider } from "./collider.js";
 import { Obstacle, Gate, GateParent } from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
-import { imgDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
-var imgFolder = "assets/";
-let imgsToLoad = ["right", "background2"];
+import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
+import { loadAssets, levelsObj } from "./preload.js"
+
 let keys = [];
 
 canvas.width = baseWidth;
@@ -18,55 +18,18 @@ var canTogglePause = true;
 var backgroundSpeed = 2;
 var backgroundPos = 0;
 var obstacles = [];
-var levelsObj;
+var isGameOver = false;
+var currentLevel = 1;
 
-async function loadImages() {
-    let promises = [];
-	imgsToLoad.forEach(imgString => {
-		let img = new Image();
-		img.src = imgFolder + imgString + ".png";
-		imgDict[imgString] = img;
-	});
-    for (const [ string, img ] of Object.entries(imgDict))
-    {
-        if(img.complete)
-            promises.push(Promise.resolve(true));
-        else
-            promises.push(new Promise(resolve => {
-                img.addEventListener('load', () => resolve(true));
-                img.addEventListener('error', () => resolve(false));
-            }));
-    }
+loadAssets(beginGame);
 
-    return promises;
+function beginGame() { 
+    loadLevel(currentLevel);
+    requestAnimationFrame(loop);
 }
-
-async function loadJSON() {
-    return fetch('./levels.json').then(response => {
-        return response.json();
-      }).then(data => {
-        levelsObj = data;
-        console.log("levels loaded");
-        return Promise.resolve(true);
-      }).catch(err => {
-        console.log("levels failed" + err);
-        return Promise.resolve(false);
-      });
-} 
-
-function loadAssets() {
-    Promise.all([loadImages(), loadJSON()]).then(results => {
-        if (results.every(res => res)) {
-            beginGame();
-            console.log('all images loaded successfully');
-        }
-        else
-            console.log('some images failed to load, all finished loading');
-    });
-}
-loadAssets();
 
 function loadLevel(level) {
+    isGameOver = false;
     player = new Player();
     let levelIndex = level - 1;
     obstacles = [];
@@ -76,10 +39,6 @@ function loadLevel(level) {
     });
 }
 
-function beginGame() { 
-    loadLevel(1);
-    requestAnimationFrame(loop);
-}
 
 function togglePause() {
     paused = !paused;
@@ -88,9 +47,6 @@ function togglePause() {
 }
 
 function loop(timeStamp) {
-    if ((keys["p"] || keys["Escape"]) && canTogglePause) {
-        togglePause();
-    }
     /*if(!lastCalledTime) {
         lastCalledTime = Date.now();
         fps = 0;
@@ -104,16 +60,20 @@ function loop(timeStamp) {
     setTimestamp(timeStamp);
     
     if (paused) {
+        displayPauseMenu();
 		if (keys["r"]) {
-            paused = false;
-            loadLevel(1);
+            togglePause();
+            loadLevel(currentLevel);
 		}
 	}
     else {
         update(elapsedMS);
         draw();    
     }
-
+    
+    if ((keys["p"] || keys["Escape"]) && canTogglePause && !isGameOver) {
+        togglePause();
+    }
     requestAnimationFrame(loop);
 }
 
@@ -137,7 +97,39 @@ function update(elapsedMS) {
     }
 }
 
-function gameOver() { 
+function displayPauseMenu() {
+    let menuDimensions = { width: 400, height: 600};
+    
+    ctx.beginPath();
+    ctx.fillStyle = "#1CE5DE";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 10;
+    ctx.roundRect(baseWidth/2 - menuDimensions.width/2, baseHeight/2 - menuDimensions.height/2, menuDimensions.width, menuDimensions.height, 25);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.lineWidth = 3;
+    ctx.font = "600 30pt Verdana";
+    let displayText = isGameOver ? "GAME OVER!" : "PAUSED";
+    ctx.textAlign="center";
+    ctx.textBaseline = "middle"; 
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
+    ctx.fillText(displayText, baseWidth/2, baseHeight/2);
+    ctx.strokeText(displayText, baseWidth/2, baseHeight/2);
+    //ctx.fill();
+    //ctx.stroke();
+
+    /*ctx.fillStyle = "orange";
+    ctx.textAlign="center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("PAUSED", baseWidth/2, baseHeight/2);*/
+}
+
+function gameOver() {
+    setTimeout(()=> { audioDict["lose.wav"].cloneNode(true).play(); }, 500);
+    isGameOver = true;
     togglePause();
 }
 
