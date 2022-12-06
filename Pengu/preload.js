@@ -2,7 +2,7 @@
 import { imgDict, audioDict } from "./globals.js";
 let assetFolder = "assets/";
 let imgsToLoad = ["right", "background2"];
-let audioToLoad = ["badCollect1.wav", "badCollect2.wav", "collect1.wav", "collect2.wav", "collect3.wav", "collect4.wav", "lose.wav", "win.wav", "powerUp.wav"];
+let audioToLoad = ["collectSound.wav", "badCollect1.wav", "badCollect2.wav", "collect1.wav", "collect2.wav", "collect3.wav", "collect4.wav", "lose.wav", "win.wav", "powerUp.wav"];
 export let levelsObj;
 
 async function loadImages() {

@@ -63,7 +63,7 @@ export class Gate extends Obstacle {
         ctx.fillRect(this.x, this.y, this.w, this.h);
 
         ctx.beginPath();
-        ctx.fillStyle = "black";
+        ctx.strokeStyle = "black";
         ctx.lineWidth = "6";
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.x + this.w, this.y);

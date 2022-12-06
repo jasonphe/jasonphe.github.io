@@ -104,6 +104,216 @@
                     ]
                 }
             ]
+        },
+        {
+            "title": 2,
+            "gateParents": [
+                {
+                    "x" : 500, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 20, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.15, 
+                            "value": 2, 
+                            "type": "multiply"
+                        },
+                        {
+                            "heightRatio": 0.35, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 1000, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.5, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 1700, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.5, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 2500, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.75, 
+                            "value": -40, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 3000, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.1, 
+                            "value": 5, 
+                            "type": "multiply"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.65, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "title": 3,
+            "gateParents": [
+                {
+                    "x" : 500, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 20, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.15, 
+                            "value": 2, 
+                            "type": "multiply"
+                        },
+                        {
+                            "heightRatio": 0.35, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 1000, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.5, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 1700, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.5, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 2500, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.75, 
+                            "value": -40, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                },
+                {
+                    "x" : 3000, 
+                    "gates": [
+                        {
+                            "heightRatio": 0.1, 
+                            "value": 5, 
+                            "type": "multiply"
+                        },
+                        {
+                            "heightRatio": 0.25, 
+                            "value": -10, 
+                            "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.65, 
+                            "value": 5, 
+                            "type": "add"
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }

@@ -20,8 +20,94 @@ var backgroundPos = 0;
 var obstacles = [];
 var isGameOver = false;
 var currentLevel = 1;
+var levelButtons = [];
+const levelsPerRow = 6;
+const levelsPerColumn = 3;
+var mousePosition = {x: 0, y: 0};
+var clickPosition = {x: 0, y: 0, clicked: false};
 
-loadAssets(beginGame);
+loadAssets(levelSelect);
+
+function levelSelect() {
+    setLevelButtons();
+    menuLoop();
+}
+
+function menuLoop() {
+    //console.log(mousePosition.x + " " + mousePosition.y);
+    if (clickPosition.clicked === true) {
+        clickPosition.clicked = false;
+        for (let i = 0; i < levelButtons.length; i++) {
+            if (isHovering(clickPosition, levelButtons[i])) {
+                currentLevel = i + 1;
+                beginGame();
+                return;
+            }
+        };
+    }
+    drawLevelSelect();
+    requestAnimationFrame(menuLoop);
+}
+
+function isHovering(pos, button) {
+    return (pos.x > button.x) && (pos.x < button.x + button.w)
+        && (pos.y > button.y) && (pos.y < button.y + button.h);
+}
+
+function setLevelButtons() {
+    levelButtons = [];
+    let levelCount = levelsObj.levels.length;
+    let levelIndex = 0;
+    let marginSize = (baseWidth / (levelsPerRow + 1)) * .2;
+    let spacePerButton = (baseWidth - ((levelsPerRow + 1) * marginSize)) / levelsPerRow;
+    let currY = 0;
+    for (let i = 0; i < levelsPerColumn; i++) {
+        let currX = 0;
+        currY += marginSize;
+        for (let j = 0; j < levelsPerRow; j++) {
+            if (levelIndex >= levelCount) {
+                return;
+            }
+            
+            currX += marginSize;
+            levelButtons.push({x: currX, y: currY, w: spacePerButton, h: spacePerButton, 
+                text: levelsObj.levels[levelIndex].title});            
+            currX += spacePerButton;
+            levelIndex++;
+        }
+        currY += spacePerButton;
+    }
+}
+canvas.addEventListener("mousemove", (event) => {
+    mousePosition = {x: event.offsetX, y: event.offsetY};
+});
+canvas.addEventListener('click', (event) => {
+    clickPosition = {x: event.offsetX, y: event.offsetY, clicked: true};
+});
+
+function drawLevelSelect() {
+    clearCanvas();
+    levelButtons.forEach(b => {
+        ctx.beginPath();
+        ctx.fillStyle = "#1CE5DE";
+        ctx.strokeStyle = isHovering(mousePosition, b) ? "red" : "black";
+        ctx.lineWidth = 10;
+        ctx.roundRect(b.x, b.y, b.w, b.h, 25);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.font = "600 20pt Verdana";
+        let displayText = b.text;
+        ctx.textAlign="center";
+        ctx.textBaseline = "middle"; 
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.fillText(displayText, b.x + b.w/2, b.y + b.h/2);
+        ctx.strokeText(displayText, b.x + b.w/2, b.y + b.h/2);
+    });
+}
 
 function beginGame() { 
     loadLevel(currentLevel);
@@ -38,7 +124,6 @@ function loadLevel(level) {
         obstacles = obstacles.concat(gateParent.gates);
     });
 }
-
 
 function togglePause() {
     paused = !paused;
@@ -64,6 +149,11 @@ function loop(timeStamp) {
 		if (keys["r"]) {
             togglePause();
             loadLevel(currentLevel);
+            return;
+		} else if (keys["m"]) {
+            togglePause();
+            levelSelect();
+            return;
 		}
 	}
     else {
@@ -74,6 +164,7 @@ function loop(timeStamp) {
     if ((keys["p"] || keys["Escape"]) && canTogglePause && !isGameOver) {
         togglePause();
     }
+    //to do cancelAnimationFrame
     requestAnimationFrame(loop);
 }
 
@@ -180,7 +271,6 @@ function moveBackground() {
 function clearCanvas() {
 	ctx.clearRect(0, 0, baseWidth, baseHeight);
 }
-
 
 document.body.addEventListener("keydown", function(event)
 {

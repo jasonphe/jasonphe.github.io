@@ -26,7 +26,9 @@ export class Player extends Collider{
             soundEffect = "badCollect2.wav";
         } else if (change < 0) {
             soundEffect = "badCollect1.wav";
-        } else if (change < 5) {
+        } else {
+            soundEffect = "collectSound.wav";
+        }/* else if (change < 5) {
             soundEffect = "collect1.wav";
         } else if (change< 10) {
             soundEffect = "collect2.wav";
@@ -34,7 +36,7 @@ export class Player extends Collider{
             soundEffect = "collect3.wav";
         } else {
             soundEffect = "collect4.wav";
-        } 
+        } */
         
         if (soundEffect !== "")
         {
