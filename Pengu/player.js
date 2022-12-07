@@ -8,6 +8,8 @@ export class Player extends Collider{
         this.speed = .3;
         this.count = 1;
         this.movementBounds = { left: 0, right: baseWidth, top: 0, bottom: baseHeight};
+        this.win = false;
+        this.lose = false;
     }
     
     applyEffect(effect) {
@@ -16,11 +18,14 @@ export class Player extends Collider{
         if (effect.type === "add") {
             change = effect.value;
             this.count += effect.value;
-        }
-        else if (effect.type === "multiply") {
+        } else if (effect.type === "multiply") {
             change = this.count * (effect.value - 1);
             this.count *= effect.value;
-        }
+        } else if (effect.type === "finish") {
+            this.win = true;
+            return;
+        } 
+        
 
         if (change< -20) {
             soundEffect = "badCollect2.wav";
@@ -43,6 +48,9 @@ export class Player extends Collider{
             audioDict[soundEffect].cloneNode(true).play();
         }
         this.onSizeChanged();
+        if (this.count < 0) {
+            this.lose = true;
+        }
     }
 
     onSizeChanged() {

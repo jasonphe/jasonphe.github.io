@@ -1,5 +1,5 @@
 import { Collider } from "./collider.js";
-import { Obstacle, Gate, GateParent } from "./obstacle.js";
+import { Obstacle, Gate, GateParent, FinishLine } from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
@@ -18,35 +18,50 @@ var canTogglePause = true;
 var backgroundSpeed = 2;
 var backgroundPos = 0;
 var obstacles = [];
-var isGameOver = false;
+var isLose = false;
+var isWin = false;
 var currentLevel = 1;
 var levelButtons = [];
 const levelsPerRow = 6;
 const levelsPerColumn = 3;
 var mousePosition = {x: 0, y: 0};
-var clickPosition = {x: 0, y: 0, clicked: false};
+var menuLoopReq;
+var gameLoopReq;
+var storedLevels = [{unlocked: true, highScore: 0}];
 
-loadAssets(levelSelect);
+loadAssets(init);
+
+function init() {
+    let storage = JSON.parse(localStorage.getItem("levels"));
+    if (!storage || storage.length === 0 || storage[0].unlocked === false) {
+        storage = storedLevels;
+    } else {
+        storedLevels = storage;
+    }
+    
+    levelSelect();
+}
 
 function levelSelect() {
     setLevelButtons();
-    menuLoop();
+    canvas.addEventListener('click', menuClick);
+    menuLoopReq = requestAnimationFrame(menuLoop);
+}
+
+function menuClick(event) {
+    for (let i = 0; i < levelButtons.length; i++) {
+        if (isHovering({x: event.offsetX, y: event.offsetY}, levelButtons[i]) && levelButtons[i].unlocked) {
+            currentLevel = i + 1;
+            cancelAnimationFrame(menuLoopReq);
+            canvas.removeEventListener('click', menuClick);
+            beginGame();
+        }
+    }
 }
 
 function menuLoop() {
-    //console.log(mousePosition.x + " " + mousePosition.y);
-    if (clickPosition.clicked === true) {
-        clickPosition.clicked = false;
-        for (let i = 0; i < levelButtons.length; i++) {
-            if (isHovering(clickPosition, levelButtons[i])) {
-                currentLevel = i + 1;
-                beginGame();
-                return;
-            }
-        };
-    }
     drawLevelSelect();
-    requestAnimationFrame(menuLoop);
+    menuLoopReq = requestAnimationFrame(menuLoop);
 }
 
 function isHovering(pos, button) {
@@ -70,8 +85,11 @@ function setLevelButtons() {
             }
             
             currX += marginSize;
+            let unlocked = storedLevels.length > levelIndex && storedLevels[levelIndex].unlocked;
+            let highScore = unlocked ? storedLevels[levelIndex].highScore : 0;
+            let levelTitle = levelsObj.levels[levelIndex].title;
             levelButtons.push({x: currX, y: currY, w: spacePerButton, h: spacePerButton, 
-                text: levelsObj.levels[levelIndex].title});            
+                text: levelTitle, unlocked: unlocked, highScore: highScore});            
             currX += spacePerButton;
             levelIndex++;
         }
@@ -81,16 +99,13 @@ function setLevelButtons() {
 canvas.addEventListener("mousemove", (event) => {
     mousePosition = {x: event.offsetX, y: event.offsetY};
 });
-canvas.addEventListener('click', (event) => {
-    clickPosition = {x: event.offsetX, y: event.offsetY, clicked: true};
-});
 
 function drawLevelSelect() {
     clearCanvas();
     levelButtons.forEach(b => {
         ctx.beginPath();
         ctx.fillStyle = "#1CE5DE";
-        ctx.strokeStyle = isHovering(mousePosition, b) ? "red" : "black";
+        ctx.strokeStyle = isHovering(mousePosition, b) && b.unlocked ? "red" : "black";
         ctx.lineWidth = 10;
         ctx.roundRect(b.x, b.y, b.w, b.h, 25);
         ctx.fill();
@@ -99,39 +114,55 @@ function drawLevelSelect() {
         ctx.beginPath();
         ctx.lineWidth = 3;
         ctx.font = "600 20pt Verdana";
-        let displayText = b.text;
+        let displayText = b.unlocked ? b.text : "LOCKED";
         ctx.textAlign="center";
         ctx.textBaseline = "middle"; 
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
-        ctx.fillText(displayText, b.x + b.w/2, b.y + b.h/2);
-        ctx.strokeText(displayText, b.x + b.w/2, b.y + b.h/2);
+        ctx.fillText(displayText, b.x + b.w/2, b.y + b.h/2 - 20);
+        ctx.strokeText(displayText, b.x + b.w/2, b.y + b.h/2 - 20);
+
+        if (b.unlocked) {
+            ctx.beginPath();
+            let scoreText = "Best: " + b.highScore;
+            ctx.textAlign="center";
+            ctx.textBaseline = "middle"; 
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            ctx.fillText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+            ctx.strokeText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+        }
     });
 }
 
 function beginGame() { 
     loadLevel(currentLevel);
-    requestAnimationFrame(loop);
+    setTimestamp(undefined);
+    gameLoopReq = requestAnimationFrame(gameLoop);
 }
 
-function loadLevel(level) {
-    isGameOver = false;
+function loadLevel(levelNum) {
+    isLose = false;
+    isWin = false;
     player = new Player();
-    let levelIndex = level - 1;
+    let levelIndex = levelNum - 1;
+    let level = levelsObj.levels[levelIndex];
     obstacles = [];
-    levelsObj.levels[levelIndex].gateParents.forEach(element => {
+    level.gateParents.forEach(element => {
         let gateParent = new GateParent(element.x, element.gates)
         obstacles = obstacles.concat(gateParent.gates);
     });
+
+    obstacles.push(new FinishLine(level.finish.x));
 }
 
-function togglePause() {
-    paused = !paused;
+function togglePause(isPause) {
+    paused = isPause;
     canTogglePause = false;
     setTimeout(()=> { canTogglePause = true; }, 300);
 }
 
-function loop(timeStamp) {
+function gameLoop(timeStamp) {
     /*if(!lastCalledTime) {
         lastCalledTime = Date.now();
         fps = 0;
@@ -140,18 +171,21 @@ function loop(timeStamp) {
      delta = (Date.now() - lastCalledTime)/1000;
      lastCalledTime = Date.now();
      fps = 1/delta;*/
-
+    if (oldTimeStamp === undefined) {
+        setTimestamp(timeStamp);
+    }
     let elapsedMS = timeStamp - oldTimeStamp;
     setTimestamp(timeStamp);
     
     if (paused) {
         displayPauseMenu();
 		if (keys["r"]) {
-            togglePause();
-            loadLevel(currentLevel);
+            togglePause(false);
+            cancelAnimationFrame(gameLoopReq);
+            beginGame(currentLevel);
             return;
 		} else if (keys["m"]) {
-            togglePause();
+            togglePause(false);
             levelSelect();
             return;
 		}
@@ -161,11 +195,11 @@ function loop(timeStamp) {
         draw();    
     }
     
-    if ((keys["p"] || keys["Escape"]) && canTogglePause && !isGameOver) {
-        togglePause();
+    if ((keys["p"] || keys["Escape"]) && canTogglePause && !isLose && !isWin) {
+        togglePause(!paused);
     }
-    //to do cancelAnimationFrame
-    requestAnimationFrame(loop);
+    
+    gameLoopReq = requestAnimationFrame(gameLoop);
 }
 
 function update(elapsedMS) {
@@ -183,8 +217,10 @@ function update(elapsedMS) {
     }
     player.handleCollision(obstacles);
 
-    if (player.count <= 0) {
-        gameOver();
+    if (player.lose) {
+        lose();
+    } else if (player.win) {
+        win();
     }
 }
 
@@ -202,7 +238,13 @@ function displayPauseMenu() {
     ctx.beginPath();
     ctx.lineWidth = 3;
     ctx.font = "600 30pt Verdana";
-    let displayText = isGameOver ? "GAME OVER!" : "PAUSED";
+
+    let displayText = "PAUSED";
+    if (isLose) {
+        displayText = "GAME OVER!";
+    } else if (isWin) {
+        displayText = "YOU WON!";
+    }
     ctx.textAlign="center";
     ctx.textBaseline = "middle"; 
     ctx.fillStyle = 'white';
@@ -218,10 +260,25 @@ function displayPauseMenu() {
     ctx.fillText("PAUSED", baseWidth/2, baseHeight/2);*/
 }
 
-function gameOver() {
+function lose() {
     setTimeout(()=> { audioDict["lose.wav"].cloneNode(true).play(); }, 500);
-    isGameOver = true;
-    togglePause();
+    isLose = true;
+    togglePause(true);
+}
+
+function win() {
+    setTimeout(()=> { audioDict["win.wav"].cloneNode(true).play(); }, 500);
+    isWin = true;
+    saveToStorage({unlocked: true, highScore: player.count});
+    togglePause(true);
+}
+
+function saveToStorage(save) {
+    for (let i = storedLevels.length; i <= currentLevel; i++) {
+        storedLevels.push({unlocked: true, highScore: 0});
+    }
+    storedLevels[currentLevel - 1] = save;
+    localStorage.setItem("levels", JSON.stringify(storedLevels));
 }
 
 function getDirection() {

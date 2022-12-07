@@ -72,6 +72,7 @@ export class Gate extends Obstacle {
         ctx.lineTo(this.x + this.w, this.y + this.h);
         ctx.stroke();
 
+        ctx.font = "700 20pt Verdana"
         ctx.fillStyle = "yellow";
         ctx.textAlign="center";
         ctx.textBaseline = "middle";
@@ -127,5 +128,34 @@ export class GateParent {
         this.gates.forEach(element => {
             element.enabled = isEnabled;
         });
+    }
+}
+
+export class FinishLine extends Obstacle {
+    constructor(x) {
+        super(x, 0, 30, baseHeight);
+    }
+
+    draw() {
+        ctx.lineWidth = "4";
+        let gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y);
+        gradient.addColorStop(0, "#ADD8E6");
+        gradient.addColorStop(1, "green");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+
+        ctx.beginPath();
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = "6";
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.w, this.y);
+        ctx.stroke();
+        ctx.moveTo(this.x, this.y + this.h);
+        ctx.lineTo(this.x + this.w, this.y + this.h);
+        ctx.stroke();
+    }
+
+    trigger() {
+        return { value: 0, type: "finish" };
     }
 }
