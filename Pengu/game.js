@@ -161,6 +161,7 @@ function loadLevel(levelNum) {
 
 function touchHandler(e) {
     if (e.touches) {
+        alert("Touch handler");
         touchPosition.x = e.touches[0].pageX;
         touchPosition.y = e.touches[0].pageY;
         touchPosition.touch = true;
@@ -321,6 +322,7 @@ function getDirection() {
 
     if (isTouch && touchPosition.touch && 
         Object.values(direction).every(value => value === false)) {
+            alert("direction set");
         direction.up = touchPosition.y < player.y;
         direction.down = touchPosition.y > player.y + player.h;
         direction.left = touchPosition.x < player.x;
