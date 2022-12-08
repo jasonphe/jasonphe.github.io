@@ -29,7 +29,7 @@ var touchPosition = {x: 0, y: 0, touch: false};
 var menuLoopReq;
 var gameLoopReq;
 var storedLevels = [{unlocked: true, highScore: 0}];
-var isTouch = isTouchDevice();
+var isTouch = true;//isTouchDevice();
 
 loadAssets(init);
 
@@ -140,6 +140,7 @@ function drawLevelSelect() {
 function beginGame() { 
     loadLevel(currentLevel);
     setTimestamp(undefined);
+    addEventListener("blur", onBlur);
     gameLoopReq = requestAnimationFrame(gameLoop);
 }
 
@@ -169,6 +170,7 @@ function touchHandler(e) {
 }
 
 function togglePause(isPause) {
+    setTimestamp(undefined);
     paused = isPause;
     canTogglePause = false;
     setTimeout(()=> { canTogglePause = true; }, 300);
@@ -194,10 +196,12 @@ function gameLoop(timeStamp) {
 		if (keys["r"]) {
             togglePause(false);
             cancelAnimationFrame(gameLoopReq);
+            endGame();
             beginGame(currentLevel);
             return;
 		} else if (keys["m"]) {
             togglePause(false);
+            endGame()
             levelSelect();
             return;
 		}
@@ -212,6 +216,14 @@ function gameLoop(timeStamp) {
     }
     
     gameLoopReq = requestAnimationFrame(gameLoop);
+}
+
+function onBlur() { 
+    togglePause(true);
+}
+
+function endGame() {
+    removeEventListener("blur", onBlur);
 }
 
 function update(elapsedMS) {
@@ -362,23 +374,9 @@ document.addEventListener("keyup", function(event)
 	keys[event.key] = false;
 });
 
-document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      toggleFullScreen();
-    }
-  }, false);
-
 if (isTouch) {
     document.addEventListener("touchstart", touchHandler);
     document.addEventListener("touchmove", touchHandler);
-}
-
-function toggleFullScreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else if (document.exitFullscreen) {
-        document.exitFullscreen();
-    }
 }
 
 function isTouchDevice() {
