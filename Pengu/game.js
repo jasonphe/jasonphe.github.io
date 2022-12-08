@@ -25,11 +25,10 @@ var levelButtons = [];
 const levelsPerRow = 6;
 const levelsPerColumn = 3;
 var mousePosition = {x: 0, y: 0};
-var touchPosition = {x: 0, y: 0, touch: false};
 var menuLoopReq;
 var gameLoopReq;
 var storedLevels = [{unlocked: true, highScore: 0}];
-var isTouch = true;//isTouchDevice();
+//var isTouch = true;//isTouchDevice();
 
 loadAssets(init);
 
@@ -158,7 +157,7 @@ function loadLevel(levelNum) {
 
     obstacles.push(new FinishLine(level.finish.x));
 }
-
+/*
 function touchHandler(e) {
     if (e.touches) {
         touchPosition.x = e.touches[0].pageX;
@@ -167,7 +166,7 @@ function touchHandler(e) {
     } else {
         touchPosition.touch = false;
     }
-}
+}*/
 
 function togglePause(isPause) {
     setTimestamp(undefined);
@@ -317,14 +316,14 @@ function getDirection() {
         left: cb(keys["ArrowLeft"] || keys["a"]),
         right: cb(keys["ArrowRight"] || keys["d"])
     };
-
+    /*
     if (isTouch && touchPosition.touch && 
         Object.values(direction).every(value => value === false)) {
         direction.up = touchPosition.y < player.y;
         direction.down = touchPosition.y > player.y + player.h;
         direction.left = touchPosition.x < player.x;
         direction.right = touchPosition.x > player.x + player.w;
-    }
+    }*/
 
     return direction;
 }
@@ -372,7 +371,7 @@ document.addEventListener("keyup", function(event)
 {
 	keys[event.key] = false;
 });
-
+/*
 if (isTouch) {
     document.addEventListener("touchstart", touchHandler);
     document.addEventListener("touchmove", touchHandler);
@@ -382,4 +381,4 @@ function isTouchDevice() {
     return (('ontouchstart' in window) ||
         (navigator.maxTouchPoints > 0) ||
         (navigator.msMaxTouchPoints > 0));
-}
+}*/
