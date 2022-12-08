@@ -160,11 +160,13 @@ function loadLevel(levelNum) {
 }
 
 function touchHandler(e) {
+    
+    alert("Touch handler");
     if (e.touches) {
-        alert("Touch handler");
         touchPosition.x = e.touches[0].pageX;
         touchPosition.y = e.touches[0].pageY;
         touchPosition.touch = true;
+        e.preventDefault();
     } else {
         touchPosition.touch = false;
     }
