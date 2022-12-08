@@ -160,13 +160,10 @@ function loadLevel(levelNum) {
 }
 
 function touchHandler(e) {
-    
-    alert("Touch handler");
     if (e.touches) {
         touchPosition.x = e.touches[0].pageX;
         touchPosition.y = e.touches[0].pageY;
         touchPosition.touch = true;
-        e.preventDefault();
     } else {
         touchPosition.touch = false;
     }
@@ -188,7 +185,7 @@ function gameLoop(timeStamp) {
      delta = (Date.now() - lastCalledTime)/1000;
      lastCalledTime = Date.now();
      fps = 1/delta;*/
-    if (oldTimeStamp === undefined) {
+    if (oldTimeStamp == null) {
         setTimestamp(timeStamp);
     }
     let elapsedMS = timeStamp - oldTimeStamp;
@@ -311,20 +308,18 @@ function saveToStorage(save) {
 }
 
 function getDirection() {
-    let direction = {
-        up: false,
-        down: false,
-        left: false,
-        right: false
+    let cb = function (obj){
+         return obj == null ? false : obj;
     };
-    direction.up = keys["ArrowUp"] || keys["w"];
-    direction.down = keys["ArrowDown"] || keys["s"];
-    direction.left = keys["ArrowLeft"] || keys["a"];
-    direction.right = keys["ArrowRight"] || keys["d"];
+    let direction = {
+        up: cb(keys["ArrowUp"] || keys["w"]),
+        down: cb(keys["ArrowDown"] || keys["s"]),
+        left: cb(keys["ArrowLeft"] || keys["a"]),
+        right: cb(keys["ArrowRight"] || keys["d"])
+    };
 
     if (isTouch && touchPosition.touch && 
         Object.values(direction).every(value => value === false)) {
-            alert("direction set");
         direction.up = touchPosition.y < player.y;
         direction.down = touchPosition.y > player.y + player.h;
         direction.left = touchPosition.x < player.x;
