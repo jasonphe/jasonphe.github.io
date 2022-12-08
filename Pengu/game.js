@@ -25,9 +25,11 @@ var levelButtons = [];
 const levelsPerRow = 6;
 const levelsPerColumn = 3;
 var mousePosition = {x: 0, y: 0};
+var touchPosition = {x: 0, y: 0, touch: false};
 var menuLoopReq;
 var gameLoopReq;
 var storedLevels = [{unlocked: true, highScore: 0}];
+var isTouch = isTouchDevice();
 
 loadAssets(init);
 
@@ -156,6 +158,16 @@ function loadLevel(levelNum) {
     obstacles.push(new FinishLine(level.finish.x));
 }
 
+function touchHandler(e) {
+    if (e.touches) {
+        touchPosition.x = e.touches[0].pageX;
+        touchPosition.y = e.touches[0].pageY;
+        touchPosition.touch = true;
+    } else {
+        touchPosition.touch = false;
+    }
+}
+
 function togglePause(isPause) {
     paused = isPause;
     canTogglePause = false;
@@ -277,13 +289,15 @@ function saveToStorage(save) {
     for (let i = storedLevels.length; i <= currentLevel; i++) {
         storedLevels.push({unlocked: true, highScore: 0});
     }
-    storedLevels[currentLevel - 1] = save;
+    if (save.highScore > storedLevels[currentLevel - 1].highScore) {
+        storedLevels[currentLevel - 1] = save;
+    }
     localStorage.setItem("levels", JSON.stringify(storedLevels));
 }
 
 function getDirection() {
     let direction = {
-        up : false,
+        up: false,
         down: false,
         left: false,
         right: false
@@ -292,6 +306,15 @@ function getDirection() {
     direction.down = keys["ArrowDown"] || keys["s"];
     direction.left = keys["ArrowLeft"] || keys["a"];
     direction.right = keys["ArrowRight"] || keys["d"];
+
+    if (isTouch && touchPosition.touch && 
+        Object.values(direction).every(value => value === false)) {
+        direction.up = touchPosition.y < player.y;
+        direction.down = touchPosition.y > player.y + player.h;
+        direction.left = touchPosition.x < player.x;
+        direction.right = touchPosition.x > player.x + player.w;
+    }
+
     return direction;
 }
 
@@ -329,12 +352,12 @@ function clearCanvas() {
 	ctx.clearRect(0, 0, baseWidth, baseHeight);
 }
 
-document.body.addEventListener("keydown", function(event)
+document.addEventListener("keydown", function(event)
 {
 	keys[event.key] = true;
 });
 
-document.body.addEventListener("keyup", function(event)
+document.addEventListener("keyup", function(event)
 {
 	keys[event.key] = false;
 });
@@ -345,11 +368,21 @@ document.addEventListener("keydown", (e) => {
     }
   }, false);
 
+if (isTouch) {
+    document.addEventListener("touchstart", touchHandler);
+    document.addEventListener("touchmove", touchHandler);
+}
+
 function toggleFullScreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+        document.documentElement.requestFullscreen();
     } else if (document.exitFullscreen) {
-      document.exitFullscreen();
+        document.exitFullscreen();
     }
-  }
+}
 
+function isTouchDevice() {
+    return (('ontouchstart' in window) ||
+        (navigator.maxTouchPoints > 0) ||
+        (navigator.msMaxTouchPoints > 0));
+}

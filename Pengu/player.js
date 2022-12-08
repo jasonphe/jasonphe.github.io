@@ -99,7 +99,7 @@ export class Player extends Collider{
     {
         let speed = this.speed * elapsedMS;
         if (direction.up != direction.down && direction.left != direction.right) {
-            speed *= .5;
+            speed *= .6;
         }
         if (direction.up && !direction.down) {
             this.y -= Math.min(this.y, speed);
