@@ -169,10 +169,15 @@ function touchHandler(e) {
 }*/
 
 function togglePause(isPause) {
-    setTimestamp(undefined);
-    paused = isPause;
+    if (isPause) {
+        requestAnimationFrame(pauseLoop);
+    } else {
+        setTimestamp(undefined);
+    }
+    
     canTogglePause = false;
     setTimeout(()=> { canTogglePause = true; }, 300);
+    paused = isPause;
 }
 
 function gameLoop(timeStamp) {
@@ -184,36 +189,16 @@ function gameLoop(timeStamp) {
      delta = (Date.now() - lastCalledTime)/1000;
      lastCalledTime = Date.now();
      fps = 1/delta;*/
-    if (oldTimeStamp == null) {
+     
+    if (!paused) {
+        if (oldTimeStamp == null) {
+            setTimestamp(timeStamp);
+        }
+        let elapsedMS = timeStamp - oldTimeStamp;
         setTimestamp(timeStamp);
-    }
-    let elapsedMS = timeStamp - oldTimeStamp;
-    setTimestamp(timeStamp);
-    
-    if (paused) {
-        displayPauseMenu();
-		if (keys["r"]) {
-            togglePause(false);
-            cancelAnimationFrame(gameLoopReq);
-            endGame();
-            beginGame(currentLevel);
-            return;
-		} else if (keys["m"]) {
-            togglePause(false);
-            endGame()
-            levelSelect();
-            return;
-		}
-	}
-    else {
         update(elapsedMS);
-        draw();    
+        draw();        
     }
-    
-    if ((keys["p"] || keys["Escape"]) && canTogglePause && !isLose && !isWin) {
-        togglePause(!paused);
-    }
-    
     gameLoopReq = requestAnimationFrame(gameLoop);
 }
 
@@ -226,6 +211,10 @@ function endGame() {
 }
 
 function update(elapsedMS) {
+    if ((keys["p"] || keys["Escape"]) && canTogglePause) {//) {
+        togglePause(true);
+    }
+
     player.move(getDirection(), elapsedMS);
     moveBackground() ;
     for (let i = 0; i < obstacles.length; i++) {
@@ -245,6 +234,28 @@ function update(elapsedMS) {
     } else if (player.win) {
         win();
     }
+}
+
+function pauseLoop() {
+    if ((keys["p"] || keys["Escape"]) && canTogglePause && !isLose && !isWin) {
+        togglePause(false);
+        return;
+    }
+    if (keys["r"]) {
+        cancelAnimationFrame(gameLoopReq);
+        togglePause(false);
+        endGame();
+        beginGame(currentLevel);
+        return;
+    } else if (keys["m"]) {
+        cancelAnimationFrame(gameLoopReq);
+        togglePause(false);
+        endGame()
+        levelSelect();
+        return;
+    }
+    displayPauseMenu();
+    requestAnimationFrame(pauseLoop);
 }
 
 function displayPauseMenu() {
