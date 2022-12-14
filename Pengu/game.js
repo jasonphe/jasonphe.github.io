@@ -25,8 +25,11 @@ var levelButtons = [];
 const levelsPerRow = 6;
 const levelsPerColumn = 3;
 var mousePosition = {x: 0, y: 0};
+var scene;
 var menuLoopReq;
 var gameLoopReq;
+
+var menuDimensions = { width: 300, height: 500};
 var storedLevels = [{unlocked: true, highScore: 0}];
 //var isTouch = true;//isTouchDevice();
 
@@ -45,22 +48,22 @@ function init() {
 
 function levelSelect() {
     setLevelButtons();
-    canvas.addEventListener('click', menuClick);
-    menuLoopReq = requestAnimationFrame(menuLoop);
+    switchScene("levelSelect");
 }
 
 function menuClick(event) {
     for (let i = 0; i < levelButtons.length; i++) {
         if (isHovering({x: event.offsetX, y: event.offsetY}, levelButtons[i]) && levelButtons[i].unlocked) {
             currentLevel = i + 1;
-            cancelAnimationFrame(menuLoopReq);
-            canvas.removeEventListener('click', menuClick);
             beginGame();
         }
     }
 }
 
 function menuLoop() {
+    if (scene != "levelSelect") {
+        return;
+    }
     drawLevelSelect();
     menuLoopReq = requestAnimationFrame(menuLoop);
 }
@@ -138,9 +141,60 @@ function drawLevelSelect() {
 
 function beginGame() { 
     loadLevel(currentLevel);
-    setTimestamp(undefined);
-    addEventListener("blur", onBlur);
-    gameLoopReq = requestAnimationFrame(gameLoop);
+    switchScene("game");
+}
+
+function switchScene(newScene) {
+    if (scene === newScene) {
+        return;
+    }
+
+    switch (scene) {
+        case "levelSelect": {
+            cancelAnimationFrame(menuLoopReq);
+            canvas.removeEventListener('click', menuClick);
+            break;
+        }
+        case "game": {
+            removeEventListener("blur", onBlur);
+            break;
+        }
+        case "pause": {
+            canvas.removeEventListener('click', pauseMenuClick);
+            break;
+        }
+    }
+
+    switch (newScene) {
+        case "levelSelect": {
+            scene = "levelSelect";
+            canvas.addEventListener('click', menuClick);
+            menuLoopReq = requestAnimationFrame(menuLoop);
+            break;
+        }
+        case "game": {
+            scene = "game";
+            setTimestamp(undefined);
+            addEventListener("blur", onBlur);
+            gameLoopReq = requestAnimationFrame(gameLoop);
+            break;
+        }
+        case "pause": {
+            scene = "pause";
+            setPauseButtons();
+            canvas.addEventListener('click', pauseMenuClick);
+            requestAnimationFrame(pauseLoop);
+            break;
+        }
+    }
+}
+
+function pauseMenuClick(event) {
+    for (let i = 0; i < pauseButtons.length; i++) {
+        if (isHovering({x: event.offsetX, y: event.offsetY}, pauseButtons[i])) {
+            pauseButtons[i].callback();
+        }
+    }
 }
 
 function loadLevel(levelNum) {
@@ -168,11 +222,11 @@ function touchHandler(e) {
     }
 }*/
 
-function togglePause(isPause) {
-    if (isPause) {
-        requestAnimationFrame(pauseLoop);
-    } else {
-        setTimestamp(undefined);
+function togglePause(isPause, resume=false) {
+    if (isPause && !paused) {
+        switchScene("pause");
+    } else if (resume) {
+        switchScene("game");
     }
     
     canTogglePause = false;
@@ -189,16 +243,17 @@ function gameLoop(timeStamp) {
      delta = (Date.now() - lastCalledTime)/1000;
      lastCalledTime = Date.now();
      fps = 1/delta;*/
-     
-    if (!paused) {
-        if (oldTimeStamp == null) {
-            setTimestamp(timeStamp);
-        }
-        let elapsedMS = timeStamp - oldTimeStamp;
-        setTimestamp(timeStamp);
-        update(elapsedMS);
-        draw();        
+    if (scene !== "game") {
+        return;
     }
+
+    if (oldTimeStamp == null) {
+        setTimestamp(timeStamp);
+    }
+    let elapsedMS = timeStamp - oldTimeStamp;
+    setTimestamp(timeStamp);
+    update(elapsedMS);
+    draw();
     gameLoopReq = requestAnimationFrame(gameLoop);
 }
 
@@ -237,37 +292,79 @@ function update(elapsedMS) {
 }
 
 function pauseLoop() {
+    if (scene !== "pause") {
+        return;
+    }
+
     if ((keys["p"] || keys["Escape"]) && canTogglePause && !isLose && !isWin) {
-        togglePause(false);
+        togglePause(false, true);
         return;
     }
     if (keys["r"]) {
-        cancelAnimationFrame(gameLoopReq);
-        togglePause(false);
-        endGame();
-        beginGame(currentLevel);
+        pauseMenuRestart();
         return;
     } else if (keys["m"]) {
-        cancelAnimationFrame(gameLoopReq);
-        togglePause(false);
-        endGame()
-        levelSelect();
+        pauseMenuLevelSelect();
         return;
     }
     displayPauseMenu();
     requestAnimationFrame(pauseLoop);
 }
 
-function displayPauseMenu() {
-    let menuDimensions = { width: 400, height: 600};
+function pauseMenuRestart() {
+    togglePause(false);
+    endGame();
+    beginGame(currentLevel);
+}
+
+function pauseMenuLevelSelect() {
+    togglePause(false);
+    endGame();
+    levelSelect();
+}
+
+var pauseButtons = [];
+function setPauseButtons() {
+    pauseButtons = [];
     
+    let buttonWidth = menuDimensions.width * .8;
+    let buttonHeight = menuDimensions.height / 6;
+    let currX = baseWidth/2 - buttonWidth/2;
+    let marginSize = 30;
+    let currY = baseHeight/2 - menuDimensions.height/2 + 130;
+    if (isWin) {
+        if (currentLevel < levelsObj.levels.length) {
+            pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
+                text: "Next Level", callback: function() {
+                    currentLevel++;
+                    pauseMenuRestart();
+                }});
+            currY += buttonHeight + marginSize;
+        }
+    } else if (!isLose) {
+        pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
+            text: "Resume", callback: function() {
+                togglePause(false, true); 
+            }});
+        currY += buttonHeight + marginSize;
+    }
+
+    pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
+        text: "Restart", callback: pauseMenuRestart});
+    currY += buttonHeight + marginSize;
+    pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
+        text: "Level Select", callback: pauseMenuLevelSelect});
+}
+
+function displayPauseMenu() {
     ctx.beginPath();
-    ctx.fillStyle = "#1CE5DE";
+    ctx.fillStyle = "#198bb8";
     ctx.strokeStyle = "black";
     ctx.lineWidth = 10;
     ctx.roundRect(baseWidth/2 - menuDimensions.width/2, baseHeight/2 - menuDimensions.height/2, menuDimensions.width, menuDimensions.height, 25);
     ctx.fill();
     ctx.stroke();
+    let margin = 50;
 
     ctx.beginPath();
     ctx.lineWidth = 3;
@@ -283,15 +380,33 @@ function displayPauseMenu() {
     ctx.textBaseline = "middle"; 
     ctx.fillStyle = 'white';
     ctx.strokeStyle = 'black';
-    ctx.fillText(displayText, baseWidth/2, baseHeight/2);
-    ctx.strokeText(displayText, baseWidth/2, baseHeight/2);
-    //ctx.fill();
-    //ctx.stroke();
+    ctx.fillText(displayText, baseWidth/2, baseHeight/2 - menuDimensions.height/2 + margin);
+    ctx.strokeText(displayText, baseWidth/2, baseHeight/2 - menuDimensions.height/2 + margin);
 
-    /*ctx.fillStyle = "orange";
-    ctx.textAlign="center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("PAUSED", baseWidth/2, baseHeight/2);*/
+    displayText = "Level " + currentLevel;
+    ctx.fillText(displayText, baseWidth/2, baseHeight/2 - menuDimensions.height/2 + margin * 2);
+    ctx.strokeText(displayText, baseWidth/2, baseHeight/2 - menuDimensions.height/2 + margin * 2);
+
+    pauseButtons.forEach(b => {
+        ctx.beginPath();
+        ctx.fillStyle = "#1CE5DE";
+        ctx.strokeStyle = isHovering(mousePosition, b) ? "red" : "black";
+        ctx.lineWidth = 10;
+        ctx.roundRect(b.x, b.y, b.w, b.h, 25);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.font = "600 20pt Verdana";
+        let displayText = b.text;
+        ctx.textAlign="center";
+        ctx.textBaseline = "middle"; 
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.fillText(displayText, b.x + b.w/2, b.y + b.h/2);
+        ctx.strokeText(displayText, b.x + b.w/2, b.y + b.h/2);
+    });
 }
 
 function lose() {
