@@ -4,7 +4,7 @@
             "title": 1,
             "gateParents": [
                 {
-                    "x" : 500, 
+                    "x" : 800, 
                     "gates": [
                         {
                             "heightRatio": 0.25, 
@@ -29,7 +29,7 @@
                     ]
                 },
                 {
-                    "x" : 1000, 
+                    "x" : 1200, 
                     "gates": [
                         {
                             "heightRatio": 0.25, 
@@ -105,39 +105,34 @@
                 }
             ],
             "finish": {
-                "x": 3400
+                "x": 4000
             }
         },
         {
             "title": 2,
             "gateParents": [
                 {
-                    "x" : 500, 
+                    "x" : 700, 
                     "gates": [
                         {
-                            "heightRatio": 0.25, 
-                            "value": 20, 
-                            "type": "add"
-                        },
-                        {
-                            "heightRatio": 0.25, 
-                            "value": -10, 
-                            "type": "add"
-                        },
-                        {
                             "heightRatio": 0.15, 
-                            "value": 2, 
-                            "type": "multiply"
+                            "value": 40, 
+                            "type": "add"
                         },
                         {
                             "heightRatio": 0.35, 
-                            "value": 5, 
+                            "value": -20, 
                             "type": "add"
+                        },
+                        {
+                            "heightRatio": 0.5, 
+                            "value": 3, 
+                            "type": "multiply"
                         }
                     ]
                 },
                 {
-                    "x" : 1000, 
+                    "x" : 1500, 
                     "gates": [
                         {
                             "heightRatio": 0.25, 
@@ -157,7 +152,7 @@
                     ]
                 },
                 {
-                    "x" : 1700, 
+                    "x" : 2200, 
                     "gates": [
                         {
                             "heightRatio": 0.25, 
@@ -177,7 +172,7 @@
                     ]
                 },
                 {
-                    "x" : 2500, 
+                    "x" : 2800, 
                     "gates": [
                         {
                             "heightRatio": 0.75, 
@@ -192,7 +187,7 @@
                     ]
                 },
                 {
-                    "x" : 3000, 
+                    "x" : 3500, 
                     "gates": [
                         {
                             "heightRatio": 0.1, 
@@ -213,43 +208,33 @@
                 }
             ],
             "finish": {
-                "x": 3400
+                "x": 4500
             }
         },
         {
             "title": 3,
             "gateParents": [
                 {
-                    "x" : 500, 
+                    "x" : 800, 
                     "gates": [
                         {
-                            "heightRatio": 0.25, 
-                            "value": 20, 
+                            "heightRatio": 0.75, 
+                            "value": 1, 
                             "type": "add"
                         },
                         {
                             "heightRatio": 0.25, 
-                            "value": -10, 
-                            "type": "add"
-                        },
-                        {
-                            "heightRatio": 0.15, 
-                            "value": 2, 
-                            "type": "multiply"
-                        },
-                        {
-                            "heightRatio": 0.35, 
-                            "value": 5, 
+                            "value": 10, 
                             "type": "add"
                         }
                     ]
                 },
                 {
-                    "x" : 1000, 
+                    "x" : 1100, 
                     "gates": [
                         {
                             "heightRatio": 0.25, 
-                            "value": 10, 
+                            "value": 25, 
                             "type": "add"
                         },
                         {
@@ -268,14 +253,9 @@
                     "x" : 1700, 
                     "gates": [
                         {
-                            "heightRatio": 0.25, 
-                            "value": 10, 
-                            "type": "add"
-                        },
-                        {
-                            "heightRatio": 0.25, 
-                            "value": -10, 
-                            "type": "add"
+                            "heightRatio": 0.5, 
+                            "value": 3, 
+                            "type": "multiply"
                         },
                         {
                             "heightRatio": 0.5, 
@@ -285,7 +265,7 @@
                     ]
                 },
                 {
-                    "x" : 2500, 
+                    "x" : 1900, 
                     "gates": [
                         {
                             "heightRatio": 0.75, 

@@ -109,7 +109,8 @@ export class GateParent {
         this.x = x;
         this.y = 0;
         this.gates = [];
-        shuffle(coords).forEach(props => {
+        //shuffle(coords)
+        coords.forEach(props => {
             this.addGate(props);
         });
     }

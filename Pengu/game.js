@@ -15,7 +15,6 @@ var lastCalledTime;
 var fps;
 var paused = false;
 var canTogglePause = true;
-var backgroundSpeed = 2;
 var backgroundPos = 0;
 var obstacles = [];
 var isLose = false;
@@ -201,6 +200,8 @@ function loadLevel(levelNum) {
     isLose = false;
     isWin = false;
     player = new Player();
+    backgroundPos = 0;
+    Obstacle.speedX = .1;
     let levelIndex = levelNum - 1;
     let level = levelsObj.levels[levelIndex];
     obstacles = [];
@@ -481,7 +482,7 @@ function drawBackground() {
 }
 
 function moveBackground() {
-    backgroundPos += backgroundSpeed;
+    backgroundPos += Obstacle.speedX * .8;
 }
 
 function clearCanvas() {

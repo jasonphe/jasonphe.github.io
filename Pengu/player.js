@@ -1,5 +1,6 @@
 import { Collider } from "./collider.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
+import { Obstacle } from "./obstacle.js";
 
 export class Player extends Collider{
     static minSize = 40;
@@ -33,21 +34,14 @@ export class Player extends Collider{
             soundEffect = "badCollect1.wav";
         } else {
             soundEffect = "collectSound.wav";
-        }/* else if (change < 5) {
-            soundEffect = "collect1.wav";
-        } else if (change< 10) {
-            soundEffect = "collect2.wav";
-        } else if (change < 20) {
-            soundEffect = "collect3.wav";
-        } else {
-            soundEffect = "collect4.wav";
-        } */
+        }
         
         if (soundEffect !== "")
         {
             audioDict[soundEffect].cloneNode(true).play();
         }
         this.onSizeChanged();
+        Obstacle.speedX = Math.max(.1, .1 + this.count * .0025);
         if (this.count < 0) {
             this.lose = true;
         }
