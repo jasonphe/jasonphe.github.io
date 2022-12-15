@@ -1,5 +1,5 @@
 import { Collider } from "./collider.js";
-import { Obstacle, Gate, GateParent, FinishLine } from "./obstacle.js";
+import { Obstacle, Gate, GateParent, FinishLine, Spike } from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
@@ -201,7 +201,7 @@ function loadLevel(levelNum) {
     isWin = false;
     player = new Player();
     backgroundPos = 0;
-    Obstacle.speedX = .1;
+    Obstacle.speedX = .2;
     let levelIndex = levelNum - 1;
     let level = levelsObj.levels[levelIndex];
     obstacles = [];
@@ -209,6 +209,12 @@ function loadLevel(levelNum) {
         let gateParent = new GateParent(element.x, element.gates)
         obstacles = obstacles.concat(gateParent.gates);
     });
+    if (level.spikes) {
+        level.spikes.forEach(element => {
+            let spike = new Spike(element.x, element.yRatio, element.w, element.heightRatio);
+            obstacles.push(spike);
+        }); 
+    }
 
     obstacles.push(new FinishLine(level.finish.x));
 }

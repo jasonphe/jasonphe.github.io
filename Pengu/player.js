@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
-import { Obstacle } from "./obstacle.js";
+import { Obstacle, Gate, Spike } from "./obstacle.js";
 
 export class Player extends Collider{
     static minSize = 40;
@@ -11,6 +11,8 @@ export class Player extends Collider{
         this.movementBounds = { left: 0, right: baseWidth, top: 0, bottom: baseHeight};
         this.win = false;
         this.lose = false;
+        this.invincibleTime = 0;
+        this.collectionText = [];
     }
     
     applyEffect(effect) {
@@ -19,6 +21,10 @@ export class Player extends Collider{
         if (effect.type === "add") {
             change = effect.value;
             this.count += effect.value;
+        } else if (effect.type === "spike" && this.invincibleTime <= 0) {
+            change = effect.value;
+            this.count += effect.value;
+            this.invincibleTime = 500;
         } else if (effect.type === "multiply") {
             change = this.count * (effect.value - 1);
             this.count *= effect.value;
@@ -26,14 +32,23 @@ export class Player extends Collider{
             this.win = true;
             return;
         } 
-        
 
-        if (change< -20) {
-            soundEffect = "badCollect2.wav";
-        } else if (change < 0) {
-            soundEffect = "badCollect1.wav";
+        if (change === 0) {
+            soundEffect = "";
         } else {
-            soundEffect = "collectSound.wav";
+            if (this.y > baseHeight/2) {
+                this.collectionText.push(new CollectionText(this.x + this.w/2, this.y - 5, num.toString(), "up"));
+            } else {
+                this.collectionText.push(new CollectionText(this.x + this.w/2, this.y + this.h + 5, num.toString(), "down"));
+            }
+
+            if (change< -20) {
+                soundEffect = "badCollect2.wav";
+            } else if (change < 0) {
+                soundEffect = "badCollect1.wav";
+            } else {
+                soundEffect = "collectSound.wav";
+            }
         }
         
         if (soundEffect !== "")
@@ -41,7 +56,6 @@ export class Player extends Collider{
             audioDict[soundEffect].cloneNode(true).play();
         }
         this.onSizeChanged();
-        Obstacle.speedX = Math.max(.1, .1 + this.count * .0025);
         if (this.count < 0) {
             this.lose = true;
         }
@@ -62,9 +76,23 @@ export class Player extends Collider{
 
     handleCollision(obstacles) {
         obstacles.forEach(obstacle => {
-			if (obstacle.enabled && this.collidesWith(obstacle) && this.collidesWithMiddle(obstacle))
+			if (obstacle.enabled && this.collidesWith(obstacle))
             {
-                this.applyEffect(obstacle.trigger());
+                let trigger = false;
+                if (obstacle instanceof Gate) {
+                    if (this.collidesWithMiddle(obstacle)) {
+                        trigger = true;
+                    }
+                } else if (obstacle instanceof Spike) {
+                    if (this.collidesWithCircle(obstacle)) {
+                        trigger = true;
+                    }
+                } else {
+                    trigger = true;
+                }
+                if (trigger) {
+                    this.applyEffect(obstacle.trigger());
+                }
             }
 		});
     }
@@ -91,6 +119,9 @@ export class Player extends Collider{
 
     move(direction, elapsedMS)
     {
+        if (this.invincibleTime > 0) {
+            this.invincibleTime -= elapsedMS;
+        }
         let speed = this.speed * elapsedMS;
         if (direction.up != direction.down && direction.left != direction.right) {
             speed *= .6;
@@ -107,5 +138,10 @@ export class Player extends Collider{
         if (!direction.left && direction.right) {
             this.x += Math.min(this.movementBounds.right - this.x - this.w, speed);
         }
+    }
+}
+
+export class CollectionText { 
+    constructor(x, y, text) {
     }
 }

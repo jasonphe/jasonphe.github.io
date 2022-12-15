@@ -104,6 +104,10 @@
                     ]
                 }
             ],
+            "spikes": [
+                { "x": 1400, "w": 200, "yRatio": 0.1, "heightRatio": 0.3},
+                { "x": 1400, "w": 200, "yRatio": 0.7, "heightRatio": 0.3}
+            ],
             "finish": {
                 "x": 4000
             }

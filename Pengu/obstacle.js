@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { shuffle } from "./util.js";
-import { canvas, ctx, baseWidth, baseHeight, oldTimeStamp, audioDict } from "./globals.js";
+import { canvas, ctx, baseWidth, baseHeight, oldTimeStamp, audioDict, imgDict } from "./globals.js";
 
 export class Obstacle extends Collider {
     constructor(x, y, w, h) {
@@ -158,5 +158,44 @@ export class FinishLine extends Obstacle {
 
     trigger() {
         return { value: 0, type: "finish" };
+    }
+}
+
+export class Spike extends Obstacle {
+    constructor(x, yRatio, w, hRatio) {
+        super(x, yRatio * baseHeight, w, hRatio * baseHeight);
+        this.origY = yRatio * baseHeight;
+        this.dirY = "up";
+        this.moveCD = Spike.baseMoveCD;
+    }
+
+    static baseMoveCD = 50;
+
+    draw() {
+        //let startX = Math.floor(oldTimeStamp/200) % 5;
+        let image = imgDict["spike"];
+        ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
+        ctx.beginPath();
+        ctx.strokeStyle = "black";
+        ctx.strokeRect(this.x, this.y, this.w, this.h)
+    }
+
+    move(elapsedMS) {
+        super.move(elapsedMS);
+        this.moveCD -= elapsedMS;
+        if (this.moveCD > 0)  
+            return;
+
+        this.y += this.dirY == "up" ? -.5 : .5;
+        if (this.origY - this.y >= 20) {
+            this.dirY = "down";
+        } else if (this.origY - this.y <= 0) {
+            this.dirY = "up";
+        }
+        this.moveCD = Spike.baseMoveCD;
+    }
+
+    trigger() {
+        return { value: -5, type: "spike" };
     }
 }
