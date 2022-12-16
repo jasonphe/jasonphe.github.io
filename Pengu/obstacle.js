@@ -175,9 +175,9 @@ export class Spike extends Obstacle {
         //let startX = Math.floor(oldTimeStamp/200) % 5;
         let image = imgDict["spike"];
         ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
-        ctx.beginPath();
+        /*ctx.beginPath();
         ctx.strokeStyle = "black";
-        ctx.strokeRect(this.x, this.y, this.w, this.h)
+        ctx.strokeRect(this.x, this.y, this.w, this.h);*/
     }
 
     move(elapsedMS) {
