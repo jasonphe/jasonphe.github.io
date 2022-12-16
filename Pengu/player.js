@@ -33,16 +33,18 @@ export class Player extends Collider{
             return;
         } 
 
+
         if (change === 0) {
             soundEffect = "";
         } else {
-            if (this.y > baseHeight/2) {
-                this.collectionText.push(new CollectionText(this.x + this.w/2, this.y - 5, num.toString(), "up"));
-            } else {
-                this.collectionText.push(new CollectionText(this.x + this.w/2, this.y + this.h + 5, num.toString(), "down"));
-            }
+            let changeString = change > 0 ? "+" + change : change.toString();
+            let colors = change > 0 ? ['green', 'blue'] : ['red', 'yellow'];
+            let direction = change > 0 ? "up" : "down";
+            let collectY = this.y > baseHeight/2 ? this.y - 5 : this.y + this.h + 5;
+            let fontSize = 12 + Math.abs(change);
+            this.collectionText.push(new CollectionText(this.x + this.w/2, collectY, changeString, colors, direction, fontSize));
 
-            if (change< -20) {
+            if (change < -20) {
                 soundEffect = "badCollect2.wav";
             } else if (change < 0) {
                 soundEffect = "badCollect1.wav";
@@ -98,27 +100,26 @@ export class Player extends Collider{
     }
 
 	draw() {	
-        let startX = Math.floor(oldTimeStamp/200) % 2;
+        let frame = Math.floor(oldTimeStamp/200) % 4;
+        let image = imgDict[`frame${frame}`];
+        ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
 
-        /*ctx.fillStyle = "black";
-        ctx.textAlign="left";
-		ctx.font = '48px serif';
-  		ctx.fillText("X: " + this.x + "WTFFF: " + this.speed, 50, 50);*/
-        let image = imgDict["right"];
-        ctx.drawImage(image, startX * 40, 0, 40, 40, this.x, this.y, this.w, this.h);
-
-        //ctx.fillStyle = "#ADD8E6";
+        ctx.beginPath();
         ctx.font = '600 24px Verdana';
-        //ctx.fillRect(this.x, this.y, this.w, this.h);
+    
         ctx.fillStyle = "orange";
         ctx.textAlign="center";
         ctx.textBaseline = "middle";
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'black';
         ctx.fillText(this.count, this.x + this.w/2, this.y + this.h/2);
-
+        ctx.strokeText(this.count, this.x + this.w/2, this.y + this.h/2);
+        this.collectionText.forEach(element => { 
+            element.draw();
+        });
 	}
 
-    move(direction, elapsedMS)
-    {
+    move(direction, elapsedMS) {
         if (this.invincibleTime > 0) {
             this.invincibleTime -= elapsedMS;
         }
@@ -138,10 +139,54 @@ export class Player extends Collider{
         if (!direction.left && direction.right) {
             this.x += Math.min(this.movementBounds.right - this.x - this.w, speed);
         }
+
+        for (let i = 0; i < this.collectionText.length; i++) {
+            let colText = this.collectionText[i];
+            colText.move(elapsedMS);
+            if (colText.finished)
+            {
+                this.collectionText[i] = this.collectionText[this.collectionText.length - 1];
+                this.collectionText.pop();
+                i--;
+            }
+        }
     }
 }
 
 export class CollectionText { 
-    constructor(x, y, text) {
+    constructor(x, y, text, colors, direction, fontSize) {
+        this.x = x;
+        this.y = y;
+        this.origY = y;
+        this.text = text;
+        this.finished = false;
+        this.speed = 1;
+        this.colors = colors;
+        this.direction = direction;
+        this.fontSize = fontSize;
+    }
+
+    move(elapsedMS) {
+        this.x -= Obstacle.speedX * elapsedMS;
+        this.y += this.direction === "up" ?  elapsedMS * -.03 : elapsedMS * .03;
+        if (Math.abs(this.origY - this.y) > 40) {
+            this.finished = true;
+        }
+    }
+
+    draw() {
+        if (this.finished) {
+            return;
+        }
+
+        let frame = Math.floor(oldTimeStamp/200) % 2;
+        ctx.beginPath();
+        let fontString = `600 ${this.fontSize}px Verdana`;
+        ctx.font = fontString;
+        ctx.textAlign="center";
+        ctx.textBaseline = "middle"; 
+        ctx.fillStyle = this.colors[frame];
+        //ctx.strokeStyle = 'black';
+        ctx.fillText(this.text, this.x, this.y);
     }
 }
