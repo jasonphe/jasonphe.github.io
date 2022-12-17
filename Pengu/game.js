@@ -6,6 +6,7 @@ import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, s
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
+let version = "1.11";
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;
@@ -142,7 +143,7 @@ function drawLevelSelect() {
         ctx.font = "600 20px Verdana";
         ctx.textAlign="left";
         ctx.textBaseline = "alphabetic"; 
-        ctx.fillText("Version 1.1", 0, baseHeight);
+        ctx.fillText(`Version ${version}`, 0, baseHeight);
     });
 }
 
