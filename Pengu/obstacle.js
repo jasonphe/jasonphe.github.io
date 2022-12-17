@@ -166,10 +166,7 @@ export class Spike extends Obstacle {
         super(x, yRatio * baseHeight, w, hRatio * baseHeight);
         this.origY = yRatio * baseHeight;
         this.dirY = "up";
-        this.moveCD = Spike.baseMoveCD;
     }
-
-    static baseMoveCD = 50;
 
     draw() {
         //let startX = Math.floor(oldTimeStamp/200) % 5;
@@ -182,20 +179,94 @@ export class Spike extends Obstacle {
 
     move(elapsedMS) {
         super.move(elapsedMS);
-        this.moveCD -= elapsedMS;
-        if (this.moveCD > 0)  
-            return;
-
-        this.y += this.dirY == "up" ? -.5 : .5;
-        if (this.origY - this.y >= 20) {
+        this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
+        if (this.origY - this.y >= 40 || this.y <= 0) {
             this.dirY = "down";
-        } else if (this.origY - this.y <= 0) {
+        } else if (this.origY - this.y <= 0 || (this.y + this.h >= baseHeight)) {
             this.dirY = "up";
         }
-        this.moveCD = Spike.baseMoveCD;
     }
 
     trigger() {
         return { value: -5, type: "spike" };
+    }
+}
+
+export class Orca extends Obstacle {
+    constructor(x, yRatio, w, hRatio) {
+        super(x, yRatio * baseHeight, w, hRatio * baseHeight);
+        this.origY = yRatio * baseHeight;
+        this.dirY = "up";
+    }
+
+    draw() {
+        let frame = Math.floor(oldTimeStamp/200) % 5;
+        let image = imgDict["orca"];
+        let adjust = 1.5;
+        ctx.drawImage(image, 0, frame * (image.height/5), image.width, image.height/5, 
+            this.x - (this.w * adjust - this.w)/2, this.y - (this.h * adjust - this.h)/2, this.w * adjust, this.h * adjust);
+       /* ctx.beginPath();
+        ctx.strokeStyle = "black";
+        ctx.strokeRect(this.x, this.y, this.w, this.h);*/
+    }
+
+    move(elapsedMS) {
+        super.move(elapsedMS);
+        this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
+        if (this.origY - this.y >= 40 || this.y <= 0) {
+            this.dirY = "down";
+        } else if (this.origY - this.y <= 0 || (this.y + this.h >= baseHeight)) {
+            this.dirY = "up";
+        }
+    }
+
+    trigger() {
+        return { value: -9999, type: "orca" };
+    }
+}
+
+export class PowerUp extends Obstacle {
+    constructor(x, type) {
+        super(x, baseHeight, 100, 100);
+        this.type = type;
+        this.origX = x;
+    }
+
+    draw() {
+        if (this.enabled) {
+            let image = imgDict[this.type];
+            if (image) {
+                let scaledSize = this.w * .7;
+                ctx.drawImage(image, 0, 0, image.width, image.height, 
+                    this.x + this.w/2 - scaledSize/2, this.y + this.h/2 - scaledSize/2, scaledSize, scaledSize);
+            }
+
+            ctx.beginPath();
+            ctx.arc(this.x + this.w/2, this.y + this.h/2, this.w/2, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.fillStyle = "white"
+            ctx.arc(this.x + this.w/4, this.y + this.h/4, 5, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+    move(elapsedMS) {
+        super.move(elapsedMS);
+        if (this.x > baseWidth) {
+            return;
+        }
+        this.y -= elapsedMS * .15;
+        /*if (this.origY - this.y >= 40) {
+            this.dirY = "down";
+        } else if (this.origY - this.y <= 0) {
+            this.dirY = "up";
+        }*/
+    }
+
+    trigger() {
+        this.enabled = false;
+        return { type: "powerUp", powerType: this.type };
     }
 }

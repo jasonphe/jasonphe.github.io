@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
-import { Obstacle, Gate, Spike } from "./obstacle.js";
+import { Obstacle, Gate, Spike, PowerUp } from "./obstacle.js";
 
 export class Player extends Collider{
     static minSize = 40;
@@ -13,46 +13,60 @@ export class Player extends Collider{
         this.lose = false;
         this.invincibleTime = 0;
         this.collectionText = [];
+        this.modifier = 1;
     }
     
     applyEffect(effect) {
         let soundEffect = "";
         let change = 0;
+        let value = effect.value * this.modifier;
         if (effect.type === "add") {
-            change = effect.value;
-            this.count += effect.value;
-        } else if (effect.type === "spike" && this.invincibleTime <= 0) {
-            change = effect.value;
-            this.count += effect.value;
+            change = value;
+            this.count += value;
+        } else if ((effect.type === "spike" || effect.type === "orca") && 
+                this.invincibleTime <= 0) {
+            change = value;
+            this.count += value;
             this.invincibleTime = 500;
         } else if (effect.type === "multiply") {
-            change = this.count * (effect.value - 1);
-            this.count *= effect.value;
+            change = this.count * (value - 1);
+            this.count *= value;
         } else if (effect.type === "finish") {
             this.win = true;
             return;
-        } 
-
-
-        if (change === 0) {
-            soundEffect = "";
-        } else {
-            let changeString = change > 0 ? "+" + change : change.toString();
-            let colors = change > 0 ? ['green', 'blue'] : ['red', 'yellow'];
-            let direction = change > 0 ? "up" : "down";
-            let collectY = this.y > baseHeight/2 ? this.y - 5 : this.y + this.h + 5;
-            let fontSize = 12 + Math.abs(change);
-            this.collectionText.push(new CollectionText(this.x + this.w/2, collectY, changeString, colors, direction, fontSize));
-
-            if (change < -20) {
-                soundEffect = "badCollect2.wav";
-            } else if (change < 0) {
-                soundEffect = "badCollect1.wav";
-            } else {
-                soundEffect = "collectSound.wav";
-            }
         }
         
+        this.count = Math.max(-1, this.count);
+        if (change === 0 && effect.type !== "powerUp") {
+            return;
+        }
+
+        let changeString = "?";
+        let colors = "";
+        let direction = "up";
+        let fontSize = 30;
+        let collectY = this.y > baseHeight/2 ? this.y - 5 : this.y + this.h + 5;
+        if (effect.type === "powerUp") {
+            soundEffect = "powerUp.wav";
+            changeString = this.powerUpCollect(effect);
+            colors = ['purple', 'blue'];
+        } else {
+            changeString = change > 0 ? "+" + change : change.toString();
+            colors = change > 0 ? ['green', 'blue'] : ['red', 'yellow'];
+            direction = change > 0 ? "up" : "down";
+            fontSize = 12 + Math.abs(change);
+        }
+
+        this.collectionText.push(new CollectionText(this.x + this.w/2, collectY, changeString, colors, direction, fontSize));
+        
+        if (change < -20) {
+            soundEffect = "badCollect2.wav";
+        } else if (change < 0) {
+            soundEffect = "badCollect1.wav";
+        } else if (change > 0) {
+            soundEffect = "collectSound.wav";
+        }
+
         if (soundEffect !== "")
         {
             audioDict[soundEffect].cloneNode(true).play();
@@ -65,8 +79,8 @@ export class Player extends Collider{
 
     onSizeChanged() {
         let previousCenter = { x: this.x + (this.w/2), y: this.y + (this.h/2) }
-        this.w = Player.minSize + this.count;
-        this.h = Player.minSize + this.count;
+        this.w = Math.max(Player.minSize, Player.minSize + this.count);
+        this.h = Math.max(Player.minSize, Player.minSize + this.count);
         this.x = previousCenter.x - (this.w/2);
         this.y = previousCenter.y - (this.h/2);
 
@@ -74,6 +88,21 @@ export class Player extends Collider{
         this.y = Math.max(this.y, this.movementBounds.top);
         this.x = Math.min(this.x, this.movementBounds.right - this.w);
         this.x = Math.max(this.x, this.movementBounds.left);
+    }
+
+    powerUpCollect(effect) {
+        switch (effect.powerType) {
+            case "speed": {
+                this.speed *= 1.5;
+                return "+SPEED";
+            }
+            case "modifier": {
+                this.modifier *= 2;
+                return "x2 POINTS";
+            }
+        }
+
+        return "?";
     }
 
     handleCollision(obstacles) {
@@ -85,7 +114,7 @@ export class Player extends Collider{
                     if (this.collidesWithMiddle(obstacle)) {
                         trigger = true;
                     }
-                } else if (obstacle instanceof Spike) {
+                } else if (obstacle instanceof Spike || obstacle instanceof PowerUp) {
                     if (this.collidesWithCircle(obstacle)) {
                         trigger = true;
                     }
@@ -163,7 +192,7 @@ export class CollectionText {
         this.speed = 1;
         this.colors = colors;
         this.direction = direction;
-        this.fontSize = fontSize;
+        this.fontSize = Math.min(100, fontSize);
     }
 
     move(elapsedMS) {

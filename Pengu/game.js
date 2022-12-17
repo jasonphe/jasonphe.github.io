@@ -1,5 +1,5 @@
 import { Collider } from "./collider.js";
-import { Obstacle, Gate, GateParent, FinishLine, Spike } from "./obstacle.js";
+import { Obstacle, Gate, GateParent, FinishLine, Spike, Orca, PowerUp} from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
@@ -114,18 +114,17 @@ function drawLevelSelect() {
         ctx.fill();
         ctx.stroke();
 
-        ctx.beginPath();
-        ctx.lineWidth = 3;
-        ctx.font = "600 20pt Verdana";
-        let displayText = b.unlocked ? b.text : "LOCKED";
-        ctx.textAlign="center";
-        ctx.textBaseline = "middle"; 
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
-        ctx.fillText(displayText, b.x + b.w/2, b.y + b.h/2 - 20);
-        ctx.strokeText(displayText, b.x + b.w/2, b.y + b.h/2 - 20);
-
         if (b.unlocked) {
+            ctx.beginPath();
+            ctx.lineWidth = 3;
+            ctx.font = "600 20pt Verdana";
+            ctx.textAlign="center";
+            ctx.textBaseline = "middle"; 
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            ctx.fillText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
+            ctx.strokeText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
+
             ctx.beginPath();
             let scoreText = "Best: " + b.highScore;
             ctx.textAlign="center";
@@ -134,6 +133,9 @@ function drawLevelSelect() {
             ctx.strokeStyle = 'black';
             ctx.fillText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
             ctx.strokeText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+        } else {
+            let image = imgDict["lock"];
+            ctx.drawImage(image, 0, 0, image.width, image.height, b.x + b.w/4, b.y + b.h/4, b.w/2, b.h/2);
         }
     });
 }
@@ -213,6 +215,20 @@ function loadLevel(levelNum) {
         level.spikes.forEach(element => {
             let spike = new Spike(element.x, element.yRatio, element.w, element.heightRatio);
             obstacles.push(spike);
+        }); 
+    }
+
+    if (level.orcas) {
+        level.orcas.forEach(element => {
+            let orca = new Orca(element.x, element.yRatio, element.w, element.heightRatio);
+            obstacles.push(orca);
+        }); 
+    }
+
+    if (level.powerUps) {
+        level.powerUps.forEach(element => {
+            let powerUp = new PowerUp(element.x, element.type);
+            obstacles.push(powerUp);
         }); 
     }
 
