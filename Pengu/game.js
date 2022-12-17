@@ -137,6 +137,12 @@ function drawLevelSelect() {
             let image = imgDict["lock"];
             ctx.drawImage(image, 0, 0, image.width, image.height, b.x + b.w/4, b.y + b.h/4, b.w/2, b.h/2);
         }
+
+        ctx.fillStyle = 'white';
+        ctx.font = "600 20px Verdana";
+        ctx.textAlign="left";
+        ctx.textBaseline = "alphabetic"; 
+        ctx.fillText("Version 1.1", 0, baseHeight);
     });
 }
 

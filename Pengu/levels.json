@@ -308,7 +308,7 @@
                 }
             ],
             "powerUps": [
-                { "x": 1200, "type": "speed" }
+                { "x": 1250, "type": "speed" }
             ],
             "finish": {
                 "x": 3400
