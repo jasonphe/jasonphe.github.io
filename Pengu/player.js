@@ -1,6 +1,6 @@
 import { Collider } from "./collider.js";
 import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp } from "./globals.js";
-import { Obstacle, Gate, Spike, PowerUp } from "./obstacle.js";
+import { Obstacle, Gate, Spike, PowerUp, Orca } from "./obstacle.js";
 
 export class Player extends Collider{
     static minSize = 40;
@@ -14,12 +14,13 @@ export class Player extends Collider{
         this.invincibleTime = 0;
         this.collectionText = [];
         this.modifier = 1;
+        this.greaves = false;
     }
     
     applyEffect(effect) {
         let soundEffect = "";
         let change = 0;
-        let value = effect.value * this.modifier;
+        let value = effect.value > 0 ? effect.value * this.modifier : effect.value;
         if (effect.type === "add") {
             change = value;
             this.count += value;
@@ -94,11 +95,16 @@ export class Player extends Collider{
         switch (effect.powerType) {
             case "speed": {
                 this.speed *= 1.5;
-                return "+SPEED";
+                return "+MOVE SPEED";
             }
             case "modifier": {
                 this.modifier *= 2;
-                return "x2 POINTS";
+                Obstacle.speedX *= 1.3;
+                return "x2 POINTS\n+OBSTACLE SPEED";
+            }
+            case "greaves": {
+                this.greaves = true;
+                return "POWERRRRR!!";
             }
         }
 
@@ -122,6 +128,13 @@ export class Player extends Collider{
                     trigger = true;
                 }
                 if (trigger) {
+                    if (this.greaves && (obstacle instanceof Spike || obstacle instanceof Orca)) {
+                        obstacle.destroyed = true;
+                        obstacle.enabled = false;
+                        audioDict["explode.wav"].cloneNode(true).play();
+                        return;
+                    }
+
                     this.applyEffect(obstacle.trigger());
                 }
             }
@@ -198,7 +211,7 @@ export class CollectionText {
     move(elapsedMS) {
         this.x -= Obstacle.speedX * elapsedMS;
         this.y += this.direction === "up" ?  elapsedMS * -.03 : elapsedMS * .03;
-        if (Math.abs(this.origY - this.y) > 40) {
+        if (Math.abs(this.origY - this.y) > 80) {
             this.finished = true;
         }
     }
@@ -210,12 +223,16 @@ export class CollectionText {
 
         let frame = Math.floor(oldTimeStamp/200) % 2;
         ctx.beginPath();
-        let fontString = `600 ${this.fontSize}px Verdana`;
-        ctx.font = fontString;
-        ctx.textAlign="center";
-        ctx.textBaseline = "middle"; 
-        ctx.fillStyle = this.colors[frame];
-        //ctx.strokeStyle = 'black';
-        ctx.fillText(this.text, this.x, this.y);
+        let y = this.y;
+        this.text.split('\n').forEach(element => {
+            let fontString = `600 ${this.fontSize}px Verdana`;
+            ctx.font = fontString;
+            ctx.textAlign="center";
+            ctx.textBaseline = "middle"; 
+            ctx.fillStyle = this.colors[frame];
+            //ctx.strokeStyle = 'black';
+            ctx.fillText(element, this.x, y);
+            y+= this.fontSize;
+        });
     }
 }

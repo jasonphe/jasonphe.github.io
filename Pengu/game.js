@@ -6,7 +6,7 @@ import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, s
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
-let version = "1.11";
+let version = "0.9";
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;
@@ -22,7 +22,7 @@ var isLose = false;
 var isWin = false;
 var currentLevel = 1;
 var levelButtons = [];
-const levelsPerRow = 6;
+const levelsPerRow = 5;
 const levelsPerColumn = 3;
 var mousePosition = {x: 0, y: 0};
 var scene;
@@ -117,7 +117,7 @@ function drawLevelSelect() {
 
         if (b.unlocked) {
             ctx.beginPath();
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 1;
             ctx.font = "600 20pt Verdana";
             ctx.textAlign="center";
             ctx.textBaseline = "middle"; 
@@ -220,14 +220,14 @@ function loadLevel(levelNum) {
     });
     if (level.spikes) {
         level.spikes.forEach(element => {
-            let spike = new Spike(element.x, element.yRatio, element.w, element.heightRatio);
+            let spike = new Spike(element.x, element.yRatio, element.w, element.heightRatio, element.roam);
             obstacles.push(spike);
         }); 
     }
 
     if (level.orcas) {
         level.orcas.forEach(element => {
-            let orca = new Orca(element.x, element.yRatio, element.w, element.heightRatio);
+            let orca = new Orca(element.x, element.yRatio, element.w, element.heightRatio, element.roam);
             obstacles.push(orca);
         }); 
     }
@@ -397,7 +397,7 @@ function displayPauseMenu() {
     let margin = 50;
 
     ctx.beginPath();
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 1;
     ctx.font = "600 30pt Verdana";
 
     let displayText = "PAUSED";
@@ -427,7 +427,7 @@ function displayPauseMenu() {
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 1;
         ctx.font = "600 20pt Verdana";
         let displayText = b.text;
         ctx.textAlign="center";

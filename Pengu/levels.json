@@ -5,21 +5,18 @@
             "gateParents": [
                 {
                     "x" : 800, 
-                    "gates": [{ "heightRatio": 0.25,  "value": 20, "type": "add" },
-                        { "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.15, "value": 2, "type": "multiply" },
-                        { "heightRatio": 0.35, "value": 5, "type": "add" }
+                    "gates": [{ "heightRatio": 0.5,  "value": 20, "type": "add" },
+                        { "heightRatio": 0.5, "value": -10, "type": "add" }
                     ]
                 },
                 {
                     "x" : 1200, 
-                    "gates": [{"heightRatio": 0.25, "value": 10, "type": "add" },
-                        { "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    "gates": [{"heightRatio": 0.5, "value": -10, "type": "add" },
+                        { "heightRatio": 0.5, "value": 10, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 1700, 
+                    "x" : 1900, 
                     "gates": [{ "heightRatio": 0.25, "value": 10, "type": "add" },
                         { "heightRatio": 0.25, "value": -10, "type": "add" },
                         { "heightRatio": 0.5, "value": 5, "type": "add" }
@@ -33,15 +30,20 @@
                 },
                 {
                     "x" : 3000, 
-                    "gates": [{ "heightRatio": 0.1, "value": 5, "type": "multiply" },
+                    "gates": [{ "heightRatio": 0.1, "value": 2, "type": "multiply" },
                         { "heightRatio": 0.25, "value": -10, "type": "add" },
                         { "heightRatio": 0.65, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3500, 
+                    "gates": [{ "heightRatio": 1, "value": -30, "type": "add" }
                     ]
                 }
             ],
             "spikes": [
-                { "x": 1400, "w": 200, "yRatio": 0.1, "heightRatio": 0.3 },
-                { "x": 1400, "w": 200, "yRatio": 0.7, "heightRatio": 0.3 }
+                { "x": 1400, "w": 200, "yRatio": 0.1, "heightRatio": 0.3, "roam": true },
+                { "x": 1400, "w": 200, "yRatio": 0.7, "heightRatio": 0.3, "roam": true }
             ],
             "finish": {
                 "x": 4000
@@ -65,20 +67,20 @@
                     ]
                 },
                 {
-                    "x" : 2200, 
+                    "x" : 2800, 
                     "gates": [{ "heightRatio": 0.25, "value": 10, "type": "add" },
                         { "heightRatio": 0.25, "value": -10, "type": "add" },
                         { "heightRatio": 0.5, "value": 5, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 2800, 
+                    "x" : 3200, 
                     "gates": [{ "heightRatio": 0.75, "value": -40, "type": "add" },
                         { "heightRatio": 0.25, "value": 5, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 3500, 
+                    "x" : 3700, 
                     "gates": [{ "heightRatio": 0.1, "value": 5, "type": "multiply" },
                         { "heightRatio": 0.25, "value": -10, "type": "add" },
                         { "heightRatio": 0.65, "value": 5, "type": "add" }
@@ -86,7 +88,7 @@
                 }
             ],
             "orcas": [
-                { "x": 1800, "w": 400, "yRatio": 0.1, "heightRatio": 0.2}
+                { "x": 1800, "w": 600, "yRatio": 0.1, "heightRatio": 0.3, "roam": true}
             ],
             "finish": {
                 "x": 4500
@@ -109,13 +111,13 @@
                     ]
                 },
                 {
-                    "x" : 1700, 
-                    "gates": [{ "heightRatio": 0.5, "value": 3, "type": "multiply" },
-                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    "x" : 2200, 
+                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                        { "heightRatio": 0.7, "value": -20, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 1900, 
+                    "x" : 2800, 
                     "gates": [{ "heightRatio": 0.75, "value": -40, "type": "add" },
                         { "heightRatio": 0.25, "value": 5, "type": "add" }
                     ]
@@ -126,13 +128,176 @@
                         { "heightRatio": 0.1, "value": 2, "type": "multiply" },
                         { "heightRatio": 0.65, "value": 5, "type": "add" }
                     ]
+                },
+                {
+                    "x" : 3500, 
+                    "gates": [{ "heightRatio": 1, "value": -60, "type": "add" }]
                 }
+            ],
+            "spikes": [
+                { "x": 1700, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.6, "heightRatio": 0.3 },
+                { "x": 1900, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
+                { "x": 1900, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 1900, "w": 200, "yRatio": 0.6, "heightRatio": 0.3 }
             ],
             "powerUps": [
                 { "x": 1250, "type": "speed" }
             ],
             "finish": {
-                "x": 3400
+                "x": 3700
+            }
+        },
+        {
+            "title": 4,
+            "gateParents": [
+                {
+                    "x" : 800, 
+                    "gates": [{ "heightRatio": 1, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 1500, 
+                    "gates": [{ "heightRatio": 0.25, "value": 2, "type": "multiply" },
+                        { "heightRatio": 0.25, "value": -10, "type": "add" },
+                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 2200, 
+                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                        { "heightRatio": 0.7, "value": 10, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3900, 
+                    "gates": [{ "heightRatio": 0.75, "value": -40, "type": "add" },
+                        { "heightRatio": 0.25, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 4400, 
+                    "gates": [{ "heightRatio": 0.25, "value": -10, "type": "add" },
+                        { "heightRatio": 0.1, "value": 2, "type": "multiply" },
+                        { "heightRatio": 0.65, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 4900, 
+                    "gates": [{ "heightRatio": 1, "value": -400, "type": "add" }]
+                }
+            ],
+            "spikes": [
+                { "x": 1700, "w": 200, "yRatio": 0.5, "heightRatio": 0.3, "roam": true },
+                { "x": 5200, "w": 200, "yRatio": 0.05, "heightRatio": 0.3, "roam": true },
+                { "x": 5200, "w": 200, "yRatio": 0.65, "heightRatio": 0.3, "roam": true },
+                { "x": 5400, "w": 200, "yRatio": 0.05, "heightRatio": 0.3, "roam": true },
+                { "x": 5400, "w": 200, "yRatio": 0.65, "heightRatio": 0.3, "roam": true },
+                { "x": 5600, "w": 200, "yRatio": 0.05, "heightRatio": 0.3, "roam": true },
+                { "x": 5600, "w": 200, "yRatio": 0.65, "heightRatio": 0.3, "roam": true },
+                { "x": 5800, "w": 200, "yRatio": 0.05, "heightRatio": 0.3, "roam": true },
+                { "x": 5800, "w": 200, "yRatio": 0.65, "heightRatio": 0.3, "roam": true }
+            ],
+            "orcas": [
+                { "x": 3000, "w": 600, "yRatio": 0.3, "heightRatio": 0.3, "roam": true}
+            ],
+            "powerUps": [
+                { "x": 1250, "type": "modifier" }
+            ],
+            "finish": {
+                "x": 7000
+            }
+        },
+        {
+            "title": 5,
+            "gateParents": [
+                {
+                    "x" : 800, 
+                    "gates": [{ "heightRatio": 0.75, "value": 300, "type": "add" },
+                        { "heightRatio": 0.25, "value": 20, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 2700, 
+                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                        { "heightRatio": 0.7, "value": -20, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3200, 
+                    "gates": [{ "heightRatio": 0.75, "value": -40, "type": "add" },
+                        { "heightRatio": 0.25, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3700, 
+                    "gates": [{ "heightRatio": 0.25, "value": -10, "type": "add" },
+                        { "heightRatio": 0.1, "value": 2, "type": "multiply" },
+                        { "heightRatio": 0.65, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3900, 
+                    "gates": [{ "heightRatio": 1, "value": -60, "type": "add" }]
+                }
+            ],
+            "spikes": [
+            ],
+            "orcas": [
+                { "x": 1400, "w": 600, "yRatio": 0.1, "heightRatio": 0.3},
+                { "x": 1900, "w": 400, "yRatio": 0.7, "heightRatio": 0.2},
+                { "x": 2400, "w": 400, "yRatio": 0.7, "heightRatio": 0.2}
+            ],
+            "powerUps": [
+                { "x": 1250, "type": "speed" }
+            ],
+            "finish": {
+                "x": 4200
+            }
+        },
+        {
+            "title": 6,
+            "gateParents": [
+                {
+                    "x" : 800, 
+                    "gates": [{ "heightRatio": 0.75, "value": 1, "type": "add" },
+                        { "heightRatio": 0.25, "value": 10, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 1100, 
+                    "gates": [{ "heightRatio": 0.25, "value": 25, "type": "add" },
+                        { "heightRatio": 0.25, "value": -10, "type": "add" },
+                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 2200, 
+                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                        { "heightRatio": 0.7, "value": -20, "type": "add" }
+                    ]
+                }
+            ],
+            "spikes": [
+                { "x": 1700, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 1500, "w": 300, "yRatio": 0.6, "heightRatio": 0.4 },
+                { "x": 1900, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
+                { "x": 1900, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 1900, "w": 300, "yRatio": 0.6, "heightRatio": 0.4 }
+            ],
+            "orcas": [
+                { "x": 2500, "w": 600, "yRatio": 0.1, "heightRatio": 0.3},
+                { "x": 2800, "w": 400, "yRatio": 0.3, "heightRatio": 0.2},
+                { "x": 3700, "w": 400, "yRatio": 0.4, "heightRatio": 0.2},
+                { "x": 3400, "w": 400, "yRatio": 0.6, "heightRatio": 0.2}
+            ],
+            "powerUps": [
+                { "x": 1250, "type": "greaves" }
+            ],
+            "finish": {
+                "x": 4100
             }
         }
     ]

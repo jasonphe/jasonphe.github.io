@@ -6,6 +6,7 @@ export class Obstacle extends Collider {
     constructor(x, y, w, h) {
         super(x, y, w, h);
         this.enabled = true;
+        this.destroyed = false;
     }
 
     static speedX = .2;
@@ -23,7 +24,7 @@ export class Obstacle extends Collider {
             return;
         }
         ctx.beginPath();
-        ctx.lineWidth = "6";
+        ctx.lineWidth = 6;
         ctx.strokeStyle = "red";
         ctx.rect(this.x, this.y, this.w, this.h);
         ctx.stroke();
@@ -54,7 +55,7 @@ export class Gate extends Obstacle {
 
     draw() {
         ctx.save();
-        ctx.lineWidth = "4";
+        ctx.lineWidth = 4;
         ctx.globalAlpha = this.alpha;
         let gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y);
         gradient.addColorStop(0, "#ADD8E6");
@@ -64,7 +65,7 @@ export class Gate extends Obstacle {
 
         ctx.beginPath();
         ctx.strokeStyle = "black";
-        ctx.lineWidth = "6";
+        ctx.lineWidth = 6;
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.x + this.w, this.y);
         ctx.stroke();
@@ -138,7 +139,7 @@ export class FinishLine extends Obstacle {
     }
 
     draw() {
-        ctx.lineWidth = "4";
+        ctx.lineWidth = 4;
         let gradient = ctx.createLinearGradient(this.x, this.y, this.x + this.w, this.y);
         gradient.addColorStop(0, "#ADD8E6");
         gradient.addColorStop(1, "green");
@@ -147,7 +148,7 @@ export class FinishLine extends Obstacle {
 
         ctx.beginPath();
         ctx.strokeStyle = "black";
-        ctx.lineWidth = "6";
+        ctx.lineWidth = 6;
         ctx.moveTo(this.x, this.y);
         ctx.lineTo(this.x + this.w, this.y);
         ctx.stroke();
@@ -162,14 +163,20 @@ export class FinishLine extends Obstacle {
 }
 
 export class Spike extends Obstacle {
-    constructor(x, yRatio, w, hRatio) {
+    constructor(x, yRatio, w, hRatio, roam = false) {
         super(x, yRatio * baseHeight, w, hRatio * baseHeight);
         this.origY = yRatio * baseHeight;
-        this.dirY = "up";
+        this.dirY = "down";
+        this.roam = roam;
     }
 
     draw() {
-        //let startX = Math.floor(oldTimeStamp/200) % 5;
+        if (this.destroyed) {
+            let frame = Math.floor(oldTimeStamp/200) % 3;
+            let image = imgDict[`destroy${frame}`];
+            ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
+            return;
+        }
         let image = imgDict["spike"];
         ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
         /*ctx.beginPath();
@@ -179,11 +186,13 @@ export class Spike extends Obstacle {
 
     move(elapsedMS) {
         super.move(elapsedMS);
-        this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
-        if (this.origY - this.y >= 40 || this.y <= 0) {
-            this.dirY = "down";
-        } else if (this.origY - this.y <= 0 || (this.y + this.h >= baseHeight)) {
-            this.dirY = "up";
+        if (this.roam) {
+            this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
+            if ((this.origY - this.y >= 40) || (this.y <= 0)) {
+                this.dirY = "down";
+            } else if ((this.origY - this.y < -40) || (this.y + this.h >= baseHeight)) {
+                this.dirY = "up";
+            }
         }
     }
 
@@ -193,13 +202,21 @@ export class Spike extends Obstacle {
 }
 
 export class Orca extends Obstacle {
-    constructor(x, yRatio, w, hRatio) {
+    constructor(x, yRatio, w, hRatio, roam = false) {
         super(x, yRatio * baseHeight, w, hRatio * baseHeight);
         this.origY = yRatio * baseHeight;
         this.dirY = "up";
+        this.roam = roam;
     }
 
     draw() {
+        if (this.destroyed) {
+            let frame = Math.floor(oldTimeStamp/200) % 3;
+            let image = imgDict[`destroy${frame}`];
+            ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
+            return;
+        }
+
         let frame = Math.floor(oldTimeStamp/200) % 5;
         let image = imgDict["orca"];
         let adjust = 1.5;
@@ -212,11 +229,13 @@ export class Orca extends Obstacle {
 
     move(elapsedMS) {
         super.move(elapsedMS);
-        this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
-        if (this.origY - this.y >= 40 || this.y <= 0) {
-            this.dirY = "down";
-        } else if (this.origY - this.y <= 0 || (this.y + this.h >= baseHeight)) {
-            this.dirY = "up";
+        if (this.roam) {
+            this.y += (this.dirY == "up" ? -1 : 1) * elapsedMS * .02;
+            if ((this.origY - this.y >= 40) || (this.y <= 0)) {
+                this.dirY = "down";
+            } else if ((this.origY - this.y < -40) || (this.y + this.h >= baseHeight)) {
+                this.dirY = "up";
+            }
         }
     }
 
