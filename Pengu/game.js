@@ -120,7 +120,7 @@ function drawLevelSelect() {
 
         if (b.unlocked) {
             ctx.beginPath();
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 2;
             ctx.font = "600 20pt Verdana";
             ctx.textAlign="center";
             ctx.textBaseline = "middle"; 
@@ -436,7 +436,7 @@ function drawCutscene() {
     ctx.fillStyle = colors[frame];
     ctx.textAlign="center";
     ctx.textBaseline = "middle";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.strokeStyle = 'black';
     let text = "Happy birthday, Linda!!!!";
     ctx.fillText(text, baseWidth/2, 210);
@@ -448,7 +448,7 @@ function drawCutscene() {
         ctx.fillStyle = "white"
         ctx.textAlign= "center";
         ctx.textBaseline = "alphabetic";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = 'black';
         text = "Press any key to continue...";
         ctx.fillText(text, baseWidth/2, baseHeight - 5);
@@ -512,7 +512,7 @@ function displayPauseMenu() {
     let margin = 50;
 
     ctx.beginPath();
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.font = "600 30pt Verdana";
 
     let displayText = "PAUSED";
@@ -542,7 +542,7 @@ function displayPauseMenu() {
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.font = "600 20pt Verdana";
         let displayText = b.text;
         ctx.textAlign="center";

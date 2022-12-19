@@ -155,7 +155,7 @@ export class Player extends Collider{
         ctx.fillStyle = "orange";
         ctx.textAlign="center";
         ctx.textBaseline = "middle";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = 'black';
         ctx.fillText(this.count, this.x + this.w/2, this.y + this.h/2);
         ctx.strokeText(this.count, this.x + this.w/2, this.y + this.h/2);
