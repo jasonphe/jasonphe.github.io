@@ -22,13 +22,15 @@ var isLose = false;
 var isWin = false;
 var currentLevel = 1;
 var levelButtons = [];
-const levelsPerRow = 5;
-const levelsPerColumn = 3;
+const levelsPerRow = 4;
+const levelsPerColumn = 2;
 var mousePosition = {x: 0, y: 0};
 var scene;
 var menuLoopReq;
 var gameLoopReq;
-
+var endingLevel = 8;
+var unlockEnabled = true;
+var cutsceneVar;
 var menuDimensions = { width: 300, height: 500};
 var storedLevels = [{unlocked: true, highScore: 0}];
 //var isTouch = true;//isTouchDevice();
@@ -42,7 +44,6 @@ function init() {
     } else {
         storedLevels = storage;
     }
-    
     levelSelect();
 }
 
@@ -63,6 +64,13 @@ function menuClick(event) {
 function menuLoop() {
     if (scene != "levelSelect") {
         return;
+    }
+
+    if (keys["l"] && keys["u"] && keys["o"] && unlockEnabled) {
+        unlockEnabled = false;
+        console.log("levels unlocked");
+        unlockAllLevels();
+        setLevelButtons();
     }
     drawLevelSelect();
     menuLoopReq = requestAnimationFrame(menuLoop);
@@ -126,14 +134,16 @@ function drawLevelSelect() {
             ctx.fillText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
             ctx.strokeText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
 
-            ctx.beginPath();
-            let scoreText = "Best: " + b.highScore;
-            ctx.textAlign="center";
-            ctx.textBaseline = "middle"; 
-            ctx.fillStyle = 'white';
-            ctx.strokeStyle = 'black';
-            ctx.fillText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
-            ctx.strokeText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+            if (b.text != "Ending") {
+                ctx.beginPath();
+                let scoreText = "Best: " + b.highScore;
+                ctx.textAlign="center";
+                ctx.textBaseline = "middle"; 
+                ctx.fillStyle = 'white';
+                ctx.strokeStyle = 'black';
+                ctx.fillText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+                ctx.strokeText(scoreText, b.x + b.w/2, b.y + b.h/2 + 20);
+            }
         } else {
             let image = imgDict["lock"];
             ctx.drawImage(image, 0, 0, image.width, image.height, b.x + b.w/4, b.y + b.h/4, b.w/2, b.h/2);
@@ -148,6 +158,10 @@ function drawLevelSelect() {
 }
 
 function beginGame() { 
+    if (currentLevel >= endingLevel) {
+        switchScene("cutscene");
+        return;
+    }
     loadLevel(currentLevel);
     switchScene("game");
 }
@@ -171,6 +185,9 @@ function switchScene(newScene) {
             canvas.removeEventListener('click', pauseMenuClick);
             break;
         }
+        case "cutscene": {
+            break;
+        }
     }
 
     switch (newScene) {
@@ -192,6 +209,13 @@ function switchScene(newScene) {
             setPauseButtons();
             canvas.addEventListener('click', pauseMenuClick);
             requestAnimationFrame(pauseLoop);
+            break;
+        }
+        case "cutscene": {
+            scene = "cutscene";
+            cutsceneVar = {pX: 0, pY: 600, pAnim: true, mX: baseWidth, mY: 350, mAnim: true, eX: baseWidth, eY: 20, eLeft: true};
+            setTimestamp(undefined);
+            requestAnimationFrame(cutsceneLoop);
             break;
         }
     }
@@ -296,7 +320,7 @@ function endGame() {
 }
 
 function update(elapsedMS) {
-    if ((keys["p"] || keys["Escape"]) && canTogglePause) {//) {
+    if ((keys["p"] || keys["Escape"]) && canTogglePause) {
         togglePause(true);
     }
 
@@ -305,7 +329,7 @@ function update(elapsedMS) {
     for (let i = 0; i < obstacles.length; i++) {
         let obstacle = obstacles[i];
         obstacle.move(elapsedMS);
-        if (obstacle.isOut())
+        if (obstacle.needDelete)
         {
             obstacles[i] = obstacles[obstacles.length - 1];
             obstacles.pop();
@@ -339,6 +363,87 @@ function pauseLoop() {
     }
     displayPauseMenu();
     requestAnimationFrame(pauseLoop);
+}
+
+function cutsceneLoop(timeStamp) {
+    if (scene !== "cutscene") {
+        return;
+    }
+
+    if (oldTimeStamp == null) {
+        setTimestamp(timeStamp);
+    }
+    let elapsedMS = timeStamp - oldTimeStamp;
+    setTimestamp(timeStamp);
+    if (cutsceneVar.pAnim === false) {
+        if (Object.keys(keys).some(element => { return keys[element] })) {
+            console.log("done");
+            switchScene("levelSelect");
+        }
+    }
+
+    moveCutscene(elapsedMS);
+    drawCutscene();
+    requestAnimationFrame(cutsceneLoop);
+}
+
+function moveCutscene(elapsedMS) {
+
+    if (cutsceneVar.pX < baseWidth/2) {
+        cutsceneVar.pX += elapsedMS * .1;
+    } else {
+        cutsceneVar.pAnim = false;
+    }
+
+    if (cutsceneVar.pY > 350) {
+        cutsceneVar.pY -= elapsedMS * .1;
+    }
+
+    if (cutsceneVar.mX > baseWidth/2 + 150) {
+        cutsceneVar.mX -= elapsedMS * .1;
+    } else {
+        cutsceneVar.mAnim = false;
+    }
+
+    if (cutsceneVar.eLeft) {
+        cutsceneVar.eX -= elapsedMS * .2;
+    } else {
+        cutsceneVar.eX += elapsedMS * .2;
+    }
+
+    if (cutsceneVar.eX < 0) {
+        cutsceneVar.eLeft = false;
+    } else if (cutsceneVar.eX > baseWidth - 250) {
+        cutsceneVar.eLeft = true;
+    }
+}
+
+function drawCutscene() {
+    clearCanvas();
+    let image = imgDict["endBack"];
+    ctx.drawImage(image, 0, 0, image.width, image.height, 0, 0, baseWidth, baseHeight);
+
+    let frame = cutsceneVar.pAnim ? Math.floor(oldTimeStamp/200) % 2 : 0;
+    image = imgDict["right"];
+    ctx.drawImage(image, 0 + frame * 40, 0, 40, image.height, cutsceneVar.pX, cutsceneVar.pY, 100, 100);
+
+    //frame = cutsceneVar.mAnim ? Math.floor(oldTimeStamp/200) % 4 : 0;
+    image = imgDict["monkey"];
+    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.mX, cutsceneVar.mY, 100, 100);
+
+    image = cutsceneVar.eLeft ? imgDict["eagle"] : imgDict["eagleR"]; 
+    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.eX, cutsceneVar.eY, 250, 100);
+
+    ctx.beginPath();
+    ctx.font = '600 36px Verdana';
+    ctx.fillStyle = frame == 1 ? "white" : "yellow";
+    ctx.textAlign="center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'black';
+    let text = "Happy birthday, Linda!!!!";
+    ctx.fillText(text, baseWidth/2, 100);
+    ctx.strokeText(text, baseWidth/2, 100);
 }
 
 function pauseMenuRestart() {
@@ -527,6 +632,12 @@ document.addEventListener("keyup", function(event)
 {
 	keys[event.key] = false;
 });
+
+function unlockAllLevels() {
+    let array = new Array(endingLevel);
+    storedLevels = array.fill({unlocked: true, highScore: 0}, 0, array.length);
+    localStorage.setItem("levels", JSON.stringify(storedLevels));
+}
 /*
 if (isTouch) {
     document.addEventListener("touchstart", touchHandler);

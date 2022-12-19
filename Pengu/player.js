@@ -5,7 +5,7 @@ import { Obstacle, Gate, Spike, PowerUp, Orca } from "./obstacle.js";
 export class Player extends Collider{
     static minSize = 40;
 	constructor() {
-        super(20, baseHeight / 2, Player.minSize, Player.minSize);
+        super(20, baseHeight / 2, Player.minSize * 2, Player.minSize);
         this.speed = .3;
         this.count = 1;
         this.movementBounds = { left: 0, right: baseWidth, top: 0, bottom: baseHeight};
@@ -80,8 +80,8 @@ export class Player extends Collider{
 
     onSizeChanged() {
         let previousCenter = { x: this.x + (this.w/2), y: this.y + (this.h/2) }
-        this.w = Math.max(Player.minSize, Player.minSize + this.count);
-        this.h = Math.max(Player.minSize, Player.minSize + this.count);
+        this.h = Math.max(Player.minSize, Player.minSize + this.count/2);
+        this.w = this.h * 2;
         this.x = previousCenter.x - (this.w/2);
         this.y = previousCenter.y - (this.h/2);
 
@@ -131,7 +131,10 @@ export class Player extends Collider{
                     if (this.greaves && (obstacle instanceof Spike || obstacle instanceof Orca)) {
                         obstacle.destroyed = true;
                         obstacle.enabled = false;
-                        audioDict["explode.wav"].cloneNode(true).play();
+                        let audio = audioDict["explode.wav"].cloneNode(true);
+                        audio.volume = .5;
+                        audio.play();
+                        this.applyEffect({type: "add", value: 10});
                         return;
                     }
 

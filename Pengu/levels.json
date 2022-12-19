@@ -111,7 +111,7 @@
                     ]
                 },
                 {
-                    "x" : 2200, 
+                    "x" : 2400, 
                     "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
                         { "heightRatio": 0.7, "value": -20, "type": "add" }
                     ]
@@ -260,22 +260,8 @@
             "title": 6,
             "gateParents": [
                 {
-                    "x" : 800, 
-                    "gates": [{ "heightRatio": 0.75, "value": 1, "type": "add" },
-                        { "heightRatio": 0.25, "value": 10, "type": "add" }
-                    ]
-                },
-                {
-                    "x" : 1100, 
-                    "gates": [{ "heightRatio": 0.25, "value": 25, "type": "add" },
-                        { "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.5, "value": 5, "type": "add" }
-                    ]
-                },
-                {
-                    "x" : 2200, 
-                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
-                        { "heightRatio": 0.7, "value": -20, "type": "add" }
+                    "x" : 4300, 
+                    "gates": [{ "heightRatio": 1, "value": -70, "type": "add" }
                     ]
                 }
             ],
@@ -297,8 +283,46 @@
                 { "x": 1250, "type": "greaves" }
             ],
             "finish": {
+                "x": 4600
+            }
+        },
+        {
+            "title": 7,
+            "gateParents": [
+                {
+                    "x" : 1100, 
+                    "gates": [{ "heightRatio": 0.25, "value": 25, "type": "add" },
+                        { "heightRatio": 0.25, "value": -10, "type": "add" },
+                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 2200, 
+                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                        { "heightRatio": 0.7, "value": -20, "type": "add" }
+                    ]
+                }
+            ],
+            "spikes": [
+                { "x": 1700, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 1500, "w": 300, "yRatio": 0.6, "heightRatio": 0.4 }
+            ],
+            "orcas": [
+                { "x": 2500, "w": 600, "yRatio": 0.1, "heightRatio": 0.3},
+                { "x": 2800, "w": 400, "yRatio": 0.3, "heightRatio": 0.2},
+                { "x": 3700, "w": 400, "yRatio": 0.4, "heightRatio": 0.2},
+                { "x": 3400, "w": 400, "yRatio": 0.6, "heightRatio": 0.2}
+            ],
+            "powerUps": [
+                { "x": 2400, "type": "speed" }
+            ],
+            "finish": {
                 "x": 4100
             }
+        },
+        {
+            "title": "Ending"
         }
     ]
 }

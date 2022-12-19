@@ -7,6 +7,8 @@ export class Obstacle extends Collider {
         super(x, y, w, h);
         this.enabled = true;
         this.destroyed = false;
+        this.needDelete = false;
+        this.destroyedTimer = 3000;
     }
 
     static speedX = .2;
@@ -32,10 +34,12 @@ export class Obstacle extends Collider {
 
     move(elapsedMS) {
         this.x -= Obstacle.speedX * elapsedMS;
-    }
-    
-    isOut() {
-        return this.x + this.w < 0;
+        if (this.destroyed) {
+            this.destroyedTimer -= elapsedMS;
+        }
+        if (this.x + this.w < 0 || this.destroyedTimer <= 0) {
+            this.needDelete = true;
+        }
     }
     
     trigger() {
