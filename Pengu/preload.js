@@ -2,7 +2,7 @@
 import { imgDict, audioDict } from "./globals.js";
 let assetFolder = "assets/";
 let imgsToLoad = ["right", "background2", "spike", "frame0", "frame1", "frame2", "frame3", "lock", "speed", "modifier", "orca", "greaves",
- "destroy0", "destroy1", "destroy2", "monkey", "endBack", "eagle", "eagleR"];
+ "destroy0", "destroy1", "destroy2", "monkey0", "monkey1", "monkey2", "monkey3", "endBack", "eagle", "eagleR"];
 let audioToLoad = ["collectSound.wav", "badCollect1.wav", "badCollect2.wav", "collect1.wav", "collect2.wav", "collect3.wav", "collect4.wav", "lose.wav", "win.wav", "powerUp.wav",
  "explode.wav"];
 export let levelsObj;

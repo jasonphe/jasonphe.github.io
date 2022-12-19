@@ -290,35 +290,103 @@
             "title": 7,
             "gateParents": [
                 {
-                    "x" : 1100, 
-                    "gates": [{ "heightRatio": 0.25, "value": 25, "type": "add" },
-                        { "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.5, "value": 5, "type": "add" }
+                    "x" : 700, 
+                    "gates": [{ "heightRatio": 0.4, "value": 20, "type": "add" },
+                        { "heightRatio": 0.6, "value": -10, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 2200, 
-                    "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
+                    "x" : 3300, 
+                    "gates": [{ "heightRatio": 0.4, "value": 5, "type": "add" },
+                        { "heightRatio": 0.6, "value": -10, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 3700, 
+                    "gates": [{ "heightRatio": 1, "value": -20, "type": "add" }]
+                },
+                {
+                    "x" : 4500, 
+                    "gates": [{ "heightRatio": 0.3, "value": -30, "type": "add" },
+                        { "heightRatio": 0.4, "value": 4, "type": "multiply" },
+                        { "heightRatio": 0.3, "value": 30, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 5000, 
+                    "gates": [{ "heightRatio": 0.5, "value": 5, "type": "add" },
+                        { "heightRatio": 0.5, "value": 10, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 5600, 
+                    "gates": [{ "heightRatio": 0.3, "value": 2, "type": "multiply" },
                         { "heightRatio": 0.7, "value": -20, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 6000, 
+                    "gates": [{ "heightRatio": 1, "value": -200, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 9700, 
+                    "gates": [{ "heightRatio": 1, "value": -400, "type": "add" }
+                    ]
+                },
+                {
+                    "x" : 11000, 
+                    "gates": [{ "heightRatio": 0.4, "value": 1, "type": "add" },
+                        { "heightRatio": 0.2, "value": 500, "type": "add" },
+                        { "heightRatio": 0.4, "value": 1, "type": "add" }
                     ]
                 }
             ],
             "spikes": [
-                { "x": 1700, "w": 200, "yRatio": 0.01, "heightRatio": 0.3 },
-                { "x": 1700, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
-                { "x": 1500, "w": 300, "yRatio": 0.6, "heightRatio": 0.4 }
+                { "x": 1700, "w": 200, "yRatio": 0  , "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.5, "heightRatio": 0.3 },
+                { "x": 1700, "w": 200, "yRatio": 0.8, "heightRatio": 0.2 },
+                { "x": 1900, "w": 200, "yRatio": 0  , "heightRatio": 0.2 },
+                { "x": 1900, "w": 200, "yRatio": 0.4, "heightRatio": 0.3 },
+                { "x": 1900, "w": 200, "yRatio": 0.7, "heightRatio": 0.3 },
+                { "x": 2100, "w": 200, "yRatio": 0  , "heightRatio": 0.1 },
+                { "x": 2100, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 2100, "w": 200, "yRatio": 0.6, "heightRatio": 0.4 },
+                { "x": 2300, "w": 200, "yRatio": 0  , "heightRatio": 0.2 },
+                { "x": 2300, "w": 200, "yRatio": 0.4, "heightRatio": 0.3 },
+                { "x": 2300, "w": 200, "yRatio": 0.7, "heightRatio": 0.3 },
+                { "x": 2500, "w": 200, "yRatio": 0  , "heightRatio": 0.3 },
+                { "x": 2500, "w": 200, "yRatio": 0.5, "heightRatio": 0.3 },
+                { "x": 2500, "w": 200, "yRatio": 0.8, "heightRatio": 0.2 },
+                { "x": 6600, "w": 200, "yRatio": 0  , "heightRatio": 0.3 },
+                { "x": 6600, "w": 200, "yRatio": 0.5, "heightRatio": 0.3 },
+                { "x": 6600, "w": 200, "yRatio": 0.8, "heightRatio": 0.2 },
+                { "x": 6800, "w": 200, "yRatio": 0  , "heightRatio": 0.2 },
+                { "x": 6800, "w": 200, "yRatio": 0.4, "heightRatio": 0.3 },
+                { "x": 6800, "w": 200, "yRatio": 0.7, "heightRatio": 0.3 },
+                { "x": 7000, "w": 200, "yRatio": 0  , "heightRatio": 0.1 },
+                { "x": 7000, "w": 200, "yRatio": 0.3, "heightRatio": 0.3 },
+                { "x": 7000, "w": 200, "yRatio": 0.6, "heightRatio": 0.4 },
+                { "x": 7200, "w": 200, "yRatio": 0  , "heightRatio": 0.2 },
+                { "x": 7200, "w": 200, "yRatio": 0.4, "heightRatio": 0.3 },
+                { "x": 7200, "w": 200, "yRatio": 0.7, "heightRatio": 0.3 },
+                { "x": 7400, "w": 200, "yRatio": 0  , "heightRatio": 0.3 },
+                { "x": 7400, "w": 200, "yRatio": 0.5, "heightRatio": 0.3 },
+                { "x": 7400, "w": 200, "yRatio": 0.8, "heightRatio": 0.2 }
             ],
             "orcas": [
-                { "x": 2500, "w": 600, "yRatio": 0.1, "heightRatio": 0.3},
-                { "x": 2800, "w": 400, "yRatio": 0.3, "heightRatio": 0.2},
-                { "x": 3700, "w": 400, "yRatio": 0.4, "heightRatio": 0.2},
-                { "x": 3400, "w": 400, "yRatio": 0.6, "heightRatio": 0.2}
+                { "x": 6600, "w": 600, "yRatio": 0.1, "heightRatio": 0.3},
+                { "x": 6600, "w": 400, "yRatio": 0.6, "heightRatio": 0.2},
+                { "x": 7500, "w": 400, "yRatio": 0.4, "heightRatio": 0.2},
+                { "x": 7900, "w": 400, "yRatio": 0.7, "heightRatio": 0.2}
             ],
             "powerUps": [
-                { "x": 2400, "type": "speed" }
+                { "x": 1200, "type": "speed" },
+                { "x": 2400, "type": "modifier" },
+                { "x": 6300, "type": "greaves" }
             ],
             "finish": {
-                "x": 4100
+                "x": 13000
             }
         },
         {

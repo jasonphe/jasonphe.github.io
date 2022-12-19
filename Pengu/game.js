@@ -6,7 +6,7 @@ import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, s
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
-let version = "0.9";
+let version = "1.0";
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;
@@ -44,12 +44,7 @@ function init() {
     } else {
         storedLevels = storage;
     }
-    levelSelect();
-}
-
-function levelSelect() {
-    setLevelButtons();
-    switchScene("levelSelect");
+    switchScene("levelSelect")
 }
 
 function menuClick(event) {
@@ -193,6 +188,7 @@ function switchScene(newScene) {
     switch (newScene) {
         case "levelSelect": {
             scene = "levelSelect";
+            setLevelButtons();
             canvas.addEventListener('click', menuClick);
             menuLoopReq = requestAnimationFrame(menuLoop);
             break;
@@ -213,7 +209,7 @@ function switchScene(newScene) {
         }
         case "cutscene": {
             scene = "cutscene";
-            cutsceneVar = {pX: 0, pY: 600, pAnim: true, mX: baseWidth, mY: 350, mAnim: true, eX: baseWidth, eY: 20, eLeft: true};
+            cutsceneVar = {pX: 0, pY: 600, pAnim: true, mX: baseWidth, mY: 360, mAnim: true, eX: baseWidth, eY: 20, eLeft: true};
             setTimestamp(undefined);
             requestAnimationFrame(cutsceneLoop);
             break;
@@ -388,18 +384,17 @@ function cutsceneLoop(timeStamp) {
 }
 
 function moveCutscene(elapsedMS) {
-
-    if (cutsceneVar.pX < baseWidth/2) {
+    if (cutsceneVar.pX < baseWidth/2 - 120) {
         cutsceneVar.pX += elapsedMS * .1;
     } else {
         cutsceneVar.pAnim = false;
     }
 
-    if (cutsceneVar.pY > 350) {
+    if (cutsceneVar.pY > 420) {
         cutsceneVar.pY -= elapsedMS * .1;
     }
 
-    if (cutsceneVar.mX > baseWidth/2 + 150) {
+    if (cutsceneVar.mX > baseWidth/2) {
         cutsceneVar.mX -= elapsedMS * .1;
     } else {
         cutsceneVar.mAnim = false;
@@ -413,7 +408,7 @@ function moveCutscene(elapsedMS) {
 
     if (cutsceneVar.eX < 0) {
         cutsceneVar.eLeft = false;
-    } else if (cutsceneVar.eX > baseWidth - 250) {
+    } else if (cutsceneVar.eX > baseWidth - 300) {
         cutsceneVar.eLeft = true;
     }
 }
@@ -425,25 +420,40 @@ function drawCutscene() {
 
     let frame = cutsceneVar.pAnim ? Math.floor(oldTimeStamp/200) % 2 : 0;
     image = imgDict["right"];
-    ctx.drawImage(image, 0 + frame * 40, 0, 40, image.height, cutsceneVar.pX, cutsceneVar.pY, 100, 100);
+    ctx.drawImage(image, 0 + frame * 40, 0, 40, image.height, cutsceneVar.pX, cutsceneVar.pY, 130, 150);
 
-    //frame = cutsceneVar.mAnim ? Math.floor(oldTimeStamp/200) % 4 : 0;
-    image = imgDict["monkey"];
-    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.mX, cutsceneVar.mY, 100, 100);
+    frame = cutsceneVar.mAnim ? Math.floor(oldTimeStamp/200) % 4 : 0;
+    image = imgDict[`monkey${frame}`];
+    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.mX, cutsceneVar.mY, 170, 210);
 
     image = cutsceneVar.eLeft ? imgDict["eagle"] : imgDict["eagleR"]; 
-    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.eX, cutsceneVar.eY, 250, 100);
+    ctx.drawImage(image, 0, 0, image.width, image.height, cutsceneVar.eX, cutsceneVar.eY, 300, 150);
 
+    frame = Math.floor(oldTimeStamp/200) % 3;
     ctx.beginPath();
     ctx.font = '600 36px Verdana';
-    ctx.fillStyle = frame == 1 ? "white" : "yellow";
+    let colors = ["white", "yellow", "red"];
+    ctx.fillStyle = colors[frame];
     ctx.textAlign="center";
     ctx.textBaseline = "middle";
     ctx.lineWidth = 1;
     ctx.strokeStyle = 'black';
     let text = "Happy birthday, Linda!!!!";
-    ctx.fillText(text, baseWidth/2, 100);
-    ctx.strokeText(text, baseWidth/2, 100);
+    ctx.fillText(text, baseWidth/2, 210);
+    ctx.strokeText(text, baseWidth/2, 210);
+
+    if (cutsceneVar.pAnim === false) {
+        ctx.beginPath();
+        ctx.font = '600 20px Verdana';
+        ctx.fillStyle = "white"
+        ctx.textAlign= "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'black';
+        text = "Press any key to continue...";
+        ctx.fillText(text, baseWidth/2, baseHeight - 5);
+        ctx.strokeText(text, baseWidth/2, baseHeight - 5);
+    }
 }
 
 function pauseMenuRestart() {
@@ -455,7 +465,7 @@ function pauseMenuRestart() {
 function pauseMenuLevelSelect() {
     togglePause(false);
     endGame();
-    levelSelect();
+    switchScene("levelSelect");
 }
 
 var pauseButtons = [];
