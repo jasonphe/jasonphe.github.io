@@ -244,6 +244,7 @@ function switchScene(newScene) {
         }
         case "cutscene": {
             scene = "cutscene";
+            keys = {};
             cutsceneVar = {pX: 0, pY: 600, pAnim: true, mX: baseWidth, mY: 360, mAnim: true, eX: baseWidth, eY: 20, eLeft: true};
             setTimestamp(undefined);
             requestAnimationFrame(cutsceneLoop);
