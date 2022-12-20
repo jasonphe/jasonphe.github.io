@@ -2,7 +2,7 @@ import { Collider } from "./collider.js";
 import { Obstacle, Gate, GateParent, FinishLine, Spike, Orca, PowerUp} from "./obstacle.js";
 import { Player } from "./player.js";
 //import { Pengu } from "./pengu.js";
-import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp } from "./globals.js";
+import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, setTimestamp, textWithOutline, drawImgRatio } from "./globals.js";
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
@@ -49,7 +49,8 @@ function init() {
 
 function menuClick(event) {
     for (let i = 0; i < levelButtons.length; i++) {
-        if (isHovering({x: event.offsetX, y: event.offsetY}, levelButtons[i]) && levelButtons[i].unlocked) {
+        let button = levelButtons[i];
+        if (isHovering({x: event.offsetX, y: event.offsetY}, button) && button.unlocked && !button.instructions) {
             currentLevel = i + 1;
             beginGame();
         }
@@ -102,6 +103,9 @@ function setLevelButtons() {
         }
         currY += spacePerButton;
     }
+
+    levelButtons.push({x: baseWidth-200, y: baseHeight - 50, w: 200, h: 50, 
+        text: "How to Play", unlocked: true, center: true, instructions: true}); 
 }
 canvas.addEventListener("mousemove", (event) => {
     mousePosition = {x: event.offsetX, y: event.offsetY};
@@ -126,10 +130,10 @@ function drawLevelSelect() {
             ctx.textBaseline = "middle"; 
             ctx.fillStyle = 'white';
             ctx.strokeStyle = 'black';
-            ctx.fillText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
-            ctx.strokeText(b.text, b.x + b.w/2, b.y + b.h/2 - 20);
-
-            if (b.text != "Ending") {
+            let y = b.center ? b.y + b.h/2 : b.y + b.h/2 - 20;
+            ctx.fillText(b.text, b.x + b.w/2, y);
+            ctx.strokeText(b.text, b.x + b.w/2, y);
+            if (b.text != "Ending" && b.highScore) {
                 ctx.beginPath();
                 let scoreText = "Best: " + b.highScore;
                 ctx.textAlign="center";
@@ -143,13 +147,37 @@ function drawLevelSelect() {
             let image = imgDict["lock"];
             ctx.drawImage(image, 0, 0, image.width, image.height, b.x + b.w/4, b.y + b.h/4, b.w/2, b.h/2);
         }
-
-        ctx.fillStyle = 'white';
-        ctx.font = "600 20px Verdana";
-        ctx.textAlign="left";
-        ctx.textBaseline = "alphabetic"; 
-        ctx.fillText(`Version ${version}`, 0, baseHeight);
     });
+
+    ctx.fillStyle = 'white';
+    ctx.font = "600 20px Verdana";
+    ctx.textAlign="left";
+    ctx.textBaseline = "alphabetic"; 
+    ctx.fillText(`Version ${version}`, 0, baseHeight);
+
+    if (isHovering(mousePosition, levelButtons[levelButtons.length - 1])) {
+        drawInstructions();
+    }
+}
+
+function drawInstructions() {
+    ctx.fillStyle = "#1CE5DE";
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 10;
+    ctx.roundRect(10, 10, baseWidth - 20, baseHeight - 100, 25);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    let image = imgDict["wasd"];
+    drawImgRatio(image, 700, 50, 200, 200);
+    
+    textWithOutline("WASD or Arrow Keys to move", 30, 80);
+    textWithOutline("P to Pause", 30, 120);
+
+    textWithOutline("Increase your score by passing through gates.", 30, 300);
+    textWithOutline("The higher your score, the bigger you get!", 30, 340);
+    textWithOutline("Avoid obstacles, collect power ups, and try to reach the end!", 30, 400);
+    
 }
 
 function beginGame() { 
@@ -353,7 +381,7 @@ function pauseLoop() {
     if (keys["r"]) {
         pauseMenuRestart();
         return;
-    } else if (keys["m"]) {
+    } else if (keys["l"]) {
         pauseMenuLevelSelect();
         return;
     }
@@ -488,17 +516,17 @@ function setPauseButtons() {
         }
     } else if (!isLose) {
         pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
-            text: "Resume", callback: function() {
+            text: "[P]Resume", callback: function() {
                 togglePause(false, true); 
             }});
         currY += buttonHeight + marginSize;
     }
 
     pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
-        text: "Restart", callback: pauseMenuRestart});
+        text: "[R]Restart", callback: pauseMenuRestart});
     currY += buttonHeight + marginSize;
     pauseButtons.push({x: currX, y: currY, w: buttonWidth, h: buttonHeight, 
-        text: "Level Select", callback: pauseMenuLevelSelect});
+        text: "[L]Level Select", callback: pauseMenuLevelSelect});
 }
 
 function displayPauseMenu() {
