@@ -6,7 +6,7 @@ import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, s
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
-let version = "1.0";
+let version = "1.01";
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;
@@ -50,7 +50,7 @@ function init() {
 function menuClick(event) {
     for (let i = 0; i < levelButtons.length; i++) {
         let button = levelButtons[i];
-        if (isHovering({x: event.offsetX, y: event.offsetY}, button) && button.unlocked && !button.instructions) {
+        if (isHovering(scaleMousePos({x: event.offsetX, y: event.offsetY}), button) && button.unlocked && !button.instructions) {
             currentLevel = i + 1;
             beginGame();
         }
@@ -108,8 +108,15 @@ function setLevelButtons() {
         text: "How to Play", unlocked: true, center: true, instructions: true}); 
 }
 canvas.addEventListener("mousemove", (event) => {
-    mousePosition = {x: event.offsetX, y: event.offsetY};
+    mousePosition = scaleMousePos({x: event.offsetX, y: event.offsetY});
 });
+
+function scaleMousePos(pos) {
+    const { width, height } = canvas.getBoundingClientRect();
+    //console.log("width: " + width + " height: " + height);
+    //console.log("event.offsetX: " + event.offsetX + " event.offsetY: " + event.offsetY);
+    return {x: (baseWidth/width) * pos.x, y: (baseHeight/height) * pos.y};
+}
 
 function drawLevelSelect() {
     clearCanvas();
@@ -247,7 +254,7 @@ function switchScene(newScene) {
 
 function pauseMenuClick(event) {
     for (let i = 0; i < pauseButtons.length; i++) {
-        if (isHovering({x: event.offsetX, y: event.offsetY}, pauseButtons[i])) {
+        if (isHovering(scaleMousePos({x: event.offsetX, y: event.offsetY}), pauseButtons[i])) {
             pauseButtons[i].callback();
         }
     }
