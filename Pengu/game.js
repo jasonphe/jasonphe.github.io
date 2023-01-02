@@ -6,7 +6,7 @@ import { imgDict, audioDict, canvas, ctx, baseWidth, baseHeight, oldTimeStamp, s
 import { loadAssets, levelsObj } from "./preload.js"
 
 let keys = [];
-let version = "1.01";
+let version = "1.02";
 
 canvas.width = baseWidth;
 canvas.height = baseHeight;

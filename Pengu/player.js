@@ -146,8 +146,15 @@ export class Player extends Collider{
 
 	draw() {	
         let frame = Math.floor(oldTimeStamp/200) % 4;
+        let flicker = Math.floor(oldTimeStamp/200) % 2;
         let image = imgDict[`frame${frame}`];
+
+        ctx.save();
+        if (flicker == 1 && this.greaves) {
+            ctx.filter = 'invert(1)';
+        }
         ctx.drawImage(image, 0, 0, image.width, image.height, this.x, this.y, this.w, this.h);
+        ctx.restore();
 
         ctx.beginPath();
         ctx.font = '600 24px Verdana';

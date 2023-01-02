@@ -179,8 +179,8 @@
                 {
                     "x" : 4400, 
                     "gates": [{ "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.1, "value": 2, "type": "multiply" },
-                        { "heightRatio": 0.65, "value": 5, "type": "add" }
+                        { "heightRatio": 0.2, "value": 2, "type": "multiply" },
+                        { "heightRatio": 0.55, "value": 5, "type": "add" }
                     ]
                 },
                 {
@@ -214,31 +214,30 @@
             "gateParents": [
                 {
                     "x" : 800, 
-                    "gates": [{ "heightRatio": 0.75, "value": 300, "type": "add" },
+                    "gates": [{ "heightRatio": 0.75, "value": 500, "type": "add" },
                         { "heightRatio": 0.25, "value": 20, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 2700, 
+                    "x" : 3800, 
                     "gates": [{ "heightRatio": 0.3, "value": 3, "type": "multiply" },
                         { "heightRatio": 0.7, "value": -20, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 3200, 
+                    "x" : 4300, 
                     "gates": [{ "heightRatio": 0.75, "value": -40, "type": "add" },
                         { "heightRatio": 0.25, "value": 5, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 3700, 
+                    "x" : 4800, 
                     "gates": [{ "heightRatio": 0.25, "value": -10, "type": "add" },
-                        { "heightRatio": 0.1, "value": 2, "type": "multiply" },
-                        { "heightRatio": 0.65, "value": 5, "type": "add" }
+                        { "heightRatio": 0.75, "value": 5, "type": "add" }
                     ]
                 },
                 {
-                    "x" : 3900, 
+                    "x" : 5200, 
                     "gates": [{ "heightRatio": 1, "value": -60, "type": "add" }]
                 }
             ],
@@ -253,7 +252,7 @@
                 { "x": 1250, "type": "speed" }
             ],
             "finish": {
-                "x": 4200
+                "x": 5500
             }
         },
         {

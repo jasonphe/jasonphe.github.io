@@ -223,10 +223,11 @@ export class Orca extends Obstacle {
 
         let frame = Math.floor(oldTimeStamp/200) % 5;
         let image = imgDict["orca"];
-        let adjust = 1.5;
+        let adjustX = 1.3;
+        let adjustY = 2.3; //Adjust for hitbox
         ctx.drawImage(image, 0, frame * (image.height/5), image.width, image.height/5, 
-            this.x - (this.w * adjust - this.w)/2, this.y - (this.h * adjust - this.h)/2, this.w * adjust, this.h * adjust);
-       /* ctx.beginPath();
+            this.x - (this.w * adjustX - this.w)/2, this.y - (this.h * adjustY - this.h)/2, this.w * adjustX, this.h * adjustY);
+        /*ctx.beginPath();
         ctx.strokeStyle = "black";
         ctx.strokeRect(this.x, this.y, this.w, this.h);*/
     }
