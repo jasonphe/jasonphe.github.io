@@ -221,20 +221,17 @@ img { display: block; max-width: 100%; }
 }
 .card:hover .thumb img { transform: scale(1.05); }
 
-/* Pengu thumbnail is composed from the game's own art */
-.thumb-pengu {
-    display: grid;
-    place-items: center;
-    background: url("Pengu/assets/background.png") center 30% / cover;
+.thumb-zoo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6%;
+    background: linear-gradient(135deg, #ffe3ec, #fff1c9 55%, #d9f4ff);
+    font-size: clamp(40px, 7vw, 64px);
 }
-.thumb-pengu img {
-    width: 30%;
-    height: auto;
-    image-rendering: pixelated;
-    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, .3));
-    animation: bob 3s ease-in-out infinite;
-}
-.card:hover .thumb-pengu img { transform: none; }
+.thumb-zoo span { animation: bob 3s ease-in-out infinite; }
+.thumb-zoo span:nth-child(2) { animation-delay: -1s; }
+.thumb-zoo span:nth-child(3) { animation-delay: -2s; }
 
 @keyframes bob {
     0%, 100% { translate: 0 -6px; rotate: -3deg; }

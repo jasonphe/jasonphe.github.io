@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Tap Tap Zoo</title>
+  <meta name="description" content="A toddler toy: tap, click, or mash keys to meet animals, pop bubbles, and make music.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .88);
+      --accent: #ff7aa2;
+      --accent-2: #ffb86b;
+      --bg: #fff3e6;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(255, 122, 162, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Tap Tap Zoo</h1>
+      <p class="sub">Tap, click, or bang on the keys!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Music</label>
+        <label><input type="checkbox" id="optVoice" checked> Animal voices</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <ul class="tips">
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>iPad or iPhone: turn on <b>Guided Access</b> (Settings → Accessibility) so little hands can't swipe out.</li>
+        <li>Computer: it goes full screen. Letter keys show animals, like C for cat.</li>
+      </ul>
+      <a class="home" href="../index.html">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // [emoji, name, what it says]
+  const ANIMALS = [
+    ["🐶", "dog", "woof woof"], ["🐱", "cat", "meow"], ["🐮", "cow", "moo"],
+    ["🐷", "pig", "oink oink"], ["🦆", "duck", "quack quack"], ["🐸", "frog", "ribbit"],
+    ["🦁", "lion", "roar"], ["🐑", "sheep", "baa"], ["🐴", "horse", "neigh"],
+    ["🐔", "chicken", "bawk bawk"], ["🦉", "owl", "hoo hoo"], ["🐝", "bee", "buzz"],
+    ["🐵", "monkey", "ooh ooh ah ah"], ["🐘", "elephant", null], ["🐟", "fish", null],
+    ["🐰", "bunny", null], ["🐧", "penguin", null], ["🐢", "turtle", null],
+    ["🐳", "whale", null], ["🦋", "butterfly", null], ["🐻", "bear", null],
+    ["🐯", "tiger", null], ["🦒", "giraffe", null], ["🐙", "octopus", null],
+  ];
+  const byName = n => ANIMALS.find(a => a[1] === n);
+  // Letter keys show an animal that starts with that letter, when there is one
+  const LETTERS = {
+    a: ["🐜", "ant", null], b: byName("bear"), c: byName("cat"), d: byName("dog"),
+    e: byName("elephant"), f: byName("frog"), g: byName("giraffe"), h: byName("horse"),
+    k: ["🐨", "koala", null], l: byName("lion"), m: byName("monkey"), o: byName("owl"),
+    p: byName("pig"), r: ["🐰", "rabbit", null], s: byName("sheep"), t: byName("turtle"),
+    u: ["🦄", "unicorn", null], w: byName("whale"), z: ["🦓", "zebra", null],
+  };
+  const DAY = ["#ff6b8b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#38d9a9"];
+  const NIGHT = ["#c9728a", "#c99060", "#c9b45c", "#6fae80", "#5f93c4", "#8f7cc9", "#c47ea0", "#56b09a"];
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("tapzoo") || "null");
+    if (saved) { opt.sound.checked = saved.sound; opt.voice.checked = saved.voice; opt.night.checked = saved.night; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    try { localStorage.setItem("tapzoo", JSON.stringify({ sound: opt.sound.checked, voice: opt.voice.checked, night: opt.night.checked })); } catch (e) {}
+  };
+  const palette = () => (opt.night.checked ? NIGHT : DAY);
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.min(W, H) / 600; // scale things to the screen
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+  }
+  // C major pentatonic: every combination sounds nice
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  const noteAt = x => SCALE[Math.max(0, Math.min(SCALE.length - 1, Math.floor((x / W) * SCALE.length)))];
+  function chord(x) {
+    const f = noteAt(x);
+    tone(f, { vol: 0.22 });
+    tone(f * 1.5, { type: "sine", vol: 0.08, dur: 0.9 });
+  }
+  const pop = () => tone(900, { type: "sine", vol: 0.3, dur: 0.18, slideTo: 220 });
+  const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+
+  // ---------- Voice ----------
+  let lastSpoke = 0;
+  function say(text) {
+    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    const now = performance.now();
+    // Don't let button mashing pile up a queue of words
+    if (speechSynthesis.speaking || now - lastSpoke < 700) return;
+    lastSpoke = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+  const phrase = a => (a[2] ? `The ${a[1]} says ${a[2]}!` : `${a[1]}!`);
+
+  // ---------- World ----------
+  let animals = [], particles = [], rings = [], bubbles = [], sparkles = [];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  let lastAnimal = null;
+
+  function spawnAnimal(x, y, animal, letter) {
+    if (!animal) {
+      do { animal = pick(ANIMALS); } while (animal === lastAnimal);
+    }
+    lastAnimal = animal;
+    const size = rand(130, 180) * UNIT;
+    // Keep it fully on screen
+    x = Math.max(size / 2, Math.min(W - size / 2, x));
+    y = Math.max(size / 2, Math.min(H - size / 2, y));
+    animals.push({
+      a: animal, x, y, size, letter,
+      s: 0, sv: 0, rot: rand(-0.3, 0.3), rv: 0,
+      age: 0, life: 7, bob: rand(0, 6.28),
+    });
+    while (animals.length > 10) animals.shift();
+    burst(x, y, 18);
+    chord(x);
+    setTimeout(() => say(phrase(animal)), 120);
+  }
+
+  function burst(x, y, n) {
+    const cols = palette();
+    rings.push({ x, y, r: 10 * UNIT, age: 0, color: pick(cols) });
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, Math.PI * 2), sp = rand(150, 420) * UNIT;
+      particles.push({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 120 * UNIT,
+        size: rand(8, 18) * UNIT, color: pick(cols), shape: Math.floor(rand(0, 3)),
+        rot: rand(0, 6.28), rv: rand(-6, 6), age: 0, life: rand(0.8, 1.4),
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  function spawnBubble() {
+    const r = rand(28, 55) * UNIT;
+    bubbles.push({ x: rand(r, W - r), y: H + r, r, vy: rand(35, 70) * UNIT, wob: rand(0, 6.28), color: pick(palette()) });
+  }
+
+  function boop(an) {
+    an.sv += 7; an.rv += rand(-8, 8);
+    an.age = Math.min(an.age, 2); // tapping keeps a friend around longer
+    boing();
+    say(phrase(an.a));
+    burst(an.x, an.y, 8);
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+  let lastChime = 0;
+
+  function hit(x, y) {
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      if (Math.hypot((b.drawX ?? b.x) - x, b.y - y) < b.r * 1.3) { bubbles.splice(i, 1); pop(); burst(b.drawX ?? b.x, b.y, 12); return true; }
+    }
+    for (let i = animals.length - 1; i >= 0; i--) {
+      const an = animals[i];
+      if (an.age < an.life - 1 && Math.hypot(an.x - x, an.y - y) < an.size * 0.5) { boop(an); return true; }
+    }
+    return false;
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    if (!hit(e.clientX, e.clientY)) spawnAnimal(e.clientX, e.clientY);
+  });
+
+  canvas.addEventListener("pointermove", e => {
+    if (!playing) return;
+    // Mouse leaves a trail just by moving; fingers leave one while touching
+    if (e.pointerType !== "mouse" && e.pressure === 0) return;
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+    sparkles.push({ x: e.clientX, y: e.clientY, age: 0, color: pick(palette()), size: rand(8, 16) * UNIT });
+    if (sparkles.length > 160) sparkles.shift();
+    const now = performance.now();
+    if (now - lastChime > 140) {
+      lastChime = now;
+      const f = SCALE[Math.floor((1 - e.clientY / H) * SCALE.length)] || SCALE[0];
+      tone(f * 2, { type: "sine", vol: 0.05, dur: 0.4 });
+    }
+  });
+
+  const endHold = e => { if (exitHold && exitHold.id === e.pointerId) exitHold = null; };
+  canvas.addEventListener("pointerup", endHold);
+  canvas.addEventListener("pointercancel", endHold);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    // Swallow everything the browser lets us (space scroll, backspace, find, etc.)
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return; // holding a key down shouldn't flood the screen
+    heldKeys.add(e.code);
+    initAudio();
+    const k = e.key.length === 1 ? e.key.toLowerCase() : "";
+    const animal = LETTERS[k];
+    spawnAnimal(rand(0.12, 0.88) * W, rand(0.15, 0.85) * H, animal, animal ? k.toUpperCase() : null);
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    if (opt.voice.checked && "speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance("Let's play!");
+      u.rate = 0.9; u.pitch = 1.25;
+      speechSynthesis.speak(u);
+      lastSpoke = performance.now();
+    }
+    startEl.classList.add("hidden");
+    animals = []; particles = []; rings = []; bubbles = []; sparkles = [];
+    playing = true;
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    for (let i = 0; i < 3; i++) setTimeout(spawnBubble, i * 600);
+  });
+  [opt.sound, opt.voice, opt.night].forEach(el => el.addEventListener("change", saveOpts));
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Drawing ----------
+  function drawShape(shape, size) {
+    ctx.beginPath();
+    if (shape === 0) ctx.arc(0, 0, size, 0, Math.PI * 2);
+    else if (shape === 1) {
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? size * 0.45 : size, a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+    } else {
+      // heart
+      const s = size * 0.9;
+      ctx.moveTo(0, s * 0.9);
+      ctx.bezierCurveTo(-s * 1.4, -s * 0.1, -s * 0.6, -s * 1.1, 0, -s * 0.4);
+      ctx.bezierCurveTo(s * 0.6, -s * 1.1, s * 1.4, -s * 0.1, 0, s * 0.9);
+    }
+    ctx.fill();
+  }
+
+  let hue = 20;
+  function background(dt) {
+    hue = (hue + dt * 4) % 360; // very slow, calm color drift
+    const night = opt.night.checked;
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, night ? `hsl(${hue}, 35%, 14%)` : `hsl(${hue}, 90%, 93%)`);
+    g.addColorStop(1, night ? `hsl(${(hue + 60) % 360}, 35%, 20%)` : `hsl(${(hue + 60) % 360}, 90%, 88%)`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  let last = performance.now(), bubbleTimer = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    background(dt);
+
+    if (playing) {
+      bubbleTimer -= dt;
+      if (bubbleTimer <= 0 && bubbles.length < 6) { spawnBubble(); bubbleTimer = rand(1.2, 2.5); }
+    }
+
+    // Bubbles
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.y -= b.vy * dt; b.wob += dt * 1.5;
+      const x = b.x + Math.sin(b.wob) * 14 * UNIT;
+      if (b.y < -b.r * 2) { bubbles.splice(i, 1); continue; }
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.arc(x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.18, 0, Math.PI * 2); ctx.fill();
+      b.drawX = x;
+    }
+    ctx.globalAlpha = 1;
+
+    // Sparkle trail
+    for (let i = sparkles.length - 1; i >= 0; i--) {
+      const s = sparkles[i];
+      s.age += dt;
+      if (s.age > 0.7) { sparkles.splice(i, 1); continue; }
+      const k = 1 - s.age / 0.7;
+      ctx.globalAlpha = k;
+      ctx.fillStyle = s.color;
+      ctx.save(); ctx.translate(s.x, s.y - s.age * 30 * UNIT); ctx.rotate(s.age * 4);
+      drawShape(1, s.size * k);
+      ctx.restore();
+    }
+
+    // Rings
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.age += dt;
+      if (r.age > 0.6) { rings.splice(i, 1); continue; }
+      const k = r.age / 0.6;
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 10 * UNIT * (1 - k) + 1;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + k * 140 * UNIT, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Animals
+    for (let i = animals.length - 1; i >= 0; i--) {
+      const an = animals[i];
+      an.age += dt;
+      if (an.age > an.life) { animals.splice(i, 1); continue; }
+      // Springy pop-in / boop
+      an.sv += (1 - an.s) * 120 * dt - an.sv * 9 * dt;
+      an.s += an.sv * dt;
+      an.rv += -an.rot * 60 * dt - an.rv * 6 * dt;
+      an.rot += an.rv * dt;
+      an.bob += dt * 2.2;
+      const fade = an.age > an.life - 1 ? an.life - an.age : 1;
+      const drift = an.age > an.life - 1 ? (1 - fade) * 80 * UNIT : 0;
+      ctx.globalAlpha = Math.max(0, fade);
+      ctx.save();
+      ctx.translate(an.x, an.y + Math.sin(an.bob) * 6 * UNIT - drift);
+      ctx.rotate(an.rot + Math.sin(an.bob * 0.7) * 0.06);
+      const s = an.size * Math.max(0, an.s);
+      ctx.drawImage(emojiImage(an.a[0]), -s / 2, -s / 2, s, s);
+      if (an.letter) {
+        ctx.font = `800 ${Math.round(s * 0.32)}px "Baloo 2", sans-serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.lineWidth = s * 0.05; ctx.strokeStyle = "#fff"; ctx.fillStyle = "#2b2d42";
+        ctx.strokeText(an.letter, 0, s * 0.62); ctx.fillText(an.letter, 0, s * 0.62);
+      }
+      ctx.restore();
+    }
+
+    // Confetti
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      drawShape(p.shape, p.size);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Grown-up exit: hold top-right corner
+    if (playing) {
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#ff7aa2"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * Math.PI * 2);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
