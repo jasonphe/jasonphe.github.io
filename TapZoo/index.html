@@ -220,13 +220,77 @@
   const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
 
   // ---------- Voice ----------
-  let lastSpoke = 0;
-  function say(text) {
-    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+  // Recorded clips live in voice/<name>.mp3 (or .m4a), e.g. voice/cow.mp3.
+  // Any clip that's missing falls back to the browser's speech voice.
+  const VOICE_DIR = "voice/";
+  const clips = new Map();
+  let clipsRequested = false;
+  function loadClips() {
+    if (clipsRequested || !audio) return;
+    clipsRequested = true;
+    const names = new Set(["lets-play"]);
+    ANIMALS.concat(Object.values(LETTERS)).forEach(a => names.add(a[1]));
+    names.forEach(async name => {
+      for (const ext of ["mp3", "m4a"]) {
+        try {
+          const res = await fetch(VOICE_DIR + name + "." + ext);
+          if (!res.ok) continue;
+          const data = await res.arrayBuffer();
+          // Safari only supports the callback form of decodeAudioData
+          const buf = await new Promise((ok, fail) => audio.decodeAudioData(data, ok, fail));
+          clips.set(name, tidyClip(buf));
+          return;
+        } catch (e) {}
+      }
+    });
+  }
+
+  // Phone recordings have silence at both ends and uneven volume, which makes
+  // the voice lag behind a tap. Trim the silence and even out the loudness.
+  function tidyClip(buf) {
+    const rate = buf.sampleRate, chans = buf.numberOfChannels;
+    let peak = 0;
+    for (let c = 0; c < chans; c++) for (const v of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+    if (peak === 0) return buf;
+    const loudAt = i => { for (let c = 0; c < chans; c++) if (Math.abs(buf.getChannelData(c)[i]) > peak * 0.08) return true; return false; };
+    let start = 0, end = buf.length - 1;
+    while (start < end && !loudAt(start)) start++;
+    while (end > start && !loudAt(end)) end--;
+    start = Math.max(0, start - Math.round(rate * 0.03));
+    end = Math.min(buf.length, end + Math.round(rate * 0.12));
+    const out = audio.createBuffer(chans, end - start, rate);
+    const gain = 0.9 / peak;
+    for (let c = 0; c < chans; c++) {
+      const src = buf.getChannelData(c).subarray(start, end), dst = out.getChannelData(c);
+      for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain;
+    }
+    return out;
+  }
+
+  let busyUntil = 0, lastSpeech = 0;
+  function say(name, text) {
+    if (!opt.voice.checked) return;
     const now = performance.now();
     // Don't let button mashing pile up a queue of words
-    if (speechSynthesis.speaking || now - lastSpoke < 700) return;
-    lastSpoke = now;
+    if (now < busyUntil) return;
+    const clip = clips.get(name);
+    if (clip && audio) {
+      const src = audio.createBufferSource(), g = audio.createGain();
+      g.gain.value = 1.3; // voices sit above the music
+      src.buffer = clip;
+      src.connect(g); g.connect(master);
+      src.start();
+      busyUntil = now + clip.duration * 1000 + 150;
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
+    if (speechSynthesis.speaking) {
+      // Some browsers get stuck "speaking" forever; unstick after a few seconds
+      if (now - lastSpeech < 4000) return;
+      speechSynthesis.cancel();
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
     speechSynthesis.speak(u);
@@ -256,7 +320,7 @@
     while (animals.length > 10) animals.shift();
     burst(x, y, 18);
     chord(x);
-    setTimeout(() => say(phrase(animal)), 120);
+    setTimeout(() => say(animal[1], phrase(animal)), 120);
   }
 
   function burst(x, y, n) {
@@ -282,7 +346,7 @@
     an.sv += 7; an.rv += rand(-8, 8);
     an.age = Math.min(an.age, 2); // tapping keeps a friend around longer
     boing();
-    say(phrase(an.a));
+    say(an.a[1], phrase(an.a));
     burst(an.x, an.y, 8);
   }
 
@@ -356,14 +420,14 @@
   document.getElementById("play").addEventListener("click", async () => {
     saveOpts();
     initAudio();
-    if (opt.voice.checked && "speechSynthesis" in window) {
+    loadClips();
+    if ("speechSynthesis" in window) {
       // iOS only allows speech after a first utterance inside a tap
       speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance("Let's play!");
-      u.rate = 0.9; u.pitch = 1.25;
-      speechSynthesis.speak(u);
-      lastSpoke = performance.now();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
     }
+    // Clips are still loading on the very first play, so this is usually the speech voice
+    say("lets-play", "Let's play!");
     startEl.classList.add("hidden");
     animals = []; particles = []; rings = []; bubbles = []; sparkles = [];
     playing = true;
