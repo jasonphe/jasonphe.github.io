@@ -151,40 +151,6 @@ img { display: block; max-width: 100%; }
 }
 .section h2 + .group-title { margin-top: 0; }
 
-/* ---------- Skills ---------- */
-
-.skill-groups {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.skill-group {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 24px;
-}
-
-.skill-group h3 { font-size: 18px; margin-bottom: 16px; }
-
-.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-
-.chips li {
-    padding: 6px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--muted);
-}
-
-.chips li.strong {
-    background: var(--accent-soft);
-    border-color: transparent;
-    color: var(--accent);
-}
-
 /* ---------- Cards ---------- */
 
 .grid {
