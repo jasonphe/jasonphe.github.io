@@ -1,173 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Jason He</title>
   <meta charset="utf-8">
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jason He</title>
+  <meta name="description" content="Jason He — software engineer. Games, side projects, and things made for friends.">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" href="favicon.ico" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.bundle.min.js"></script> 
-  <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
-  <script src="personal.js"></script>
 </head>
 
 <body>
-  <nav class="navbar navbar-expand-md fixed-top navbar-default">
-	  <ul class="navbar-nav">
-		<li class="nav-item">
-		  <a class="nav-link" href="#about">About</a>
-		</li>
-		<!--<li class="nav-item">
-			<a class="nav-link" href="#experience">Experience</a>
-		</li>-->
-		<li class="nav-item">
-			<a class="nav-link" href="#skills">Skills</a>
-		</li>
-		<li class="nav-item">
-		  <a class="nav-link" href="#projects">Projects</a>
-		</li>
-	  </ul>
-	</nav>
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="nav-brand" href="#top">Jason He</a>
+      <nav>
+        <a href="#skills">Skills</a>
+        <a href="#projects">Projects</a>
+        <a href="#fun">Fun</a>
+      </nav>
+    </div>
+  </header>
 
-  <section class="container-fluid" id="about">
-    <div class="vertical-center">
-      <div class="row justify-content-center">
-        <h2>Hey, I'm Jason</h2>
-      </div>
-      <div class="row justify-content-center">
-        <a href="docs/Jason_He_Resume_2019.pdf" target="_blank" class="btn btn-primary btn-lg">My Resume</a>
+  <section class="hero" id="top">
+    <div class="hero-content">
+      <p class="eyebrow">Software engineer</p>
+      <h1>Hey, I'm Jason.</h1>
+      <p class="lede">This is where I keep my games, side projects, and a few things I made for friends.</p>
+      <div class="actions">
+        <a href="docs/Jason_He_Resume_2019.pdf" target="_blank" rel="noopener" class="btn btn-primary">My resume</a>
+        <a href="https://github.com/jasonphe" target="_blank" rel="noopener" class="btn btn-ghost">GitHub</a>
       </div>
     </div>
   </section>
-  <!--<div class="container-fluid" id="experience">
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <h2>EXPERIENCE AND EDUCATION<hr></h2>
-        
-      </div>
-      
-    </div>
-    <p>Reynolds and Reynolds</p>
-        <p>Proposed and configured Phabricator code review server that is now used by dozens of development teams throughout the company. </p>
-        <P>Converted our PDF editing library (adding text/images, merging, printing, etc) to use free open source library instead of a non-free library, saving the company considerable licensing costs. </p>
-  </div>-->
 
-  <section class="container" id="skills">
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <h2>Technical Skills<hr></h2>
+  <main>
+    <section class="section" id="skills">
+      <h2>Technical skills</h2>
+      <div class="skill-groups">
+        <div class="skill-group">
+          <h3>Languages</h3>
+          <ul class="chips">
+            <li class="strong">C++</li>
+            <li class="strong">C#</li>
+            <li>JavaScript</li>
+            <li>SQL</li>
+            <li>Python</li>
+            <li>Java</li>
+          </ul>
+        </div>
+        <div class="skill-group">
+          <h3>Technologies</h3>
+          <ul class="chips">
+            <li class="strong">Visual Studio</li>
+            <li class="strong">.NET Framework</li>
+            <li>Windows</li>
+            <li>Git / Subversion</li>
+            <li>Phabricator</li>
+            <li>MFC</li>
+            <li>WinForms</li>
+            <li>Unity</li>
+            <li>Linux</li>
+            <li>XML / SOAP</li>
+          </ul>
+        </div>
       </div>
-    </div>
-    <div class="row justify-content-center">
-      <div class="col-full">
-        <button type="button" class="btn btn-lg btn-primary" id="SetLanguages" disabled>Languages</button>
-        <button type="button" class="btn btn-lg btn-primary" id="SetTechnologies">Technologies</button>
-      </div>
-    </div>
-    </br>
-    <div id="container" style="height: 500px">
-        <canvas id="canvas"></canvas>
-    </div>
-  </section>
+    </section>
 
+    <section class="section" id="projects">
+      <h2>Projects</h2>
 
-  <section class="container" id="projects">
-    <div class="row justify-content-center">
-        <div class="col-full">
-          <h2>Projects<hr></h2>
+      <h3 class="group-title">Games</h3>
+      <div class="grid">
+        <a class="card" href="Pengu/index.html">
+          <div class="thumb thumb-pengu" aria-hidden="true">
+            <img src="Pengu/assets/pengu.png" alt="">
+          </div>
+          <div class="card-body">
+            <h4>Pengu</h4>
+            <p>Pass through gates to grow bigger, dodge obstacles, and grab power-ups on the way to the end.</p>
+          </div>
+        </a>
+
+        <a class="card" href="JumpGame/jump.html">
+          <div class="thumb"><img src="resources/pengusba.PNG" alt="Screenshot of Pengu's Bizarre Adventure"></div>
+          <div class="card-body">
+            <h4>Pengu's Bizarre Adventure</h4>
+            <p>Jump your way to the top of the tower.</p>
+          </div>
+        </a>
+
+        <div class="card">
+          <a class="thumb thumb-video" href="https://www.youtube.com/watch?v=5lL2Lj9S29w" target="_blank" rel="noopener">
+            <img src="https://img.youtube.com/vi/5lL2Lj9S29w/hqdefault.jpg" alt="Vision gameplay trailer">
+            <span class="play" aria-hidden="true"></span>
+          </a>
+          <div class="card-body">
+            <h4>Vision</h4>
+            <p>A first-person puzzle platformer built in Unity and C# by a team of four in about two months.</p>
+            <div class="links">
+              <a href="https://www.youtube.com/watch?v=5lL2Lj9S29w" target="_blank" rel="noopener">Trailer</a>
+              <a href="https://github.com/spencewenski/Vision" target="_blank" rel="noopener">Source</a>
+            </div>
+          </div>
         </div>
       </div>
 
-  <div id="portfolio">
-    <div class="row">
-      <h2><bold>Games</bold></h2>
-    </div>
-    <div class="row">
-      <div class="col-lg-4 col-md-6 portfolio-item">
-        <a href="JumpGame/jump.html">
-          <img src="resources/pengusba.PNG" alt="">
-          <div class="details">
-            <h4>Pengu's Bizarre Adventure</h4>
-            <span>Jump to reach the top!</span>
+      <h3 class="group-title">Other work</h3>
+      <div class="list">
+        <a class="row" href="balance.html">
+          <div>
+            <h4>League team balancer</h4>
+            <p>Generates balanced 5v5 League of Legends teams from player ranks.</p>
           </div>
+          <span class="arrow" aria-hidden="true">&rarr;</span>
+        </a>
+        <a class="row" href="https://github.com/umich-software-prototyping-clinic/web-app/wiki" target="_blank" rel="noopener">
+          <div>
+            <h4>Web app wiki &amp; tutorial</h4>
+            <p>A wiki and tutorials for new web developers using Parse as a back end.</p>
+          </div>
+          <span class="arrow" aria-hidden="true">&nearr;</span>
+        </a>
+        <a class="row" href="https://github.com/jasonphe/Projects" target="_blank" rel="noopener">
+          <div>
+            <h4>Older projects</h4>
+            <p>Coursework from Data Structures &amp; Algorithms and Information Retrieval.</p>
+          </div>
+          <span class="arrow" aria-hidden="true">&nearr;</span>
         </a>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <div id="portfolio">
-    <div class="row">
-      <h2><bold>Weeb Stuff for Friends</bold></h2>
-    </div>
-    <div class="row">
-      <div class="col-lg-4 col-md-6 portfolio-item">
-        <a href="poke.html">
-          <img src="resources/poke1.jpg" alt="">
-          <div class="details">
-            <h4>Poking Platelets</h4>
-          </div>
+    <section class="section" id="fun">
+      <h2>Weeb stuff for friends</h2>
+      <div class="grid grid-small">
+        <a class="card" href="poke.html">
+          <div class="thumb"><img src="resources/poke1.jpg" alt=""></div>
+          <div class="card-body"><h4>Poking Platelets</h4></div>
+        </a>
+        <a class="card" href="hit.html">
+          <div class="thumb"><img src="resources/hit1.png" alt=""></div>
+          <div class="card-body"><h4>Angry child</h4></div>
+        </a>
+        <a class="card" href="pet.html">
+          <div class="thumb"><img src="resources/nan.jpg" alt=""></div>
+          <div class="card-body"><h4>Nanachi</h4></div>
         </a>
       </div>
+    </section>
+  </main>
 
-      <div class="col-lg-4 col-md-6 portfolio-item">
-        <a href="hit.html">
-          <img src="resources/hit1.png" alt="">
-          <div class="details">
-            <h4>Angry child</h4>
-          </div>
-        </a>
-      </div>
-
-      <div class="col-lg-4 col-md-6 portfolio-item">
-        <a href="pet.html">
-          <img src="resources/nan.jpg" alt="">
-          <div class="details">
-            <h4>Nanachi</h4>
-          </div>
-        </a>
-      </div>
-    </div>
-  </div>
-  </section>
-	<section class="container" id="misc">
-    <div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>Vision</bold></h2>
-        <p>Developed with a team of four in about two months, Vision is a first person puzzle platformer built in Unity and C#. </p>
-        
-        <!--<a href="http://www-personal.umich.edu/~jasonphe/VisionFinal/web%20final.html">Play here! </a> 
-        <p>Note: The game doesn't work in Chrome! Try Safari or Firefox. It can take a while to load.</p>-->
-        <a href="https://github.com/spencewenski/Vision">Source code</a>
-      </div>
-
-      <div class="col-lg-5 vid" >
-        <iframe width="560" height="315" src="https://www.youtube.com/embed/5lL2Lj9S29w" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-      </div>
-    </div>
-    <br>
-    <div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>Example Web App Wiki and Tutorial</bold></h2>
-          <p>Wiki and tutorials for new web developers using Parse as a back-end.</p>
-          <a href="https://github.com/umich-software-prototyping-clinic/web-app/wiki">Link</a>
-      </div>
-    </div>
-    <br>
-    <div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>Older projects</bold></h2>
-          <p>Projects from Data structures and Algorithms/Information Retrieval. </p>
-          <a href="https://github.com/jasonphe/Projects">Link</a>
-      </div>
-    </div>
-    <br>
-    <div class="row">
-      <div class="col-lg-5 col-sm-offset-1">
-        <h2><bold>League balance</bold></h2>
-          <a href="balance.html">Link</a>
-      </div>
-    </div>
-  </section>
+  <footer class="footer">
+    <span>&copy; Jason He</span>
+    <a href="https://github.com/jasonphe" target="_blank" rel="noopener">github.com/jasonphe</a>
+  </footer>
 </body>
 </html>
