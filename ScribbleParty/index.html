@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Scribble Party</title>
+  <meta name="description" content="A multiplayer drawing and guessing game. Share a room link, take turns drawing, and race to guess the word.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --line: #e3e1ef;
+      --card: #ffffff;
+      --accent: #7c5cff;
+      --accent-ink: #ffffff;
+      --good: #2f9e44;
+      --good-bg: #e6f7ea;
+      --warn: #e8590c;
+      --warn-bg: #fff1e6;
+      --secret: #7048e8;
+      --secret-bg: #f1edff;
+      --bg: #f4efff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body { overflow: hidden; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 18px;
+      font-weight: 800;
+      font-size: 17px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 4px 0 rgba(0, 0, 0, .15);
+      transition: transform .08s;
+    }
+    .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .15); }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .btn.ghost { background: #efeaff; color: var(--accent); box-shadow: none; }
+    .btn.small { padding: 6px 12px; font-size: 15px; border-radius: 10px; }
+
+    /* ---------- Join screen ---------- */
+    #join {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      overflow-y: auto;
+      background:
+        radial-gradient(circle at 15% 20%, #ffe3ec 0 18%, transparent 19%),
+        radial-gradient(circle at 85% 75%, #d9f4ff 0 20%, transparent 21%),
+        radial-gradient(circle at 80% 15%, #fff1c9 0 10%, transparent 11%),
+        var(--bg);
+      z-index: 10;
+    }
+    .panel {
+      width: min(420px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 120, .15);
+    }
+    .panel h1 { margin: 0; font-size: 40px; line-height: 1.05; }
+    .panel .sub { margin: 6px 0 20px; color: var(--muted); }
+    .emoji-row { font-size: 40px; margin-bottom: 4px; }
+    .field { display: block; text-align: left; margin: 0 0 14px; font-weight: 600; color: var(--muted); font-size: 15px; }
+    .field input {
+      display: block;
+      width: 100%;
+      margin-top: 4px;
+      padding: 10px 14px;
+      font-size: 20px;
+      font-weight: 600;
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--ink);
+      outline: none;
+    }
+    .field input:focus { border-color: var(--accent); }
+    #codeInput { text-transform: uppercase; letter-spacing: .2em; }
+    .join-actions { display: grid; gap: 10px; margin-top: 4px; }
+    .or { color: var(--muted); font-size: 14px; margin: 2px 0; }
+    .back { display: inline-block; margin-top: 16px; color: var(--muted); font-size: 14px; }
+    .join-row { display: flex; gap: 8px; }
+    .join-row input { flex: 1; min-width: 0; }
+
+    /* ---------- Game layout ---------- */
+    #game { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: var(--card);
+      border-bottom: 2px solid var(--line);
+    }
+    .room-chip { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .room-chip .code { font-weight: 800; letter-spacing: .15em; font-size: 18px; }
+    .room-chip .status { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #hint {
+      font-weight: 800;
+      font-size: 24px;
+      letter-spacing: .12em;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #hint small { font-size: 14px; letter-spacing: 0; color: var(--muted); font-weight: 600; margin-left: 6px; }
+    .right { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+    #timer {
+      min-width: 52px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 20px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: #efeaff;
+      color: var(--accent);
+    }
+    #timer.low { background: var(--warn-bg); color: var(--warn); }
+    #roundLabel { color: var(--muted); font-size: 14px; white-space: nowrap; }
+
+    .main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      padding: 14px;
+    }
+    .stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .board {
+      position: relative;
+      width: min(100%, calc((100dvh - 160px) * 4 / 3));
+      aspect-ratio: 4 / 3;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(60, 40, 120, .12);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+    canvas.can-draw { cursor: crosshair; }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      background: rgba(244, 239, 255, .92);
+      text-align: center;
+      overflow-y: auto;
+    }
+    .overlay h2 { margin: 0 0 6px; font-size: 30px; line-height: 1.1; }
+    .overlay p { margin: 4px 0; color: var(--muted); }
+    .overlay .big-word { font-size: 40px; font-weight: 800; color: var(--accent); margin: 4px 0 10px; }
+    .invite { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 14px 0; }
+    .invite-link {
+      max-width: 100%;
+      padding: 6px 12px;
+      border-radius: 10px;
+      background: #fff;
+      border: 2px dashed var(--line);
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .choices { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+    .choices .btn { font-size: 22px; }
+    .host-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+    .host-row select { padding: 8px 10px; border-radius: 12px; border: 2px solid var(--line); background: #fff; font-weight: 600; }
+    .gains { list-style: none; padding: 0; margin: 10px auto 0; max-width: 280px; text-align: left; }
+    .gains li { display: flex; justify-content: space-between; padding: 2px 0; }
+    .gains .plus { color: var(--good); font-weight: 800; }
+    .gains .zero { color: var(--muted); }
+    .podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 14px 0; }
+    .podium div { width: 90px; border-radius: 14px 14px 0 0; padding: 8px 4px; background: #efeaff; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+    .podium .p1 { height: 120px; background: #ffe066; }
+    .podium .p2 { height: 90px; background: #dee2e6; }
+    .podium .p3 { height: 70px; background: #ffc9a3; }
+    .podium span { display: block; font-size: 13px; font-weight: 600; }
+
+    .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    .swatches { display: flex; flex-wrap: wrap; gap: 5px; }
+    .swatch {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px var(--line);
+      padding: 0;
+    }
+    .swatch.on { box-shadow: 0 0 0 3px var(--accent); }
+    .swatch.eraser { background: #fff; font-size: 15px; line-height: 1; }
+    .sizes { display: flex; gap: 4px; }
+    .size {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 2px solid var(--line);
+      background: #fff;
+      display: grid; place-items: center;
+      padding: 0;
+    }
+    .size.on { border-color: var(--accent); }
+    .size i { display: block; border-radius: 50%; background: var(--ink); }
+
+    .side { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+    .players {
+      list-style: none;
+      margin: 0;
+      padding: 8px;
+      background: var(--card);
+      border-radius: 18px;
+      max-height: 40%;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+    .players li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px;
+      border-radius: 12px;
+    }
+    .players li.me { background: #f7f4ff; }
+    .players li.got { background: var(--good-bg); }
+    .players .avatar {
+      width: 30px; height: 30px; flex-shrink: 0;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      color: #fff; font-weight: 800;
+    }
+    .players .pname { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .players .score { font-weight: 800; }
+    .players .tag { font-size: 16px; }
+
+    .chat {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    #log { flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 10px 12px; list-style: none; }
+    #log li { padding: 2px 0; overflow-wrap: anywhere; line-height: 1.3; }
+    #log b { font-weight: 800; }
+    #log .m-sys { color: var(--muted); font-style: italic; }
+    #log .m-ok { color: var(--good); font-weight: 800; }
+    #log .m-close { color: var(--warn); font-weight: 600; }
+    #log .m-secret { color: var(--secret); }
+    .guess { display: flex; gap: 6px; padding: 8px; border-top: 2px solid var(--line); }
+    .guess input {
+      flex: 1; min-width: 0;
+      padding: 8px 12px;
+      font-size: 17px;
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+      background: #fff;
+    }
+    .guess input:focus { border-color: var(--accent); }
+
+    .toast {
+      position: fixed; left: 50%; bottom: 24px;
+      translate: -50% 0;
+      background: var(--ink); color: #fff;
+      padding: 8px 16px; border-radius: 999px;
+      font-weight: 600;
+      opacity: 0; transition: opacity .2s;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .toast.show { opacity: 1; }
+
+    @media (max-width: 800px) {
+      .topbar { grid-template-columns: auto 1fr auto; padding: 6px 10px; }
+      #hint { font-size: 18px; letter-spacing: .04em; }
+      #copyTop .label { display: none; }
+      #roundLabel { display: none; }
+      .room-chip .status { display: none; }
+      .main { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding: 8px; }
+      .board { width: min(100%, calc((100dvh - 330px) * 4 / 3)); border-radius: 14px; }
+      .overlay h2 { font-size: 24px; }
+      .overlay .big-word { font-size: 30px; }
+      .swatch { width: 26px; height: 26px; }
+      .size { width: 32px; height: 32px; }
+      .side { display: contents; }
+      .players {
+        display: flex; gap: 4px;
+        overflow-x: auto; max-height: none;
+        padding: 4px; border-radius: 14px;
+      }
+      .players li { flex-shrink: 0; padding: 4px 8px; }
+      .players .pname { max-width: 90px; }
+      .chat { border-radius: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- ---------- Join screen ---------- -->
+  <section id="join">
+    <form class="panel" id="joinForm" autocomplete="off">
+      <div class="emoji-row" aria-hidden="true">🖍️🎨✏️</div>
+      <h1>Scribble Party</h1>
+      <p class="sub">Take turns drawing. Everyone else races to guess the word.</p>
+
+      <label class="field">Your name
+        <input id="nameInput" maxlength="16" placeholder="e.g. Pengu" required>
+      </label>
+
+      <div class="join-actions" id="joinExisting">
+        <button class="btn" type="submit" id="joinBtn">Join room</button>
+        <button class="btn ghost" type="button" id="newInstead">Make a new room instead</button>
+      </div>
+
+      <div class="join-actions" id="joinFresh">
+        <button class="btn" type="button" id="createBtn">Create a room</button>
+        <div class="or">or join a friend's</div>
+        <div class="join-row">
+          <input id="codeInput" class="field-like" maxlength="6" placeholder="CODE" aria-label="Room code"
+                 style="padding:10px 14px;font-size:20px;font-weight:600;border:2px solid var(--line);border-radius:14px;outline:none">
+          <button class="btn ghost" type="submit">Join</button>
+        </div>
+      </div>
+      <a class="back" href="../index.html">← Back to site</a>
+    </form>
+  </section>
+
+  <!-- ---------- Game ---------- -->
+  <div id="game" class="hidden">
+    <header class="topbar">
+      <div class="room-chip">
+        <span class="code" id="roomCode"></span>
+        <button class="btn ghost small" id="copyTop" title="Copy invite link">🔗<span class="label"> Invite</span></button>
+        <span class="status" id="status">Connecting…</span>
+      </div>
+      <div id="hint"></div>
+      <div class="right">
+        <span id="roundLabel"></span>
+        <span id="timer" class="hidden"></span>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="stage">
+        <div class="board" id="board">
+          <canvas id="canvas"></canvas>
+          <div class="overlay hidden" id="overlay"></div>
+        </div>
+        <div class="tools hidden" id="tools">
+          <div class="swatches" id="swatches"></div>
+          <div class="sizes" id="sizes"></div>
+          <button class="btn ghost small" id="undoBtn" title="Undo">↶ Undo</button>
+          <button class="btn ghost small" id="clearBtn" title="Clear">🗑 Clear</button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <ul class="players" id="players"></ul>
+        <div class="chat">
+          <ul id="log" aria-live="polite"></ul>
+          <form class="guess" id="guessForm" autocomplete="off">
+            <input id="guessInput" maxlength="60" placeholder="Type your guess…" enterkeyhint="send">
+            <button class="btn small" type="submit">Send</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { joinRoom, selfId } from 'https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm';
+
+    // ---------- Settings ----------
+    const APP_ID = 'jasonphe-scribble-party';
+    const CHOOSE_MS = 15000;
+    const DRAW_MS = 80000;
+    const REVEAL_MS = 6000;
+    const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+    const WORD_BANK = `apple, banana, pizza, cake, cookie, donut, ice cream, sandwich, burger, hot dog, taco, carrot,
+      broccoli, cheese, egg, watermelon, popcorn, cupcake, pancake, lollipop, cat, dog, fish, bird, cow, pig,
+      sheep, horse, duck, frog, snake, turtle, rabbit, mouse, lion, tiger, elephant, giraffe, monkey, zebra,
+      bear, panda, penguin, owl, shark, whale, octopus, crab, snail, bee, butterfly, spider, ladybug, dinosaur,
+      dragon, unicorn, robot, alien, ghost, pirate, ninja, wizard, king, queen, princess, knight, mermaid,
+      vampire, zombie, snowman, clown, house, castle, tent, igloo, bridge, lighthouse, barn, school, pyramid,
+      volcano, island, mountain, beach, desert, forest, waterfall, rainbow, cloud, sun, moon, star, lightning,
+      tornado, snowflake, car, bus, train, airplane, rocket, boat, submarine, bicycle, skateboard, tractor,
+      helicopter, fire truck, ambulance, motorcycle, hot air balloon, parachute, umbrella, backpack, glasses,
+      hat, crown, shoe, sock, glove, scarf, shirt, dress, tie, watch, ring, necklace, key, lock, door, window,
+      chair, table, bed, lamp, clock, phone, computer, television, camera, guitar, piano, drum, trumpet, violin,
+      microphone, headphones, book, pencil, scissors, ruler, paintbrush, envelope, mailbox, candle, balloon,
+      present, kite, basketball, football, baseball, trophy, medal, flag, map, treasure chest, magnet,
+      toothbrush, toilet, bathtub, mirror, hammer, saw, ladder, shovel, bucket, broom, fork, spoon, cup,
+      teapot, frying pan, fridge, toaster, fence, flower, tree, cactus, mushroom, leaf, pumpkin, corn, nest,
+      spider web, skeleton, bone, heart, diamond, fire, sandcastle, swing, slide, trampoline, roller coaster,
+      ferris wheel, carousel, campfire, marshmallow, fishing rod, anchor, wave, shell, starfish, jellyfish,
+      seahorse, lobster, dolphin, polar bear, kangaroo, koala, sloth, flamingo, peacock, parrot, bat,
+      squirrel, hedgehog, fox, wolf, deer, camel, hippo, crocodile, worm, caterpillar, angel, wings, cape,
+      mask, sword, shield, bow and arrow, teddy bear, yo-yo, puzzle, dice, bubble, tooth, brain, eye, nose,
+      ear, mouth, hand, foot, beard, mustache, sneeze, yawn, sleep, dance, swim, jump`.split(',').map(w => w.trim());
+
+    const COLORS = ['#1f1f1f', '#868e96', '#e03131', '#f76707', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#e64980', '#8b5a2b'];
+    const SIZES = [0.006, 0.014, 0.03, 0.06];
+    const AVATAR_COLORS = ['#ff6b6b', '#f59f00', '#37b24d', '#1c7ed6', '#7048e8', '#e64980', '#0ca678', '#d9480f'];
+
+    // ---------- Helpers ----------
+    const $ = id => document.getElementById(id);
+    const el = (tag, props = {}, ...kids) => {
+      const n = Object.assign(document.createElement(tag), props);
+      for (const k of kids) n.append(k);
+      return n;
+    };
+    const store = {
+      get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+      set(k, v) { try { localStorage.setItem(k, v); } catch { } },
+    };
+    const norm = s => String(s).toLowerCase().replace(/[^a-z]/g, '');
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const cleanText = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+    function lev(a, b) {
+      const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+      for (let j = 1; j <= b.length; j++) d[0][j] = j;
+      for (let i = 1; i <= a.length; i++)
+        for (let j = 1; j <= b.length; j++)
+          d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      return d[a.length][b.length];
+    }
+    function avatarColor(id) {
+      let h = 0;
+      for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+      return AVATAR_COLORS[h % AVATAR_COLORS.length];
+    }
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => t.classList.remove('show'), 1800);
+    }
+    let audio;
+    function ding(freqs = [660, 880]) {
+      try {
+        audio ??= new AudioContext();
+        freqs.forEach((f, i) => {
+          const o = audio.createOscillator(), g = audio.createGain();
+          const t = audio.currentTime + i * 0.1;
+          o.frequency.value = f;
+          g.gain.setValueAtTime(0.15, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+          o.connect(g).connect(audio.destination);
+          o.start(t); o.stop(t + 0.3);
+        });
+      } catch { }
+    }
+
+    // ---------- Join screen ----------
+    const codeFromHash = () => location.hash.slice(1).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    const newCode = () => Array.from({ length: 4 }, () => pick(CODE_CHARS)).join('');
+    let hashCode = codeFromHash();
+
+    $('nameInput').value = store.get('scribble-name') || '';
+    function showJoinMode() {
+      $('joinExisting').classList.toggle('hidden', !hashCode);
+      $('joinFresh').classList.toggle('hidden', !!hashCode);
+      $('joinBtn').textContent = `Join room ${hashCode}`;
+    }
+    showJoinMode();
+    $('newInstead').onclick = () => { hashCode = ''; history.replaceState(null, '', location.pathname); showJoinMode(); };
+
+    function getName() {
+      const n = cleanText($('nameInput').value, 16);
+      if (!n) { $('nameInput').focus(); toast('Pick a name first'); return null; }
+      store.set('scribble-name', n);
+      return n;
+    }
+    $('createBtn').onclick = () => {
+      const n = getName();
+      if (n) start(n, newCode());
+    };
+    $('joinForm').onsubmit = e => {
+      e.preventDefault();
+      const n = getName();
+      if (!n) return;
+      const code = hashCode || $('codeInput').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length < 3) { $('codeInput').focus(); toast('Enter a room code'); return; }
+      start(n, code);
+    };
+
+    // ---------- Game state ----------
+    let room, act = {};
+    let roomCode;
+    const peers = new Map();          // id -> { name, t } (includes me)
+    let hostId = selfId;
+    let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null };
+    let deadline = 0;                 // local clock time the current phase ends
+    let secret = {};                  // { choices } or { word } sent only to the drawer
+    let strokes = [];                 // [{ i, c, w, p: [x, y, ...] }]
+    const H = { scores: {}, word: null, choices: [], deadline: 0, guessed: new Set(), gains: {}, revealed: new Set(), started: 0 };
+
+    const isHost = () => hostId === selfId;
+    const nameOf = id => peers.get(id)?.name ?? pub.players.find(p => p.id === id)?.name ?? 'Someone';
+    const iAmDrawer = () => pub.drawer === selfId && pub.phase === 'draw';
+
+    function inviteUrl() { return `${location.origin}${location.pathname}#${roomCode}`; }
+    async function copyInvite() {
+      const url = inviteUrl();
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+        try { await navigator.share({ title: 'Scribble Party', text: `Join my Scribble Party room ${roomCode}`, url }); return; } catch { }
+      }
+      try { await navigator.clipboard.writeText(url); toast('Invite link copied'); }
+      catch { prompt('Copy this link:', url); }
+    }
+    $('copyTop').onclick = copyInvite;
+
+    function start(name, code) {
+      roomCode = code;
+      history.replaceState(null, '', `#${code}`);
+      window.addEventListener('hashchange', () => location.reload());
+      $('join').classList.add('hidden');
+      $('game').classList.remove('hidden');
+      $('roomCode').textContent = code;
+      document.title = `Scribble Party · ${code}`;
+
+      peers.set(selfId, { name, t: Date.now() });
+      setupCanvas();
+      setupTools();
+      connect();
+      render();
+      setInterval(tick, 250);
+    }
+
+    // ---------- Networking ----------
+    function connect() {
+      room = joinRoom({ appId: APP_ID }, roomCode);
+      for (const name of ['hello', 'st', 'sec', 'pick', 'dr', 'ud', 'clr', 'snap', 'msg', 'gs', 'go']) {
+        act[name] = room.makeAction(name);
+        act[name].onMessage = (data, meta) => {
+          const from = typeof meta === 'string' ? meta : meta?.peerId;
+          if (from) handlers[name](data, from);
+        };
+      }
+      room.onPeerJoin = id => send('hello', me(), id);
+      room.onPeerLeave = id => {
+        const wasHost = id === hostId;
+        const name = peers.get(id)?.name;
+        peers.delete(id);
+        electHost();
+        if (name) sysMsg(`${name} left`);
+        if (isHost()) {
+          if (wasHost) takeOverAsHost();
+          else if (pub.drawer === id && (pub.phase === 'choose' || pub.phase === 'draw')) endTurn(true);
+          else hostSync();
+        }
+        render();
+      };
+    }
+    const me = () => ({ n: peers.get(selfId).name, t: peers.get(selfId).t });
+    function send(name, data, target) {
+      try { act[name].send(data, target ? { target } : undefined); } catch (e) { console.warn(name, e); }
+    }
+    // Send to the host, or handle directly if that's me.
+    function toHost(name, data) {
+      if (isHost()) handlers[name](data, selfId);
+      else send(name, data, hostId);
+    }
+
+    // The host is whoever has been in the room longest.
+    function electHost() {
+      let best = null;
+      for (const [id, p] of peers) {
+        if (!best || p.t < best.t || (p.t === best.t && id < best.id)) best = { id, t: p.t };
+      }
+      hostId = best.id;
+    }
+
+    const handlers = {
+      hello(d, from) {
+        const isNew = !peers.has(from);
+        peers.set(from, { name: cleanText(d?.n, 16) || 'Player', t: Number(d?.t) || Date.now() });
+        const wasHost = isHost();
+        electHost();
+        if (isNew) sysMsg(`${nameOf(from)} joined`);
+        if (isHost()) {
+          if (!wasHost) takeOverAsHost();
+          else hostSync();
+          if (pub.phase === 'draw' && strokes.length) send('snap', strokes, from);
+        }
+        render();
+      },
+      st(d, from) {
+        if (from !== hostId && from !== selfId) return;
+        const prevPhase = pub.phase, prevDrawer = pub.drawer;
+        pub = d;
+        deadline = Date.now() + (d.endsIn || 0);
+        if (pub.phase !== prevPhase || pub.drawer !== prevDrawer) {
+          if (pub.phase !== 'draw' && pub.phase !== 'choose') secret = {};
+          if (pub.phase === 'choose') strokes = [], redraw();
+          onPhaseChange(prevPhase);
+        }
+        render();
+      },
+      sec(d, from) {
+        if (from !== hostId && from !== selfId) return;
+        secret = d || {};
+        render();
+      },
+      snap(d, from) {
+        if (from !== hostId || !Array.isArray(d)) return;
+        strokes = d;
+        redraw();
+      },
+      dr(d, from) {
+        if (from !== pub.drawer || !d || !Array.isArray(d.p)) return;
+        let s = strokes.find(s => s.i === d.i);
+        if (!s) { s = { i: d.i, c: d.c, w: d.w, p: [] }; strokes.push(s); }
+        const startIdx = s.p.length;
+        s.p.push(...d.p);
+        drawStroke(s, startIdx);
+      },
+      ud(d, from) {
+        if (from !== pub.drawer) return;
+        strokes = strokes.filter(s => s.i !== d);
+        redraw();
+      },
+      clr(_, from) {
+        if (from !== pub.drawer && from !== hostId) return;
+        strokes = [];
+        redraw();
+      },
+      msg(d, from) {
+        if (from !== hostId && from !== selfId) return;
+        addLog(d);
+        if (d.k === 'ok') ding();
+      },
+      // ----- host-only below -----
+      go(d, from) {
+        // Only the host starts games, and only between games.
+        if (!isHost() || from !== selfId || (pub.phase !== 'lobby' && pub.phase !== 'over')) return;
+        startGame(Math.min(5, Math.max(1, Number(d) || 3)));
+      },
+      pick(d, from) {
+        if (!isHost() || pub.phase !== 'choose' || from !== pub.drawer) return;
+        const w = H.choices[Number(d)];
+        if (w) startDraw(w);
+      },
+      gs(d, from) {
+        if (!isHost()) return;
+        const text = cleanText(d, 60);
+        if (!text) return;
+        const name = nameOf(from);
+        if (pub.phase !== 'draw') return broadcastMsg({ k: 'chat', n: name, x: text });
+        if (from === pub.drawer || H.guessed.has(from)) {
+          // Only people who already know the word can see this.
+          const msg = { k: 'secret', n: name, x: text };
+          for (const id of [pub.drawer, ...H.guessed]) sendMsg(msg, id);
+          return;
+        }
+        const g = norm(text), w = norm(H.word);
+        if (g === w) {
+          const frac = Math.max(0, (H.deadline - Date.now()) / DRAW_MS);
+          const pts = 50 + Math.round(50 * frac) + Math.max(0, 20 - 5 * H.guessed.size);
+          H.guessed.add(from);
+          H.gains[from] = (H.gains[from] || 0) + pts;
+          H.gains[pub.drawer] = (H.gains[pub.drawer] || 0) + 20;
+          H.scores[from] = (H.scores[from] || 0) + pts;
+          H.scores[pub.drawer] = (H.scores[pub.drawer] || 0) + 20;
+          broadcastMsg({ k: 'ok', x: `${name} guessed the word! +${pts}` });
+          sendMsg({ k: 'ok', x: `You got it: ${H.word}` }, from);
+          const guessers = [...peers.keys()].filter(id => id !== pub.drawer);
+          if (guessers.every(id => H.guessed.has(id))) endTurn();
+          else hostSync();
+          return;
+        }
+        broadcastMsg({ k: 'chat', n: name, x: text });
+        if (w.length > 3 && lev(g, w) === 1) sendMsg({ k: 'close', x: `"${text}" is really close!` }, from);
+      },
+    };
+
+    function sendMsg(msg, id) {
+      if (id === selfId) handlers.msg(msg, selfId);
+      else send('msg', msg, id);
+    }
+    function broadcastMsg(msg) {
+      send('msg', msg);
+      handlers.msg(msg, selfId);
+    }
+    function sysMsg(text) { addLog({ k: 'sys', x: text }); }
+
+    // ---------- Host logic ----------
+    function hostSync() {
+      const order = [...peers.entries()].sort((a, b) => a[1].t - b[1].t);
+      pub.players = order.map(([id, p]) => ({ id, name: p.name, score: H.scores[id] || 0, g: H.guessed.has(id) }));
+      pub.endsIn = Math.max(0, H.deadline - Date.now());
+      pub.queue = pub.queue.filter(id => peers.has(id));
+      send('st', pub);
+      handlers.st(structuredClone(pub), selfId);
+    }
+
+    function takeOverAsHost() {
+      H.scores = Object.fromEntries(pub.players.map(p => [p.id, p.score]));
+      H.guessed = new Set();
+      if (pub.phase === 'choose' || pub.phase === 'draw' || pub.phase === 'reveal') {
+        // The old host had the secret word, so skip to the next turn.
+        broadcastMsg({ k: 'sys', x: 'The host left, so skipping to the next turn.' });
+        nextTurn();
+      } else {
+        hostSync();
+      }
+    }
+
+    function startGame(rounds) {
+      H.scores = {};
+      pub.rounds = rounds;
+      pub.round = 1;
+      pub.queue = [...peers.entries()].sort((a, b) => a[1].t - b[1].t).map(([id]) => id);
+      broadcastMsg({ k: 'sys', x: `New game! ${rounds} round${rounds > 1 ? 's' : ''}.` });
+      nextTurn();
+    }
+
+    function nextTurn() {
+      pub.queue = pub.queue.filter(id => peers.has(id));
+      if (!pub.queue.length) {
+        pub.round++;
+        if (pub.round > pub.rounds || peers.size < 2) {
+          pub.phase = 'over';
+          pub.drawer = null;
+          pub.word = null;
+          H.deadline = 0;
+          H.guessed.clear();
+          return hostSync();
+        }
+        pub.queue = [...peers.entries()].sort((a, b) => a[1].t - b[1].t).map(([id]) => id);
+      }
+      pub.drawer = pub.queue.shift();
+      pub.phase = 'choose';
+      pub.word = null;
+      pub.gains = null;
+      pub.hint = '';
+      H.word = null;
+      H.guessed.clear();
+      H.gains = {};
+      H.choices = shuffle(WORD_BANK).slice(0, 3);
+      H.deadline = Date.now() + CHOOSE_MS;
+      send('clr', null);
+      strokes = [];
+      redraw();
+      hostSync();
+      sendSecret({ choices: H.choices });
+    }
+
+    function sendSecret(d) {
+      if (pub.drawer === selfId) handlers.sec(d, selfId);
+      else send('sec', d, pub.drawer);
+    }
+
+    function mask(word, revealed) {
+      return [...word].map((ch, i) => ch === ' ' || ch === '-' ? ch : revealed.has(i) ? ch : '_').join('');
+    }
+
+    function startDraw(word) {
+      H.word = word;
+      H.revealed = new Set();
+      H.started = Date.now();
+      H.deadline = H.started + DRAW_MS;
+      pub.phase = 'draw';
+      pub.hint = mask(word, H.revealed);
+      pub.len = norm(word).length;
+      hostSync();
+      sendSecret({ word });
+    }
+
+    function endTurn(drawerLeft) {
+      if (pub.phase === 'choose' || !H.word) return nextTurn();
+      pub.phase = 'reveal';
+      pub.word = H.word;
+      pub.gains = H.gains;
+      H.deadline = Date.now() + REVEAL_MS;
+      if (drawerLeft) broadcastMsg({ k: 'sys', x: 'The artist left!' });
+      broadcastMsg({ k: 'sys', x: `The word was "${H.word}"` });
+      hostSync();
+    }
+
+    function tick() {
+      renderTimer();
+      if (!isHost()) return;
+      const now = Date.now();
+      if (pub.phase === 'choose') {
+        if (!peers.has(pub.drawer)) nextTurn();
+        else if (now > H.deadline) startDraw(pick(H.choices));
+      } else if (pub.phase === 'draw') {
+        if (!peers.has(pub.drawer)) return endTurn(true);
+        if (now > H.deadline) return endTurn();
+        // Reveal a letter at 50% and 75% of the time, for longer words.
+        const frac = (now - H.started) / DRAW_MS;
+        const letters = [...H.word].map((c, i) => /[a-z]/i.test(c) ? i : -1).filter(i => i >= 0 && !H.revealed.has(i));
+        const want = norm(H.word).length > 3 ? (frac > 0.75 ? 2 : frac > 0.5 ? 1 : 0) : 0;
+        if (H.revealed.size < want && letters.length > 1) {
+          H.revealed.add(pick(letters));
+          pub.hint = mask(H.word, H.revealed);
+          hostSync();
+        }
+      } else if (pub.phase === 'reveal') {
+        if (now > H.deadline) nextTurn();
+      }
+    }
+
+    // ---------- Drawing ----------
+    let canvas, ctx;
+    let color = COLORS[0], size = SIZES[1];
+    let current = null, pending = [], strokeN = 0;
+
+    function setupCanvas() {
+      canvas = $('canvas');
+      ctx = canvas.getContext('2d');
+      new ResizeObserver(() => {
+        const r = canvas.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(r.width * dpr);
+        canvas.height = Math.round(r.height * dpr);
+        redraw();
+      }).observe($('board'));
+
+      const pos = e => {
+        const r = canvas.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+        const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+        return [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000];
+      };
+      canvas.addEventListener('pointerdown', e => {
+        if (!iAmDrawer()) return;
+        canvas.setPointerCapture(e.pointerId);
+        current = { i: `${selfId}:${strokeN++}`, c: color, w: size, p: pos(e) };
+        strokes.push(current);
+        pending = [...current.p];
+        drawStroke(current, 0);
+      });
+      canvas.addEventListener('pointermove', e => {
+        if (!current) return;
+        const evs = e.getCoalescedEvents?.() ?? [e];
+        const startIdx = current.p.length;
+        for (const ev of evs) {
+          const [x, y] = pos(ev);
+          const n = current.p.length;
+          if (current.p[n - 2] === x && current.p[n - 1] === y) continue;
+          current.p.push(x, y);
+          pending.push(x, y);
+        }
+        drawStroke(current, startIdx);
+      });
+      const end = () => { if (current) { flush(); current = null; } };
+      canvas.addEventListener('pointerup', end);
+      canvas.addEventListener('pointercancel', end);
+      setInterval(flush, 50);
+    }
+
+    function flush() {
+      if (!current || !pending.length) return;
+      send('dr', { i: current.i, c: current.c, w: current.w, p: pending });
+      pending = [];
+    }
+
+    // Draws points of a stroke starting at array index `from` (in x,y pairs).
+    function drawStroke(s, from) {
+      const W = canvas.width, Hh = canvas.height, p = s.p;
+      if (p.length < 2) return;
+      ctx.strokeStyle = ctx.fillStyle = s.c;
+      ctx.lineWidth = s.w * W;
+      ctx.lineCap = ctx.lineJoin = 'round';
+      if (p.length === 2) {
+        ctx.beginPath();
+        ctx.arc(p[0] * W, p[1] * Hh, ctx.lineWidth / 2, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+      const i0 = Math.max(0, from - 2);
+      ctx.beginPath();
+      ctx.moveTo(p[i0] * W, p[i0 + 1] * Hh);
+      for (let i = i0 + 2; i < p.length; i += 2) ctx.lineTo(p[i] * W, p[i + 1] * Hh);
+      ctx.stroke();
+    }
+
+    function redraw() {
+      if (!ctx) return;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (const s of strokes) drawStroke(s, 0);
+    }
+
+    function setupTools() {
+      const sw = $('swatches');
+      for (const c of [...COLORS, '#ffffff']) {
+        const b = el('button', { className: 'swatch' + (c === '#ffffff' ? ' eraser' : ''), title: c === '#ffffff' ? 'Eraser' : c });
+        if (c === '#ffffff') b.textContent = '🧽'; else b.style.background = c;
+        b.onclick = () => { color = c; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
+        if (c === color) b.classList.add('on');
+        sw.append(b);
+      }
+      const sz = $('sizes');
+      SIZES.forEach((s, i) => {
+        const b = el('button', { className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
+        const dot = el('i');
+        dot.style.width = dot.style.height = `${[4, 8, 14, 22][i]}px`;
+        b.append(dot);
+        b.onclick = () => { size = s; sz.querySelectorAll('.size').forEach(x => x.classList.toggle('on', x === b)); };
+        if (s === size) b.classList.add('on');
+        sz.append(b);
+      });
+      $('undoBtn').onclick = () => {
+        if (!iAmDrawer()) return;
+        const mine = strokes.filter(s => s.i.startsWith(selfId + ':'));
+        const last = mine[mine.length - 1];
+        if (!last) return;
+        strokes = strokes.filter(s => s !== last);
+        send('ud', last.i);
+        redraw();
+      };
+      $('clearBtn').onclick = () => {
+        if (!iAmDrawer() || !strokes.length) return;
+        strokes = [];
+        send('clr', null);
+        redraw();
+      };
+      $('guessForm').onsubmit = e => {
+        e.preventDefault();
+        const v = cleanText($('guessInput').value, 60);
+        if (!v) return;
+        $('guessInput').value = '';
+        toHost('gs', v);
+      };
+    }
+
+    // ---------- Rendering ----------
+    function onPhaseChange(prev) {
+      if (pub.phase === 'draw' && pub.drawer !== selfId) {
+        $('guessInput').focus({ preventScroll: true });
+      }
+      if (pub.phase === 'choose' && pub.drawer === selfId) ding([520, 660, 780]);
+      if (pub.phase === 'over' && prev !== 'over') ding([523, 659, 784, 1047]);
+    }
+
+    function addLog({ k, n, x }) {
+      const log = $('log');
+      const li = el('li', { className: `m-${k || 'chat'}` });
+      if (n) li.append(el('b', { textContent: n + ': ' }));
+      li.append(x ?? '');
+      log.append(li);
+      while (log.children.length > 150) log.firstChild.remove();
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function renderTimer() {
+      const t = $('timer');
+      const active = pub.phase === 'choose' || pub.phase === 'draw';
+      t.classList.toggle('hidden', !active);
+      if (!active) return;
+      const s = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      t.textContent = s;
+      t.classList.toggle('low', pub.phase === 'draw' && s <= 10);
+    }
+
+    function render() {
+      const n = peers.size;
+      $('status').textContent = n > 1 ? `${n} players` : 'Waiting for friends…';
+
+      // Word / hint
+      const hint = $('hint');
+      hint.replaceChildren();
+      if (pub.phase === 'draw') {
+        if (pub.drawer === selfId && secret.word) {
+          hint.append(`✏️ ${secret.word}`);
+        } else {
+          hint.append([...pub.hint].map(c => c === ' ' ? ' ' : c).join(' '));
+          hint.append(el('small', { textContent: `(${pub.len})` }));
+        }
+      } else if (pub.phase === 'choose') {
+        hint.append(el('small', { textContent: pub.drawer === selfId ? 'Pick a word!' : `${nameOf(pub.drawer)} is choosing…` }));
+      } else if (pub.phase === 'reveal') {
+        hint.append(pub.word || '');
+      }
+
+      $('roundLabel').textContent = pub.phase !== 'lobby' && pub.phase !== 'over' ? `Round ${Math.min(pub.round, pub.rounds)}/${pub.rounds}` : '';
+
+      // Players
+      const list = $('players');
+      list.replaceChildren();
+      const shown = [...pub.players];
+      for (const [id, p] of peers) if (!shown.some(s => s.id === id)) shown.push({ id, name: p.name, score: 0 });
+      for (const p of shown) {
+        const li = el('li', { className: (p.id === selfId ? 'me ' : '') + (p.g ? 'got' : '') });
+        const av = el('span', { className: 'avatar', textContent: p.name[0]?.toUpperCase() || '?' });
+        av.style.background = avatarColor(p.id);
+        li.append(av, el('span', { className: 'pname', textContent: p.name + (p.id === selfId ? ' (you)' : '') }));
+        if (p.id === hostId) li.append(el('span', { className: 'tag', title: 'Host', textContent: '👑' }));
+        if (p.id === pub.drawer && (pub.phase === 'draw' || pub.phase === 'choose')) li.append(el('span', { className: 'tag', title: 'Drawing', textContent: '✏️' }));
+        if (p.g) li.append(el('span', { className: 'tag', title: 'Guessed it', textContent: '✅' }));
+        li.append(el('span', { className: 'score', textContent: p.score }));
+        list.append(li);
+      }
+
+      // Tools & input
+      $('tools').classList.toggle('hidden', !iAmDrawer());
+      canvas?.classList.toggle('can-draw', iAmDrawer());
+      const gi = $('guessInput');
+      gi.placeholder = pub.phase === 'draw'
+        ? (pub.drawer === selfId ? 'Chat with people who guessed…' : pub.players.find(p => p.id === selfId)?.g ? 'You got it! Chat with other finishers…' : 'Type your guess…')
+        : 'Say something…';
+
+      renderOverlay();
+      renderTimer();
+    }
+
+    function renderOverlay() {
+      const ov = $('overlay');
+      ov.replaceChildren();
+      const box = el('div');
+      let show = true;
+
+      if (pub.phase === 'lobby') {
+        box.append(el('h2', { textContent: 'Waiting room' }));
+        box.append(el('p', { textContent: peers.size < 2 ? 'Send this link to friends so they can join.' : `${peers.size} players are here.` }));
+        box.append(inviteBox());
+        box.append(hostControls('Start game'));
+      } else if (pub.phase === 'choose') {
+        if (pub.drawer === selfId && secret.choices) {
+          box.append(el('h2', { textContent: 'Your turn to draw!' }));
+          box.append(el('p', { textContent: 'Pick a word:' }));
+          const row = el('div', { className: 'choices' });
+          secret.choices.forEach((w, i) => {
+            const b = el('button', { className: 'btn', textContent: w });
+            b.onclick = () => { toHost('pick', i); row.querySelectorAll('button').forEach(x => x.disabled = true); };
+            row.append(b);
+          });
+          box.append(row);
+        } else {
+          box.append(el('h2', { textContent: `${nameOf(pub.drawer)} is picking a word…` }));
+          box.append(el('p', { textContent: 'Get ready to guess!' }));
+        }
+      } else if (pub.phase === 'reveal') {
+        box.append(el('p', { textContent: 'The word was' }));
+        box.append(el('div', { className: 'big-word', textContent: pub.word }));
+        const ul = el('ul', { className: 'gains' });
+        const rows = pub.players.filter(p => peers.has(p.id)).map(p => [p, pub.gains?.[p.id] || 0]).sort((a, b) => b[1] - a[1]);
+        for (const [p, g] of rows) {
+          ul.append(el('li', {}, el('span', { textContent: p.name }), el('span', { className: g ? 'plus' : 'zero', textContent: g ? `+${g}` : '+0' })));
+        }
+        box.append(ul);
+      } else if (pub.phase === 'over') {
+        box.append(el('h2', { textContent: 'Game over!' }));
+        const ranked = [...pub.players].filter(p => peers.has(p.id)).sort((a, b) => b.score - a.score);
+        const pod = el('div', { className: 'podium' });
+        const slots = [[ranked[1], 'p2', '🥈'], [ranked[0], 'p1', '🥇'], [ranked[2], 'p3', '🥉']];
+        for (const [p, cls, medal] of slots) {
+          if (!p) continue;
+          pod.append(el('div', { className: cls }, `${medal} ${p.name}`, el('span', { textContent: `${p.score} pts` })));
+        }
+        box.append(pod);
+        box.append(hostControls('Play again'));
+      } else {
+        show = false;
+      }
+
+      ov.classList.toggle('hidden', !show);
+      if (show) ov.append(box);
+    }
+
+    function inviteBox() {
+      const row = el('div', { className: 'invite' });
+      row.append(el('span', { className: 'invite-link', textContent: inviteUrl() }));
+      const b = el('button', { className: 'btn small', textContent: 'Copy link' });
+      b.onclick = copyInvite;
+      row.append(b);
+      return row;
+    }
+
+    function hostControls(label) {
+      const wrap = el('div');
+      if (!isHost()) {
+        wrap.append(el('p', { textContent: `Waiting for ${nameOf(hostId)} to start…` }));
+        return wrap;
+      }
+      const row = el('div', { className: 'host-row' });
+      const sel = el('select', { title: 'Rounds' });
+      for (let r = 1; r <= 5; r++) sel.append(el('option', { value: r, textContent: `${r} round${r > 1 ? 's' : ''}`, selected: r === (pub.rounds || 3) }));
+      const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
+      b.onclick = () => toHost('go', Number(sel.value));
+      row.append(sel, b);
+      wrap.append(row);
+      if (peers.size < 2) wrap.append(el('p', { textContent: 'Need at least 2 players.' }));
+      return wrap;
+    }
+  </script>
+</body>
+</html>
