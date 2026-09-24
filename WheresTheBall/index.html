@@ -83,6 +83,18 @@
       font-size: 16px; cursor: pointer;
     }
     .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .count { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 0 16px; font-size: 16px; }
+    .count-btns { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(43, 45, 66, .06); }
+    .count-btns label { position: relative; cursor: pointer; }
+    .count-btns input { position: absolute; opacity: 0; pointer-events: none; }
+    .count-btns span {
+      display: grid; place-items: center;
+      width: 34px; height: 34px; border-radius: 50%;
+      font-weight: 800; font-size: 17px; color: var(--muted);
+      transition: background .15s, color .15s;
+    }
+    .count-btns input:checked + span { background: var(--accent); color: #fff; }
+    .count-btns input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
     .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
     .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
     .tips li::before { content: "•"; position: absolute; left: 6px; }
@@ -102,8 +114,18 @@
         <label><input type="checkbox" id="optVoice" checked> Voice</label>
         <label><input type="checkbox" id="optNight"> Night colors</label>
       </div>
+      <div class="count" role="radiogroup" aria-label="Hiding spots">
+        Hiding spots
+        <div class="count-btns">
+          <label><input type="radio" name="spots" value="1"><span>1</span></label>
+          <label><input type="radio" name="spots" value="2"><span>2</span></label>
+          <label><input type="radio" name="spots" value="3" checked><span>3</span></label>
+          <label><input type="radio" name="spots" value="4"><span>4</span></label>
+          <label><input type="radio" name="spots" value="5"><span>5</span></label>
+        </div>
+      </div>
       <ul class="tips">
-        <li>Tap the ball to bounce it. Every so often it hides behind the bush, the box, or the basket. It wiggles and peeks to help, and pops out by itself if nobody finds it.</li>
+        <li>Tap the ball to bounce it. Every so often it hides behind something. Start with 1 or 2 hiding spots and add more as she gets the hang of it. The spot wiggles and peeks to help, and pops out by itself if nobody finds it.</li>
         <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
         <li>iPad or iPhone: turn on <b>Guided Access</b> (Settings → Accessibility) so little hands can't swipe out.</li>
       </ul>
@@ -134,15 +156,20 @@
     voice: document.getElementById("optVoice"),
     night: document.getElementById("optNight"),
   };
+  const countInputs = [...document.querySelectorAll('input[name="spots"]')];
+  const spotCount = () => Number((countInputs.find(i => i.checked) || { value: 3 }).value);
   try {
     const saved = JSON.parse(localStorage.getItem("wheresball") || "null");
-    if (saved) { opt.sound.checked = saved.sound; opt.voice.checked = saved.voice; opt.night.checked = saved.night; }
+    if (saved) {
+      opt.sound.checked = saved.sound; opt.voice.checked = saved.voice; opt.night.checked = saved.night;
+      countInputs.forEach(i => { i.checked = Number(i.value) === (saved.spots || 3); });
+    }
     else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
   } catch (e) {}
   const saveOpts = () => {
-    try { localStorage.setItem("wheresball", JSON.stringify({ sound: opt.sound.checked, voice: opt.voice.checked, night: opt.night.checked })); } catch (e) {}
+    try { localStorage.setItem("wheresball", JSON.stringify({ sound: opt.sound.checked, voice: opt.voice.checked, night: opt.night.checked, spots: spotCount() })); } catch (e) {}
   };
-  [opt.sound, opt.voice, opt.night].forEach(el => el.addEventListener("change", saveOpts));
+  [opt.sound, opt.voice, opt.night, ...countInputs].forEach(el => el.addEventListener("change", saveOpts));
   const night = () => opt.night.checked;
 
   // ---------- Canvas ----------
@@ -150,19 +177,20 @@
   const ctx = canvas.getContext("2d");
   let W = 0, H = 0, DPR = 1, UNIT = 1;
   let backY = 0, floorY = 0, G = 1500;
-  const spots = [
-    { kind: "bush", wig: 0 }, { kind: "box", wig: 0 }, { kind: "basket", wig: 0 },
-  ];
+  const KINDS = ["bush", "box", "basket", "rock", "tent"];
+  let spots = [];
+  const makeSpots = n => { spots = KINDS.slice(0, n).map(kind => ({ kind, wig: 0 })); };
+  makeSpots(spotCount());
   const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 40, rot: 0, sq: 0, color: 0, blink: 0, happy: 0, behind: false };
 
-  // Three hiding spots stand along the back of the yard; the ball plays in front
+  // The hiding spots stand along the back of the yard; the ball plays in front
   function layout() {
-    const portrait = H > W;
+    const portrait = H > W, n = spots.length;
     backY = H * (portrait ? 0.62 : 0.66);
     floorY = H * 0.95;
-    const w = Math.min(W * 0.29, H * 0.4);
+    const w = Math.min((W * 0.88) / n, H * 0.4, W * 0.45);
     spots.forEach((s, i) => {
-      s.x = W * (i * 2 + 1) / 6;
+      s.x = W * (i * 2 + 1) / (n * 2);
       s.w = w; s.h = w * 0.82;
     });
     ball.r = w * 0.28;
@@ -333,7 +361,7 @@
   function placeHidden() { ball.x = hideSpot.x; ball.y = hiddenY(hideSpot); }
 
   // How far above the ground each spot's top edge is, as a share of its height
-  const TOPS = { bush: 1.02, box: 0.8, basket: 0.82 };
+  const TOPS = { bush: 1.02, box: 0.8, basket: 0.82, rock: 0.84, tent: 0.98 };
   const peekY = s => backY - s.h * TOPS[s.kind] - ball.r * 0.05;
 
   // A jump over the top of spot s that lands exactly at (tx, ty)
@@ -348,7 +376,7 @@
 
   function startHiding() {
     state = "going";
-    do { hideSpot = pick(spots); } while (hideSpot === lastSpot);
+    do { hideSpot = pick(spots); } while (hideSpot === lastSpot && spots.length > 1);
     lastSpot = hideSpot;
     launchTo(hideSpot.x, hiddenY(hideSpot), hideSpot);
     whoosh();
@@ -375,10 +403,9 @@
     launchTo(tx, floorY - ball.r, hideSpot);
     confetti(hideSpot.x, backY - hideSpot.h, 26);
     tada();
-    const name = BALLS[ball.color][0];
     setTimeout(() => {
       if (byItself) say("peekaboo", "Peekaboo!");
-      else say("there-it-is", `There it is! The ${name} ball!`);
+      else say("there-it-is", "There it is!");
     }, 200);
   }
 
@@ -397,7 +424,7 @@
     giggle();
     peekT = 1.1;
   }
-  const spotPitch = s => ({ bush: 3200, box: 900, basket: 1700 }[s.kind]);
+  const spotPitch = s => ({ bush: 3200, box: 900, basket: 1700, rock: 600, tent: 1200 }[s.kind]);
 
   function kick(towardX) {
     const dir = towardX == null ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(towardX - ball.x) || 1;
@@ -428,7 +455,8 @@
 
   // Generous zones: the whole column under a spot counts as that spot
   function spotAt(x, y) {
-    const s = spots[Math.max(0, Math.min(2, Math.floor((x / W) * 3)))];
+    const n = spots.length;
+    const s = spots[Math.max(0, Math.min(n - 1, Math.floor((x / W) * n)))];
     return y > backY - s.h - 50 * UNIT ? s : null;
   }
 
@@ -491,6 +519,8 @@
       speechSynthesis.speak(new SpeechSynthesisUtterance(""));
     }
     startEl.classList.add("hidden");
+    makeSpots(spotCount());
+    layout();
     particles = []; critters = [];
     state = "play"; playTimer = 5; peek = 0; lastSpot = null;
     ball.x = W / 2; ball.y = H * 0.3; ball.vx = rand(-200, 200) * UNIT; ball.vy = 0; ball.behind = false;
@@ -701,6 +731,42 @@
       ctx.bezierCurveTo(hx - hs * 1.4, hy - hs * 0.1, hx - hs * 0.6, hy - hs * 1.1, hx, hy - hs * 0.4);
       ctx.bezierCurveTo(hx + hs * 0.6, hy - hs * 1.1, hx + hs * 1.4, hy - hs * 0.1, hx, hy + hs * 0.9);
       ctx.fill();
+    } else if (s.kind === "rock") {
+      // Big friendly boulder
+      ctx.fillStyle = tint("#8e97a3");
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.5, 0);
+      ctx.bezierCurveTo(-w * 0.56, -h * 0.5, -w * 0.3, -h * 0.86, w * 0.02, -h * 0.84);
+      ctx.bezierCurveTo(w * 0.34, -h * 0.84, w * 0.56, -h * 0.5, w * 0.5, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = tint("#a9b1bc");
+      ctx.beginPath(); ctx.ellipse(-w * 0.12, -h * 0.58, w * 0.22, h * 0.16, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = tint("#7b838e");
+      ctx.beginPath(); ctx.ellipse(w * 0.22, -h * 0.2, w * 0.1, h * 0.06, 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-w * 0.28, -h * 0.18, w * 0.06, h * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+      // Moss
+      ctx.fillStyle = tint("#6cbf5a");
+      [-0.34, -0.24, -0.12].forEach((mx, i) => { ctx.beginPath(); ctx.arc(mx * w, -h * (0.05 + i * 0.02), w * 0.07, 0, Math.PI * 2); ctx.fill(); });
+    } else if (s.kind === "tent") {
+      // Striped play tent
+      const tw = w * 0.64, th = h * 0.98; // wide enough that the ball's sides don't poke out
+      ctx.save();
+      ctx.beginPath(); ctx.moveTo(-tw, 0); ctx.lineTo(0, -th); ctx.lineTo(tw, 0); ctx.closePath();
+      ctx.fillStyle = tint("#fff3e0"); ctx.fill();
+      ctx.clip();
+      ctx.fillStyle = tint("#ff8fab");
+      for (let i = -3; i <= 3; i += 2) {
+        ctx.beginPath(); ctx.moveTo(0, -th * 1.1); ctx.lineTo((i / 3.5) * tw * 1.2, 0); ctx.lineTo(((i + 1) / 3.5) * tw * 1.2, 0); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      // Door flap
+      ctx.fillStyle = tint("#c2587a");
+      ctx.beginPath(); ctx.moveTo(-tw * 0.3, 0); ctx.lineTo(0, -th * 0.5); ctx.lineTo(tw * 0.3, 0); ctx.closePath(); ctx.fill();
+      // Flag on top
+      ctx.strokeStyle = tint("#6b6f86"); ctx.lineWidth = 3 * UNIT;
+      ctx.beginPath(); ctx.moveTo(0, -th); ctx.lineTo(0, -th - h * 0.16); ctx.stroke();
+      ctx.fillStyle = tint("#ffd43b");
+      ctx.beginPath(); ctx.moveTo(0, -th - h * 0.16); ctx.lineTo(w * 0.13, -th - h * 0.12); ctx.lineTo(0, -th - h * 0.08); ctx.fill();
     } else {
       // Wicker basket: wide at the top, with a handle
       const top = -h * 0.8, tw = w * 0.5, bw2 = w * 0.38;
