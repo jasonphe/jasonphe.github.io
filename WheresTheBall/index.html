@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Where's the Ball?</title>
+  <meta name="description" content="A toddler toy: a bouncy ball plays hide and seek behind a bush, a box, and a basket.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #ff6b6b;
+      --accent-2: #ffd43b;
+      --bg: #d6f0ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+      touch-action: pan-y;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(34px, 8.5vw, 50px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(255, 107, 107, .4);
+      animation: bounce 1.2s cubic-bezier(.3, 0, .7, 1) infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes bounce { 50% { transform: translateY(-10px); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Where's the Ball?</h1>
+      <p class="sub">Bounce it, then find where it hides!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Sounds</label>
+        <label><input type="checkbox" id="optVoice" checked> Voice</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <ul class="tips">
+        <li>Tap the ball to bounce it. Every so often it hides behind the bush, the box, or the basket. It wiggles and peeks to help, and pops out by itself if nobody finds it.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>iPad or iPhone: turn on <b>Guided Access</b> (Settings → Accessibility) so little hands can't swipe out.</li>
+      </ul>
+      <a class="home" href="../index.html">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // [name, main color, darker stripe]
+  const BALLS = [
+    ["red", "#ff5d5d", "#e03e3e"], ["blue", "#4dabf7", "#2b8ae0"], ["yellow", "#ffd43b", "#f2b705"],
+    ["green", "#69db7c", "#3fbf57"], ["orange", "#ffa94d", "#f08c1c"], ["purple", "#b197fc", "#8c6ff0"],
+  ];
+  const CRITTERS = ["🦋", "🐞", "🐤", "🐭", "🐸", "🐰", "🐿️"];
+  const SCENE = {
+    day: { sky: ["#8fd3ff", "#e3f6ff"], hill: "#8fd46f", floor: "#a8e08a", floorLine: "rgba(0,0,0,.05)" },
+    night: { sky: ["#141a3a", "#2c2f5e"], hill: "#35603f", floor: "#3f6e48", floorLine: "rgba(0,0,0,.12)" },
+  };
+  const DIM = { day: 1, night: 0.72 };
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("wheresball") || "null");
+    if (saved) { opt.sound.checked = saved.sound; opt.voice.checked = saved.voice; opt.night.checked = saved.night; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    try { localStorage.setItem("wheresball", JSON.stringify({ sound: opt.sound.checked, voice: opt.voice.checked, night: opt.night.checked })); } catch (e) {}
+  };
+  [opt.sound, opt.voice, opt.night].forEach(el => el.addEventListener("change", saveOpts));
+  const night = () => opt.night.checked;
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  let backY = 0, floorY = 0, G = 1500;
+  const spots = [
+    { kind: "bush", wig: 0 }, { kind: "box", wig: 0 }, { kind: "basket", wig: 0 },
+  ];
+  const ball = { x: 0, y: 0, vx: 0, vy: 0, r: 40, rot: 0, sq: 0, color: 0, blink: 0, happy: 0, behind: false };
+
+  // Three hiding spots stand along the back of the yard; the ball plays in front
+  function layout() {
+    const portrait = H > W;
+    backY = H * (portrait ? 0.62 : 0.66);
+    floorY = H * 0.95;
+    const w = Math.min(W * 0.29, H * 0.4);
+    spots.forEach((s, i) => {
+      s.x = W * (i * 2 + 1) / 6;
+      s.w = w; s.h = w * 0.82;
+    });
+    ball.r = w * 0.28;
+    G = 1700 * (H / 800);
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.min(W, H) / 600; // scale things to the screen
+    layout();
+    ball.x = Math.max(ball.r, Math.min(W - ball.r, ball.x || W / 2));
+    if (state === "play") ball.y = Math.min(ball.y, floorY - ball.r);
+    else if (state === "hidden") placeHidden();
+  }
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 0.4, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  function tone(freq, { type = "sine", vol = 0.25, dur = 0.3, slideTo = null, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  // Leaves / cardboard / wicker all get a soft shake of filtered noise
+  function rustle(freq = 2500) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime;
+    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+    src.buffer = noiseBuf;
+    f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 1.2;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + 0.4);
+  }
+  const PENTA = [523.25, 587.33, 659.25, 783.99, 880.0];
+  const bup = speed => tone(PENTA[Math.floor(Math.random() * PENTA.length)] / 2, { vol: Math.min(0.3, 0.08 + speed * 0.0002), dur: 0.18, slideTo: 180 });
+  const boing = () => tone(260, { vol: 0.28, dur: 0.4, slideTo: 780 });
+  const giggle = () => [0, 1, 2].forEach(i => tone(1400 - i * 120, { vol: 0.1, dur: 0.1, slideTo: 1100 - i * 120, delay: i * 0.11 }));
+  const whoosh = () => tone(700, { vol: 0.12, dur: 0.45, slideTo: 250 });
+  const tweet = () => { tone(1800, { vol: 0.08, dur: 0.12, slideTo: 2400 }); tone(2000, { vol: 0.08, dur: 0.12, slideTo: 2600, delay: 0.14 }); };
+  const tada = () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, { type: "triangle", vol: 0.2, dur: 0.6, delay: i * 0.08 }));
+
+  // ---------- Voice ----------
+  // Optional recorded clips: voice/wheres-the-ball.m4a, voice/there-it-is.m4a,
+  // voice/peekaboo.m4a (or .mp3). Anything missing uses the browser's voice.
+  const VOICE_DIR = "voice/";
+  const clips = new Map();
+  let clipsRequested = false;
+  function loadClips() {
+    if (clipsRequested || !audio) return;
+    clipsRequested = true;
+    ["wheres-the-ball", "there-it-is", "peekaboo"].forEach(async name => {
+      for (const ext of ["mp3", "m4a"]) {
+        try {
+          const res = await fetch(VOICE_DIR + name + "." + ext);
+          if (!res.ok) continue;
+          const data = await res.arrayBuffer();
+          // Safari only supports the callback form of decodeAudioData
+          const buf = await new Promise((ok, fail) => audio.decodeAudioData(data, ok, fail));
+          clips.set(name, tidyClip(buf));
+          return;
+        } catch (e) {}
+      }
+    });
+  }
+
+  // Phone recordings have silence at both ends and uneven volume, which makes
+  // the voice lag behind a tap. Trim the silence and even out the loudness.
+  function tidyClip(buf) {
+    const rate = buf.sampleRate, chans = buf.numberOfChannels;
+    let peak = 0;
+    for (let c = 0; c < chans; c++) for (const v of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+    if (peak === 0) return buf;
+    const loudAt = i => { for (let c = 0; c < chans; c++) if (Math.abs(buf.getChannelData(c)[i]) > peak * 0.08) return true; return false; };
+    let start = 0, end = buf.length - 1;
+    while (start < end && !loudAt(start)) start++;
+    while (end > start && !loudAt(end)) end--;
+    start = Math.max(0, start - Math.round(rate * 0.03));
+    end = Math.min(buf.length, end + Math.round(rate * 0.12));
+    const out = audio.createBuffer(chans, end - start, rate);
+    const gain = 0.9 / peak;
+    for (let c = 0; c < chans; c++) {
+      const src = buf.getChannelData(c).subarray(start, end), dst = out.getChannelData(c);
+      for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain;
+    }
+    return out;
+  }
+
+  let busyUntil = 0, lastSpeech = 0;
+  function say(name, text) {
+    if (!opt.voice.checked) return;
+    const now = performance.now();
+    if (now < busyUntil) return;
+    const clip = clips.get(name);
+    if (clip && audio) {
+      const src = audio.createBufferSource(), g = audio.createGain();
+      g.gain.value = 1.3; // voices sit above the sound effects
+      src.buffer = clip;
+      src.connect(g); g.connect(master);
+      src.start();
+      busyUntil = now + clip.duration * 1000 + 150;
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
+    if (speechSynthesis.speaking) {
+      // Some browsers get stuck "speaking" forever; unstick after a few seconds
+      if (now - lastSpeech < 4000) return;
+      speechSynthesis.cancel();
+    }
+    busyUntil = now + 900;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- Game ----------
+  // play → going (jumps behind a spot) → hidden → found (pops back out) → play
+  let state = "idle";
+  let playTimer = 0, hiddenT = 0, nextWiggle = 0, nextPeek = 0;
+  let hideSpot = null, lastSpot = null, peek = 0, peekT = 0;
+  let flight = null; // {t, T}
+  let particles = [], critters = [];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+  const hiddenY = s => backY - s.h * 0.42;
+  function placeHidden() { ball.x = hideSpot.x; ball.y = hiddenY(hideSpot); }
+
+  // How far above the ground each spot's top edge is, as a share of its height
+  const TOPS = { bush: 1.02, box: 0.8, basket: 0.82 };
+  const peekY = s => backY - s.h * TOPS[s.kind] - ball.r * 0.05;
+
+  // A jump over the top of spot s that lands exactly at (tx, ty)
+  function launchTo(tx, ty, s) {
+    const apex = Math.min(ball.y, backY - s.h * 1.1 - ball.r * 1.4);
+    const up = Math.sqrt(2 * G * (ball.y - apex));
+    const T = up / G + Math.sqrt(2 * Math.max(0, ty - apex) / G);
+    ball.vy = -up;
+    ball.vx = (tx - ball.x) / T;
+    flight = { t: 0, T, tx, ty };
+  }
+
+  function startHiding() {
+    state = "going";
+    do { hideSpot = pick(spots); } while (hideSpot === lastSpot);
+    lastSpot = hideSpot;
+    launchTo(hideSpot.x, hiddenY(hideSpot), hideSpot);
+    whoosh();
+  }
+
+  function hideLanded() {
+    state = "hidden";
+    placeHidden();
+    // It comes back out a new color
+    ball.color = (ball.color + 1) % BALLS.length;
+    ball.vx = ball.vy = 0;
+    hiddenT = 0; nextWiggle = 1.8; nextPeek = 3.8; peek = 0;
+    hideSpot.wig = 1; rustle(spotPitch(hideSpot));
+    setTimeout(() => { if (state === "hidden") say("wheres-the-ball", "Where's the ball?"); }, 350);
+  }
+
+  function found(byItself) {
+    state = "found";
+    peek = 0;
+    hideSpot.wig = 1;
+    rustle(spotPitch(hideSpot));
+    ball.happy = 1.6;
+    const tx = W * rand(0.2, 0.8);
+    launchTo(tx, floorY - ball.r, hideSpot);
+    confetti(hideSpot.x, backY - hideSpot.h, 26);
+    tada();
+    const name = BALLS[ball.color][0];
+    setTimeout(() => {
+      if (byItself) say("peekaboo", "Peekaboo!");
+      else say("there-it-is", `There it is! The ${name} ball!`);
+    }, 200);
+  }
+
+  // Wrong spot: a little friend pops out instead, and the right spot wiggles
+  function surprise(s) {
+    s.wig = 1;
+    rustle(spotPitch(s));
+    critters.push({ e: pick(CRITTERS), x: s.x, y: backY - s.h * 0.6, vx: rand(-80, 80) * UNIT, vy: -260 * UNIT, age: 0 });
+    tweet();
+    setTimeout(hint, 600);
+  }
+  function hint() {
+    if (state !== "hidden") return;
+    hideSpot.wig = 1;
+    rustle(spotPitch(hideSpot));
+    giggle();
+    peekT = 1.1;
+  }
+  const spotPitch = s => ({ bush: 3200, box: 900, basket: 1700 }[s.kind]);
+
+  function kick(towardX) {
+    const dir = towardX == null ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(towardX - ball.x) || 1;
+    ball.vy = -Math.sqrt(2 * G * (floorY - ball.r - H * rand(0.18, 0.3)));
+    ball.vx = dir * rand(150, 380) * UNIT;
+    ball.sq = -0.15;
+    ball.happy = 0.8;
+    boing();
+    confetti(ball.x, ball.y, 8);
+  }
+
+  function confetti(x, y, n) {
+    const cols = BALLS.map(b => b[1]);
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, Math.PI * 2), sp = rand(150, 450) * UNIT;
+      particles.push({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 180 * UNIT,
+        size: rand(7, 14) * UNIT, color: pick(cols), rot: rand(0, 6.28), rv: rand(-6, 6), age: 0, life: rand(0.9, 1.5),
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+
+  // Generous zones: the whole column under a spot counts as that spot
+  function spotAt(x, y) {
+    const s = spots[Math.max(0, Math.min(2, Math.floor((x / W) * 3)))];
+    return y > backY - s.h - 50 * UNIT ? s : null;
+  }
+
+  function tap(x, y) {
+    if (state === "play") {
+      if (Math.hypot(ball.x - x, ball.y - y) < ball.r * 1.8) kick();
+      else kick(x); // bounce toward the tap
+    } else if (state === "hidden") {
+      const s = x == null ? hideSpot : spotAt(x, y);
+      if (s === hideSpot) found(false);
+      else if (s) surprise(s);
+      else hint();
+    } else {
+      confetti(x ?? ball.x, y ?? ball.y, 6);
+    }
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    tap(e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+  });
+  const endHold = e => { if (exitHold && exitHold.id === e.pointerId) exitHold = null; };
+  canvas.addEventListener("pointerup", endHold);
+  canvas.addEventListener("pointercancel", endHold);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    // Swallow everything the browser lets us (space scroll, backspace, find, etc.)
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return;
+    heldKeys.add(e.code);
+    initAudio();
+    tap(); // any key bounces the ball, or finds it when it's hiding
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("resize", resize);
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    loadClips();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    startEl.classList.add("hidden");
+    particles = []; critters = [];
+    state = "play"; playTimer = 5; peek = 0; lastSpot = null;
+    ball.x = W / 2; ball.y = H * 0.3; ball.vx = rand(-200, 200) * UNIT; ball.vy = 0; ball.behind = false;
+    playing = true;
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Update ----------
+  function update(dt) {
+    ball.blink -= dt;
+    if (ball.blink < -3.5) ball.blink = 0.15; // blink every few seconds
+    ball.happy = Math.max(0, ball.happy - dt);
+    ball.sq += (0 - ball.sq) * Math.min(1, dt * 12);
+    spots.forEach(s => { s.wig = Math.max(0, s.wig - dt * 1.5); });
+
+    if (state === "play" || state === "idle") {
+      ball.vy += G * dt;
+      ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+      ball.rot += (ball.vx / ball.r) * dt;
+      ball.vx *= 1 - 0.25 * dt;
+      const floor = floorY - ball.r;
+      if (ball.y > floor) {
+        ball.y = floor;
+        const speed = ball.vy;
+        // Keep it lively: it never settles down all the way
+        ball.vy = -Math.max(speed * 0.78, Math.sqrt(2 * G * H * 0.12));
+        ball.sq = Math.min(0.3, speed / (G * 1.2));
+        if (playing) bup(speed / UNIT);
+      }
+      if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+      if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+      if (state === "play") {
+        playTimer -= dt;
+        // Hide on the way up from a bounce so the jump looks natural
+        if (playTimer <= 0 && ball.vy < 0) startHiding();
+      }
+      ball.behind = false;
+    } else if (state === "going" || state === "found") {
+      flight.t += dt;
+      ball.vy += G * dt;
+      ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+      ball.rot += (ball.vx / ball.r) * dt;
+      // Going: slips behind on the way down. Found: comes out from behind on the way up.
+      ball.behind = state === "going" ? ball.vy > 0 : ball.vy < 0;
+      if (flight.t >= flight.T) {
+        ball.x = flight.tx; ball.y = flight.ty;
+        if (state === "going") hideLanded();
+        else {
+          state = "play";
+          playTimer = rand(7, 11);
+          ball.vy = -Math.sqrt(2 * G * H * 0.35);
+          ball.vx = rand(-250, 250) * UNIT;
+          ball.sq = 0.3;
+          bup(900);
+        }
+      }
+    } else if (state === "hidden") {
+      hiddenT += dt;
+      if (hiddenT > nextWiggle) { nextWiggle = hiddenT + 3; hideSpot.wig = 1; rustle(spotPitch(hideSpot)); giggle(); }
+      if (hiddenT > nextPeek) { nextPeek = hiddenT + 4; peekT = 1.1; }
+      // Nobody found it? It comes out anyway. Nobody loses.
+      if (hiddenT > 16) found(true);
+      peekT -= dt;
+      peek += ((peekT > 0 ? 1 : 0) - peek) * Math.min(1, dt * 9);
+      const s = hideSpot;
+      ball.x = s.x + Math.sin(hiddenT * 10) * s.wig * 6 * UNIT;
+      ball.y = hiddenY(s) + (peekY(s) - hiddenY(s)) * peek;
+      ball.behind = true;
+    }
+
+    for (let i = critters.length - 1; i >= 0; i--) {
+      const c = critters[i];
+      c.age += dt;
+      if (c.age > 2.2) { critters.splice(i, 1); continue; }
+      c.vy += (c.age < 0.35 ? 0 : -60 * UNIT) * dt;
+      c.x += (c.vx + Math.sin(c.age * 7) * 60 * UNIT) * dt; c.y += c.vy * dt;
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+    }
+  }
+
+  // ---------- Drawing ----------
+  let clock = 0;
+  const STARS = Array.from({ length: 40 }, () => [Math.random(), Math.random() * 0.4, Math.random() * 6.28]);
+  const clouds = Array.from({ length: 3 }, (_, i) => ({ x: i / 3 + Math.random() * 0.2, y: 0.08 + Math.random() * 0.12, s: 0.8 + Math.random() * 0.5 }));
+
+  function drawBackground(dt) {
+    const sc = night() ? SCENE.night : SCENE.day;
+    const g = ctx.createLinearGradient(0, 0, 0, backY);
+    g.addColorStop(0, sc.sky[0]); g.addColorStop(1, sc.sky[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const sx = 70 * UNIT + 20, sy = 70 * UNIT + 16;
+    if (night()) {
+      ctx.fillStyle = "#fff";
+      STARS.forEach(([x, y, ph]) => {
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(clock * 1.5 + ph);
+        ctx.beginPath(); ctx.arc(x * W, y * H, 1.8 * UNIT + 0.6, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#f4f1d0";
+      ctx.beginPath(); ctx.arc(sx, sy, 36 * UNIT, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = "#ffd43b";
+      ctx.beginPath(); ctx.arc(sx, sy, 40 * UNIT, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      clouds.forEach(c => {
+        c.x += dt * 0.008;
+        if (c.x > 1.2) c.x = -0.2;
+        const cx = c.x * W, cy = c.y * H, s = 34 * UNIT * c.s;
+        ctx.beginPath();
+        ctx.arc(cx, cy, s, 0, Math.PI * 2);
+        ctx.arc(cx + s * 0.9, cy + s * 0.2, s * 0.8, 0, Math.PI * 2);
+        ctx.arc(cx - s * 0.9, cy + s * 0.25, s * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+    // Rolling hill at the back, flat yard in front
+    ctx.fillStyle = sc.hill;
+    ctx.beginPath();
+    ctx.moveTo(0, backY);
+    for (let x = 0; x <= W; x += 20) ctx.lineTo(x, backY - 26 * UNIT - Math.sin(x / W * Math.PI * 2 + 1) * 18 * UNIT);
+    ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+    ctx.fillStyle = sc.floor;
+    ctx.fillRect(0, backY - 4 * UNIT, W, H);
+    ctx.strokeStyle = sc.floorLine; ctx.lineWidth = 2;
+    for (let i = 1; i < 5; i++) {
+      const y = backY + (floorY - backY) * (i / 5) ** 1.3;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+  }
+
+  function tint(hex) {
+    if (!night()) return hex;
+    const n = parseInt(hex.slice(1), 16), k = DIM.night;
+    return `rgb(${Math.round((n >> 16) * k)}, ${Math.round(((n >> 8) & 255) * k)}, ${Math.round((n & 255) * k)})`;
+  }
+
+  function drawSpot(s) {
+    const wob = Math.sin(clock * 30) * s.wig * 0.05;
+    ctx.save();
+    ctx.translate(s.x, backY);
+    ctx.rotate(wob);
+    ctx.scale(1 + s.wig * 0.03, 1 - s.wig * 0.03);
+    const w = s.w, h = s.h;
+    // Shadow
+    ctx.fillStyle = "rgba(0,0,0,.12)";
+    ctx.beginPath(); ctx.ellipse(0, 0, w * 0.52, h * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    if (s.kind === "bush") {
+      const blobs = [[-0.3, -0.35, 0.3], [0.3, -0.35, 0.3], [0, -0.6, 0.34], [-0.18, -0.78, 0.22], [0.2, -0.76, 0.24], [0, -0.3, 0.36]];
+      ctx.fillStyle = tint("#3f9a4a");
+      blobs.forEach(([bx, by, br]) => { ctx.beginPath(); ctx.arc(bx * w, by * h, br * w, 0, Math.PI * 2); ctx.fill(); });
+      ctx.fillStyle = tint("#57b85f");
+      blobs.forEach(([bx, by, br]) => { ctx.beginPath(); ctx.arc(bx * w - br * w * 0.15, by * h - br * w * 0.15, br * w * 0.72, 0, Math.PI * 2); ctx.fill(); });
+      ctx.fillStyle = tint("#3f9a4a");
+      ctx.fillRect(-w * 0.5, -h * 0.3, w, h * 0.3);
+      // A few flowers
+      [[-0.28, -0.5, "#ff8fab"], [0.22, -0.7, "#ffd43b"], [0.3, -0.25, "#fff"], [-0.05, -0.85, "#ff8fab"]].forEach(([fx, fy, c]) => {
+        ctx.fillStyle = tint(c);
+        for (let i = 0; i < 5; i++) {
+          const a = (i * Math.PI * 2) / 5;
+          ctx.beginPath(); ctx.arc(fx * w + Math.cos(a) * w * 0.025, fy * h + Math.sin(a) * w * 0.025, w * 0.022, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = tint("#ffa94d");
+        ctx.beginPath(); ctx.arc(fx * w, fy * h, w * 0.018, 0, Math.PI * 2); ctx.fill();
+      });
+    } else if (s.kind === "box") {
+      const bw = w * 0.92, bh = h * 0.78;
+      // Flaps sticking up from the open top
+      ctx.fillStyle = tint("#b9804a");
+      ctx.beginPath(); ctx.moveTo(-bw / 2, -bh); ctx.lineTo(-bw / 2 - w * 0.1, -bh - h * 0.2); ctx.lineTo(-bw * 0.05, -bh - h * 0.14); ctx.lineTo(-bw * 0.05, -bh); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(bw / 2, -bh); ctx.lineTo(bw / 2 + w * 0.1, -bh - h * 0.2); ctx.lineTo(bw * 0.05, -bh - h * 0.14); ctx.lineTo(bw * 0.05, -bh); ctx.fill();
+      ctx.fillStyle = tint("#d49a5c");
+      ctx.fillRect(-bw / 2, -bh, bw, bh);
+      ctx.fillStyle = tint("#c28a4f");
+      ctx.fillRect(-bw / 2, -bh, bw, bh * 0.14);
+      ctx.fillStyle = tint("#e8c48f");
+      ctx.fillRect(-w * 0.07, -bh, w * 0.14, bh * 0.5); // tape
+      ctx.strokeStyle = tint("#a36f3d"); ctx.lineWidth = 3 * UNIT;
+      ctx.strokeRect(-bw / 2, -bh, bw, bh);
+      // A little heart doodle
+      ctx.fillStyle = tint("#ff6b6b");
+      const hx = bw * 0.22, hy = -bh * 0.35, hs = w * 0.07;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy + hs * 0.9);
+      ctx.bezierCurveTo(hx - hs * 1.4, hy - hs * 0.1, hx - hs * 0.6, hy - hs * 1.1, hx, hy - hs * 0.4);
+      ctx.bezierCurveTo(hx + hs * 0.6, hy - hs * 1.1, hx + hs * 1.4, hy - hs * 0.1, hx, hy + hs * 0.9);
+      ctx.fill();
+    } else {
+      // Wicker basket: wide at the top, with a handle
+      const top = -h * 0.8, tw = w * 0.5, bw2 = w * 0.38;
+      ctx.strokeStyle = tint("#a0692e"); ctx.lineWidth = w * 0.05;
+      ctx.beginPath(); ctx.ellipse(0, top, tw * 0.75, h * 0.28, 0, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = tint("#d9a05b");
+      ctx.beginPath(); ctx.moveTo(-tw, top); ctx.lineTo(tw, top); ctx.lineTo(bw2, 0); ctx.lineTo(-bw2, 0); ctx.closePath(); ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.strokeStyle = tint("#b87c3c"); ctx.lineWidth = 3 * UNIT;
+      for (let y = top + h * 0.12; y < 0; y += h * 0.12) { ctx.beginPath(); ctx.moveTo(-w, y); ctx.lineTo(w, y); ctx.stroke(); }
+      for (let x = -w; x < w; x += w * 0.1) { ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x * 0.75, 0); ctx.stroke(); }
+      ctx.restore();
+      ctx.fillStyle = tint("#a0692e");
+      ctx.beginPath(); ctx.ellipse(0, top, tw * 1.02, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawBall() {
+    const [, main, stripe] = BALLS[ball.color];
+    const r = ball.r;
+    ctx.save();
+    // Squash from the bottom when it lands, stretch while it flies
+    const sq = ball.sq;
+    ctx.translate(ball.x, ball.y + r * sq * 0.5);
+    ctx.scale(1 + sq * 0.6, 1 - sq * 0.6);
+    ctx.fillStyle = tint(main);
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    // Rolling stripes
+    ctx.save();
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+    ctx.rotate(ball.rot);
+    ctx.fillStyle = tint(stripe);
+    ctx.fillRect(-r, -r * 0.22, r * 2, r * 0.44);
+    ctx.fillStyle = "rgba(255,255,255,.55)";
+    ctx.fillRect(-r * 0.12, -r, r * 0.24, r * 2);
+    ctx.restore();
+    // Shine
+    ctx.fillStyle = "rgba(255,255,255,.45)";
+    ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.45, r * 0.22, r * 0.13, -0.6, 0, Math.PI * 2); ctx.fill();
+    // Face stays upright and looks where it's going
+    const sp = Math.hypot(ball.vx, ball.vy) || 1;
+    const lx = state === "hidden" ? 0 : (ball.vx / sp) * r * 0.06;
+    const ly = state === "hidden" ? -r * 0.04 : (ball.vy / sp) * r * 0.06;
+    const ey = -r * 0.28, ex = r * 0.3, er = r * 0.19;
+    if (ball.blink > 0) {
+      ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = r * 0.07; ctx.lineCap = "round";
+      [-ex, ex].forEach(x => { ctx.beginPath(); ctx.moveTo(x - er * 0.8, ey); ctx.lineTo(x + er * 0.8, ey); ctx.stroke(); });
+    } else {
+      [-ex, ex].forEach(x => {
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(x, ey, er, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2b2d42";
+        ctx.beginPath(); ctx.arc(x + lx, ey + ly, er * 0.55, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(x + lx - er * 0.18, ey + ly - er * 0.2, er * 0.16, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    ctx.fillStyle = "rgba(255,120,150,.45)";
+    [-1, 1].forEach(sgn => { ctx.beginPath(); ctx.ellipse(sgn * r * 0.55, r * 0.1, r * 0.13, r * 0.08, 0, 0, Math.PI * 2); ctx.fill(); });
+    ctx.fillStyle = "#2b2d42";
+    if (ball.happy > 0) {
+      // Big open "wheee!" mouth
+      ctx.beginPath(); ctx.ellipse(0, r * 0.28, r * 0.2, r * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ff6b8b";
+      ctx.beginPath(); ctx.ellipse(0, r * 0.36, r * 0.11, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = r * 0.07; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(0, r * 0.1, r * 0.25, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawBallShadow() {
+    if (ball.behind) return;
+    const h = Math.max(0, floorY - (ball.y + ball.r));
+    const k = Math.max(0.3, 1 - h / (H * 0.8));
+    ctx.fillStyle = `rgba(0,0,0,${0.18 * k})`;
+    ctx.beginPath(); ctx.ellipse(ball.x, floorY - 2, ball.r * 0.9 * k, ball.r * 0.18 * k, 0, 0, Math.PI * 2); ctx.fill();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    clock += dt;
+    if (playing) update(dt);
+
+    drawBackground(dt);
+    if (playing && ball.behind) drawBall();
+    spots.forEach(drawSpot);
+    if (playing && !ball.behind) { drawBallShadow(); drawBall(); }
+
+    // Critters that popped out of the wrong spot
+    critters.forEach(c => {
+      const s = Math.min(1, c.age * 5) * spots[0].w * 0.4;
+      ctx.globalAlpha = Math.max(0, Math.min(1, (2.2 - c.age) * 2));
+      ctx.drawImage(emojiImage(c.e), c.x - s / 2, c.y - s / 2, s, s);
+    });
+    ctx.globalAlpha = 1;
+
+    particles.forEach(p => {
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+      ctx.restore();
+    });
+    ctx.globalAlpha = 1;
+
+    // Grown-up exit: hold top-right corner
+    if (playing) {
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = night() ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#ff6b6b"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * Math.PI * 2);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

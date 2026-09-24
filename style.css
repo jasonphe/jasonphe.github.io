@@ -197,6 +197,7 @@ img { display: block; max-width: 100%; }
 }
 .thumb-barn { background: linear-gradient(180deg, #bfe8ff, #e6f7ff 60%, #b8e39c); }
 .thumb-piano { background: linear-gradient(90deg, #ffd6d6, #fff1c9 30%, #d8f5de 55%, #d9ecff 80%, #e9e0ff); }
+.thumb-ball { background: linear-gradient(180deg, #bfe8ff, #e3f6ff 55%, #a8e08a 56%); }
 .thumb-zoo span { animation: bob 3s ease-in-out infinite; }
 .thumb-zoo span:nth-child(2) { animation-delay: -1s; }
 .thumb-zoo span:nth-child(3) { animation-delay: -2s; }
