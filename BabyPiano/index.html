@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Baby Piano</title>
+  <meta name="description" content="A toddler toy: big rainbow keys where every tap plays the next note of a nursery rhyme.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #748ffc;
+      --accent-2: #ff8fab;
+      --bg: #fff6e9;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+      touch-action: pan-y;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(116, 143, 252, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Baby Piano</h1>
+      <p class="sub">Tap, slide, or bang on the keys!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSong" checked> Song mode</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <ul class="tips">
+        <li><b>Song mode:</b> every tap plays the next note of Twinkle Twinkle, Mary Had a Little Lamb, Row Row Row Your Boat, and Old MacDonald. Any key works, so it always sounds like a song.</li>
+        <li>Turn song mode off to play each key's own note.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>iPad or iPhone: turn on <b>Guided Access</b> (Settings → Accessibility) so little hands can't swipe out.</li>
+      </ul>
+      <a class="home" href="../index.html">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // One octave of C major, from C5 up to C6: bright enough for tablet speakers
+  const NOTES = [523.25, 587.33, 659.25, 698.46, 783.99, 880.0, 987.77, 1046.5];
+  // Big animals get the low notes, little ones the high notes
+  const CRITTERS = ["🐘", "🐻", "🐷", "🐶", "🐱", "🐸", "🐥", "🐦"];
+  const DAY = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9", "#4dabf7", "#748ffc", "#b197fc"];
+  const NIGHT = ["#b45a5a", "#b8834c", "#b8a146", "#5f9e6c", "#4a9c86", "#4f84b3", "#6474b4", "#8a78b8"];
+
+  // Songs as key numbers (0 = C, 7 = high C). The tap sets the rhythm.
+  const SONGS = [
+    // Twinkle Twinkle Little Star
+    [0, 0, 4, 4, 5, 5, 4, 3, 3, 2, 2, 1, 1, 0, 4, 4, 3, 3, 2, 2, 1, 4, 4, 3, 3, 2, 2, 1,
+     0, 0, 4, 4, 5, 5, 4, 3, 3, 2, 2, 1, 1, 0],
+    // Mary Had a Little Lamb
+    [2, 1, 0, 1, 2, 2, 2, 1, 1, 1, 2, 4, 4, 2, 1, 0, 1, 2, 2, 2, 2, 1, 1, 2, 1, 0],
+    // Row, Row, Row Your Boat
+    [0, 0, 0, 1, 2, 2, 1, 2, 3, 4, 7, 7, 7, 4, 4, 4, 2, 2, 2, 0, 0, 0, 4, 3, 2, 1, 0],
+    // Old MacDonald Had a Farm
+    [4, 4, 4, 1, 2, 2, 1, 6, 6, 5, 5, 4, 1, 4, 4, 4, 1, 2, 2, 1, 6, 6, 5, 5, 4],
+  ];
+
+  // ---------- Settings ----------
+  const opt = {
+    song: document.getElementById("optSong"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("babypiano") || "null");
+    if (saved) { opt.song.checked = saved.song; opt.night.checked = saved.night; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    try { localStorage.setItem("babypiano", JSON.stringify({ song: opt.song.checked, night: opt.night.checked })); } catch (e) {}
+  };
+  [opt.song, opt.night].forEach(el => el.addEventListener("change", saveOpts));
+  const palette = () => (opt.night.checked ? NIGHT : DAY);
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1, UNIT = 1, portrait = false;
+  const keys = NOTES.map((f, i) => ({ i, p: 0, pv: 0, glow: 0, jump: 0, jv: 0, held: 0 }));
+
+  // Side by side on a wide screen; stacked like a xylophone (low at the bottom) on a tall one
+  function layout() {
+    portrait = H > W;
+    const m = 10 * UNIT + 6, gap = 8 * UNIT + 2, n = keys.length;
+    keys.forEach((k, i) => {
+      if (portrait) {
+        const kh = (H - m * 2 - gap * (n - 1)) / n;
+        k.x = m; k.w = W - m * 2; k.h = kh;
+        k.y = H - m - (i + 1) * kh - i * gap;
+      } else {
+        const kw = (W - m * 2 - gap * (n - 1)) / n;
+        k.y = m; k.h = H - m * 2; k.w = kw;
+        k.x = m + i * (kw + gap);
+      }
+    });
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.min(W, H) / 600; // scale things to the screen
+    layout();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  function keyAt(x, y) {
+    let best = keys[0], bestDist = Infinity;
+    for (const k of keys) {
+      // Gaps and margins count as the nearest key, so no tap is wasted
+      const dx = Math.max(k.x - x, 0, x - (k.x + k.w));
+      const dy = Math.max(k.y - y, 0, y - (k.y + k.h));
+      const d = Math.hypot(dx, dy);
+      if (d < bestDist) { best = k; bestDist = d; }
+    }
+    return best;
+  }
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.5;
+    master.connect(comp); comp.connect(audio.destination);
+  }
+
+  // A soft mallet sound: a round fundamental plus quickly fading overtones.
+  // It rings while held and damps when let go.
+  const voices = [];
+  const PARTIALS = [ // [ratio, wave, volume, fade time]
+    [1, "sine", 0.32, 1.1], [2, "sine", 0.09, 0.35], [3, "triangle", 0.035, 0.15], [4, "sine", 0.05, 0.05],
+  ];
+  function noteOn(freq) {
+    if (!audio) return null;
+    const t = audio.currentTime;
+    const out = audio.createGain();
+    out.gain.setValueAtTime(0.0001, t);
+    out.gain.exponentialRampToValueAtTime(1, t + 0.006);
+    out.connect(master);
+    const oscs = PARTIALS.map(([ratio, type, vol, fade]) => {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type;
+      o.frequency.value = freq * ratio;
+      g.gain.setValueAtTime(vol, t);
+      g.gain.setTargetAtTime(0.0001, t + 0.01, fade);
+      o.connect(g); g.connect(out);
+      o.start(t); o.stop(t + 6);
+      return o;
+    });
+    const v = { out, oscs, done: false };
+    voices.push(v);
+    // Mashing with a whole hand shouldn't turn into mush
+    while (voices.length > 12) noteOff(voices.shift(), 0.03);
+    return v;
+  }
+  function noteOff(v, fade = 0.22) {
+    if (!v || v.done || !audio) return;
+    v.done = true;
+    const t = audio.currentTime, g = v.out.gain;
+    if (g.cancelAndHoldAtTime) g.cancelAndHoldAtTime(t);
+    else { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); }
+    g.setTargetAtTime(0.0001, t, fade);
+    v.oscs.forEach(o => { try { o.stop(t + fade * 6); } catch (e) {} });
+    const i = voices.indexOf(v);
+    if (i >= 0) voices.splice(i, 1);
+  }
+
+  // ---------- Playing ----------
+  let songIdx = 0, noteIdx = 0, celebrating = false;
+  let particles = [], rings = [];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  let idle = 0;
+
+  // Press a key: returns the sounding voice so it can be held
+  function press(tapped, x, y) {
+    idle = 0;
+    tapped.pv += 14; // the tapped key always dips, even in song mode
+    let sounding = tapped;
+    if (opt.song.checked) {
+      const song = SONGS[songIdx];
+      sounding = keys[song[noteIdx]];
+      noteIdx++;
+      if (noteIdx >= song.length) celebrate();
+    }
+    const v = noteOn(NOTES[sounding.i]);
+    sounding.glow = 1;
+    sounding.jv -= 9 * 45 * UNIT;
+    sounding.held++;
+    notesFrom(sounding, x, y);
+    return { v, key: sounding };
+  }
+  function release(h) {
+    if (!h) return;
+    noteOff(h.v);
+    h.key.held = Math.max(0, h.key.held - 1);
+  }
+
+  // Finishing a song: a run up the keyboard and confetti, then the next song
+  function celebrate() {
+    if (celebrating) return;
+    celebrating = true;
+    noteIdx = 0;
+    songIdx = (songIdx + 1) % SONGS.length;
+    setTimeout(() => {
+      keys.forEach((k, i) => setTimeout(() => {
+        const v = noteOn(NOTES[i]);
+        setTimeout(() => noteOff(v, 0.3), 120);
+        k.glow = 1; k.jv -= 10 * 45 * UNIT;
+        confetti(k.x + k.w / 2, k.y + k.h / 2, 10);
+      }, i * 80));
+      setTimeout(() => { celebrating = false; }, keys.length * 80);
+    }, 350);
+  }
+
+  function critterPos(k) {
+    return portrait ? [k.x + Math.min(k.h * 0.75, k.w * 0.14), k.y + k.h / 2] : [k.x + k.w / 2, k.y + Math.min(k.w * 0.75, k.h * 0.16)];
+  }
+
+  function notesFrom(k, x, y) {
+    const col = palette()[k.i];
+    const [cx, cy] = critterPos(k);
+    rings.push({ x: x ?? cx, y: y ?? cy, age: 0, color: col });
+    for (let i = 0; i < 3; i++) {
+      particles.push({
+        kind: "note", ch: pick(["♪", "♫", "♩"]),
+        x: cx + rand(-20, 20) * UNIT, y: cy, vx: rand(-60, 60) * UNIT, vy: rand(-260, -160) * UNIT,
+        size: rand(34, 50) * UNIT, color: col, rot: rand(-0.4, 0.4), age: 0, life: rand(1.1, 1.6),
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  function confetti(x, y, n) {
+    const cols = palette();
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, Math.PI * 2), sp = rand(150, 420) * UNIT;
+      particles.push({
+        kind: "bit", x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 150 * UNIT,
+        size: rand(7, 14) * UNIT, color: pick(cols), rot: rand(0, 6.28), rv: rand(-6, 6), age: 0, life: rand(0.9, 1.5),
+      });
+    }
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+  const pointers = new Map(); // pointerId -> {tapped key, held note}
+  const inExit = (x, y) => x > W - EXIT_ZONE && y < EXIT_ZONE;
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    // The corner still plays a note, so a curious hand there isn't ignored
+    if (inExit(e.clientX, e.clientY)) exitHold = { id: e.pointerId, t: 0 };
+    const k = keyAt(e.clientX, e.clientY);
+    pointers.set(e.pointerId, { tapped: k, h: press(k, e.clientX, e.clientY) });
+  });
+
+  // Sliding across the keys plays each one it crosses
+  canvas.addEventListener("pointermove", e => {
+    if (!playing) return;
+    if (exitHold && exitHold.id === e.pointerId && !inExit(e.clientX, e.clientY)) exitHold = null;
+    const p = pointers.get(e.pointerId);
+    if (!p) return;
+    const k = keyAt(e.clientX, e.clientY);
+    if (k === p.tapped) return;
+    release(p.h);
+    p.tapped = k;
+    p.h = press(k, e.clientX, e.clientY);
+  });
+
+  const up = e => {
+    if (exitHold && exitHold.id === e.pointerId) exitHold = null;
+    const p = pointers.get(e.pointerId);
+    if (p) { release(p.h); pointers.delete(e.pointerId); }
+  };
+  canvas.addEventListener("pointerup", up);
+  canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("pointerleave", up);
+
+  // Keyboard rows map across the keys; any other key plays something too
+  const ROWS = ["12345678", "qwertyui", "asdfghjk", "zxcvbnm,"];
+  const keyHolds = new Map(); // code -> held note
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    // Swallow everything the browser lets us (space scroll, backspace, find, etc.)
+    e.preventDefault();
+    if (e.repeat || keyHolds.has(e.code)) return;
+    initAudio();
+    const ch = e.key.length === 1 ? e.key.toLowerCase() : "";
+    let idx = -1;
+    for (const row of ROWS) if (row.includes(ch)) idx = row.indexOf(ch);
+    const k = idx >= 0 ? keys[idx] : pick(keys);
+    keyHolds.set(e.code, press(k));
+  });
+  window.addEventListener("keyup", e => { release(keyHolds.get(e.code)); keyHolds.delete(e.code); });
+  window.addEventListener("blur", () => { keyHolds.forEach(release); keyHolds.clear(); pointers.forEach(p => release(p.h)); pointers.clear(); });
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    startEl.classList.add("hidden");
+    particles = []; rings = [];
+    songIdx = 0; noteIdx = 0; celebrating = false; idle = 0;
+    playing = true;
+    // A little hello from every key
+    keys.forEach((k, i) => setTimeout(() => {
+      const v = noteOn(NOTES[i]);
+      setTimeout(() => noteOff(v, 0.3), 100);
+      k.glow = 1; k.jv -= 8 * 45 * UNIT;
+    }, 200 + i * 70));
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    pointers.forEach(p => release(p.h)); pointers.clear();
+    keyHolds.forEach(release); keyHolds.clear();
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Drawing ----------
+  const roundRect = (x, y, w, h, r) => {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  };
+
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = c => Math.max(0, Math.min(255, Math.round(c + amt * 255)));
+    return `rgb(${f(n >> 16)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
+  }
+
+  function drawKey(k, clock) {
+    const col = palette()[k.i], night = opt.night.checked;
+    const lip = Math.min(k.w, k.h) * 0.08 + 4;
+    const dip = Math.max(0, k.p) * lip * 0.8 + (k.held ? lip * 0.3 : 0);
+    const r = Math.min(k.w, k.h) * 0.14;
+
+    // The darker "side" of the key, which the top slides down over when pressed
+    ctx.fillStyle = shade(col, -0.22);
+    roundRect(k.x, k.y + lip, k.w, k.h - lip, r); ctx.fill();
+
+    ctx.save();
+    if (k.glow > 0.02) { ctx.shadowColor = col; ctx.shadowBlur = 40 * UNIT * k.glow; }
+    const top = k.y + dip, h = k.h - lip;
+    const g = ctx.createLinearGradient(0, top, 0, top + h);
+    g.addColorStop(0, shade(col, 0.12 + k.glow * 0.12));
+    g.addColorStop(1, shade(col, k.glow * 0.1));
+    ctx.fillStyle = g;
+    roundRect(k.x, top, k.w, h, r); ctx.fill();
+    ctx.restore();
+
+    // Soft shine
+    ctx.fillStyle = night ? "rgba(255,255,255,.08)" : "rgba(255,255,255,.28)";
+    if (portrait) roundRect(k.x + r * 0.5, top + h * 0.12, k.w - r, h * 0.2, h * 0.1);
+    else roundRect(k.x + k.w * 0.12, top + r * 0.5, k.w * 0.2, h - r, k.w * 0.1);
+    ctx.fill();
+
+    // The key's animal friend
+    const [cx, cy0] = critterPos(k);
+    const size = Math.min(k.w, k.h) * (portrait ? 0.8 : 0.72);
+    const cy = cy0 + dip + k.jump + Math.sin(clock * 2 + k.i) * 3 * UNIT;
+    const squash = 1 + Math.max(0, k.p) * 0.12;
+    ctx.drawImage(emojiImage(CRITTERS[k.i]), cx - (size * squash) / 2, cy - size / squash / 2, size * squash, size / squash);
+  }
+
+  let last = performance.now(), clock = 0, hintTimer = 0;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    clock += dt;
+
+    ctx.fillStyle = opt.night.checked ? "#1c1d33" : "#fff6e9";
+    ctx.fillRect(0, 0, W, H);
+
+    if (playing) {
+      // After a quiet spell, a key glows to invite a tap: in song mode, the next note
+      idle += dt; hintTimer -= dt;
+      if (idle > 5 && hintTimer <= 0) {
+        hintTimer = 2.5;
+        const k = opt.song.checked ? keys[SONGS[songIdx][noteIdx]] : pick(keys);
+        k.glow = 0.8; k.jv -= 5 * 45 * UNIT;
+      }
+    }
+
+    for (const k of keys) {
+      // Springs for the key dip and the critter hop
+      k.pv += -k.p * 260 * dt - k.pv * 16 * dt; k.p += k.pv * dt;
+      k.jv += (-k.jump * 140 - k.jv * 10) * dt; k.jump += k.jv * dt;
+      k.glow = Math.max(k.held ? 0.6 : 0, k.glow - dt * 1.6);
+      drawKey(k, clock);
+    }
+
+    // Rings
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.age += dt;
+      if (r.age > 0.5) { rings.splice(i, 1); continue; }
+      const k = r.age / 0.5;
+      ctx.globalAlpha = (1 - k) * 0.8;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 8 * UNIT * (1 - k) + 1;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 10 * UNIT + k * 90 * UNIT, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Floating notes and confetti
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.save();
+      if (p.kind === "note") {
+        p.x += (p.vx + Math.sin(p.age * 6) * 40 * UNIT) * dt; p.y += p.vy * dt; p.vy *= 1 - 0.6 * dt;
+        ctx.translate(p.x, p.y); ctx.rotate(p.rot + Math.sin(p.age * 5) * 0.2);
+        ctx.font = `800 ${Math.round(p.size)}px "Segoe UI Symbol","Apple Symbols","Noto Sans Symbols",sans-serif`;
+        ctx.lineWidth = p.size * 0.12; ctx.strokeStyle = opt.night.checked ? "#1c1d33" : "#fff";
+        ctx.strokeText(p.ch, 0, 0);
+        ctx.fillStyle = shade(p.color, -0.15);
+        ctx.fillText(p.ch, 0, 0);
+      } else {
+        p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+        ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Grown-up exit: hold top-right corner
+    if (playing) {
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * Math.PI * 2);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
