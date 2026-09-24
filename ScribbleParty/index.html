@@ -343,7 +343,7 @@
           <button class="btn ghost" type="submit">Join</button>
         </div>
       </div>
-      <a class="back" href="../index.html">← Back to site</a>
+      <a class="back" href="../">← Back to site</a>
     </form>
   </section>
 
@@ -490,7 +490,7 @@
       $('joinBtn').textContent = `Join room ${hashCode}`;
     }
     showJoinMode();
-    $('newInstead').onclick = () => { hashCode = ''; history.replaceState(null, '', location.pathname); showJoinMode(); };
+    $('newInstead').onclick = () => { hashCode = ''; history.replaceState(null, '', cleanPath()); showJoinMode(); };
 
     function getName() {
       const n = cleanText($('nameInput').value, 16);
@@ -526,7 +526,9 @@
     const nameOf = id => peers.get(id)?.name ?? pub.players.find(p => p.id === id)?.name ?? 'Someone';
     const iAmDrawer = () => pub.drawer === selfId && pub.phase === 'draw';
 
-    function inviteUrl() { return `${location.origin}${location.pathname}#${roomCode}`; }
+    // Drop "index.html" so shared links look like /ScribbleParty/#CODE.
+    const cleanPath = () => location.pathname.replace(/index\.html$/, '');
+    function inviteUrl() { return `${location.origin}${cleanPath()}#${roomCode}`; }
     async function copyInvite() {
       const url = inviteUrl();
       if (navigator.share && matchMedia('(pointer: coarse)').matches) {
@@ -539,7 +541,7 @@
 
     function start(name, code) {
       roomCode = code;
-      history.replaceState(null, '', `#${code}`);
+      history.replaceState(null, '', `${cleanPath()}#${code}`);
       window.addEventListener('hashchange', () => location.reload());
       $('join').classList.add('hidden');
       $('game').classList.remove('hidden');
