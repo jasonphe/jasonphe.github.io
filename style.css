@@ -195,6 +195,7 @@ img { display: block; max-width: 100%; }
     background: linear-gradient(135deg, #ffe3ec, #fff1c9 55%, #d9f4ff);
     font-size: clamp(40px, 7vw, 64px);
 }
+.thumb-barn { background: linear-gradient(180deg, #bfe8ff, #e6f7ff 60%, #b8e39c); }
 .thumb-zoo span { animation: bob 3s ease-in-out infinite; }
 .thumb-zoo span:nth-child(2) { animation-delay: -1s; }
 .thumb-zoo span:nth-child(3) { animation-delay: -2s; }

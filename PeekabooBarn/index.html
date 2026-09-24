@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Peekaboo Barn</title>
+  <meta name="description" content="A toddler toy: tap the barn doors to find animals and family photos hiding inside.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #d9534f;
+      --accent-2: #ffb86b;
+      --bg: #cdeefd;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+      touch-action: pan-y;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(460px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(217, 83, 79, .4);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+    .photos {
+      margin: 4px 0 14px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(43, 45, 66, .05);
+      text-align: left;
+    }
+    .photos-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .photos-head b { font-size: 16px; }
+    .photos-head small { display: block; color: var(--muted); font-size: 13px; line-height: 1.3; }
+    #addPhotos {
+      flex: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 6px 14px;
+      background: var(--accent);
+      color: #fff;
+      font: 600 15px "Baloo 2", sans-serif;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    #photoList { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    #photoList:empty { display: none; }
+    .ph { position: relative; width: 52px; height: 52px; }
+    .ph img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+    .ph button {
+      position: absolute; top: -6px; right: -6px;
+      width: 22px; height: 22px; padding: 0;
+      border: 0; border-radius: 50%;
+      background: var(--ink); color: #fff;
+      font: 700 14px/22px system-ui, sans-serif;
+      cursor: pointer;
+    }
+
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Peekaboo Barn</h1>
+      <p class="sub">Who's hiding behind the doors?</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Music</label>
+        <label><input type="checkbox" id="optVoice" checked> Voices</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <div class="photos">
+        <div class="photos-head">
+          <div>
+            <b>Family photos</b>
+            <small>Faces she knows will hide in the barn too. Photos stay on this device.</small>
+          </div>
+          <button id="addPhotos" type="button">+ Add</button>
+        </div>
+        <input type="file" id="photoInput" accept="image/*" multiple hidden>
+        <div id="photoList"></div>
+      </div>
+      <ul class="tips">
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>iPad or iPhone: turn on <b>Guided Access</b> (Settings → Accessibility) so little hands can't swipe out.</li>
+        <li>Computer: it goes full screen. Any key opens a door.</li>
+      </ul>
+      <a class="home" href="../index.html">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // [emoji, name, what it says]
+  const ANIMALS = [
+    ["🐶", "dog", "woof woof"], ["🐱", "cat", "meow"], ["🐮", "cow", "moo"],
+    ["🐷", "pig", "oink oink"], ["🦆", "duck", "quack quack"], ["🐸", "frog", "ribbit"],
+    ["🦁", "lion", "roar"], ["🐑", "sheep", "baa"], ["🐴", "horse", "neigh"],
+    ["🐔", "chicken", "bawk bawk"], ["🦉", "owl", "hoo hoo"], ["🐝", "bee", "buzz"],
+    ["🐵", "monkey", "ooh ooh ah ah"], ["🐰", "bunny", null], ["🐭", "mouse", null],
+    ["🐐", "goat", null], ["🦃", "turkey", null], ["🐻", "bear", null],
+  ];
+  const DAY = ["#ff6b8b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#38d9a9"];
+  const NIGHT = ["#c9728a", "#c99060", "#c9b45c", "#6fae80", "#5f93c4", "#8f7cc9", "#c47ea0", "#56b09a"];
+  const SCENE = {
+    day: {
+      sky: ["#8fd3ff", "#d8f3ff"], ground: "#7cc95a", groundDark: "#63b046",
+      barn: "#c8553d", boards: "rgba(0,0,0,.08)", roof: "#7a2e24", trim: "#fff7ec",
+      leaf: "#a63d2a", leafBack: "#6e2419", inside: "#3b2416", hay: "#e9c46a",
+    },
+    night: {
+      sky: ["#141a3a", "#2c2f5e"], ground: "#2f5a3a", groundDark: "#264a30",
+      barn: "#7d3a31", boards: "rgba(0,0,0,.12)", roof: "#4a1e19", trim: "#c9c2b6",
+      leaf: "#692a20", leafBack: "#431812", inside: "#1d120b", hay: "#a88d4c",
+    },
+  };
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("peekaboo") || "null");
+    if (saved) { opt.sound.checked = saved.sound; opt.voice.checked = saved.voice; opt.night.checked = saved.night; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    try { localStorage.setItem("peekaboo", JSON.stringify({ sound: opt.sound.checked, voice: opt.voice.checked, night: opt.night.checked })); } catch (e) {}
+  };
+  const palette = () => (opt.night.checked ? NIGHT : DAY);
+  const scene = () => (opt.night.checked ? SCENE.night : SCENE.day);
+
+  // ---------- Family photos ----------
+  // Stored in IndexedDB on this device only, shrunk so they load fast.
+  const photos = []; // {id, img, url}
+  let dbp = null;
+  function db() {
+    if (!dbp) dbp = new Promise((ok, fail) => {
+      const req = indexedDB.open("peekaboo-barn", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("photos", { keyPath: "id" });
+      req.onsuccess = () => ok(req.result);
+      req.onerror = () => fail(req.error);
+    });
+    return dbp;
+  }
+  async function dbDo(mode, fn) {
+    const d = await db();
+    return new Promise((ok, fail) => {
+      const tx = d.transaction("photos", mode);
+      const req = fn(tx.objectStore("photos"));
+      tx.oncomplete = () => ok(req && req.result);
+      tx.onerror = () => fail(tx.error);
+    });
+  }
+  function addPhotoToList(id, blob) {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    photos.push({ id, img, url });
+    renderPhotoList();
+  }
+  function renderPhotoList() {
+    const list = document.getElementById("photoList");
+    list.textContent = "";
+    photos.forEach(p => {
+      const box = document.createElement("div");
+      box.className = "ph";
+      const im = document.createElement("img");
+      im.src = p.url; im.alt = "";
+      const x = document.createElement("button");
+      x.type = "button"; x.textContent = "×"; x.setAttribute("aria-label", "Remove photo");
+      x.addEventListener("click", () => removePhoto(p.id));
+      box.append(im, x);
+      list.append(box);
+    });
+  }
+  async function removePhoto(id) {
+    const i = photos.findIndex(p => p.id === id);
+    if (i < 0) return;
+    URL.revokeObjectURL(photos[i].url);
+    photos.splice(i, 1);
+    renderPhotoList();
+    try { await dbDo("readwrite", s => s.delete(id)); } catch (e) {}
+  }
+  function shrink(file) {
+    return new Promise(ok => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 700 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(b => ok(b || file), "image/jpeg", 0.85);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); ok(null); };
+      img.src = url;
+    });
+  }
+  const photoInput = document.getElementById("photoInput");
+  document.getElementById("addPhotos").addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", async () => {
+    for (const file of photoInput.files) {
+      const blob = await shrink(file);
+      if (!blob) continue;
+      const id = Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+      addPhotoToList(id, blob);
+      try { await dbDo("readwrite", s => s.put({ id, blob })); } catch (e) {}
+    }
+    photoInput.value = "";
+  });
+  (async () => {
+    try {
+      const rows = await dbDo("readonly", s => s.getAll());
+      (rows || []).forEach(r => addPhotoToList(r.id, r.blob));
+    } catch (e) {}
+  })();
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  let barn = null, doors = [];
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.min(W, H) / 600; // scale things to the screen
+    layout();
+  }
+
+  // The barn fills the screen; doors sit in a grid on its front
+  function layout() {
+    const portrait = H > W * 1.1;
+    const cols = portrait ? 2 : 3, rows = portrait ? 3 : 2;
+    const groundY = H * 0.93;
+    const roofTop = H * (portrait ? 0.05 : 0.04);
+    const bx = W * 0.05, bw = W * 0.9;
+    const by = H * (portrait ? 0.16 : 0.22);
+    barn = { x: bx, y: by, w: bw, h: groundY - by, roofTop, groundY };
+
+    const padX = bw * 0.05, padTop = barn.h * 0.06, padBottom = 0;
+    const gx = bw * 0.04, gy = barn.h * 0.05;
+    const cw = (bw - padX * 2 - gx * (cols - 1)) / cols;
+    const ch = (barn.h - padTop - padBottom - gy * (rows - 1)) / rows;
+    const old = doors;
+    doors = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const prev = old[doors.length];
+      const d = prev || {
+        open: 0, target: 0, content: null, s: 0, sv: 0, rot: 0, rv: 0,
+        timer: 0, peek: 0, wiggle: 0,
+      };
+      d.x = bx + padX + c * (cw + gx);
+      d.y = by + padTop + r * (ch + gy);
+      d.w = cw; d.h = ch;
+      doors.push(d);
+    }
+    // Rotating the screen can change how many doors there are
+    doors.forEach(d => { if (!d.content) d.content = pickContent(d); });
+  }
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+  }
+  // C major pentatonic: every combination sounds nice
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  // A quick rising "ta-da" in the door's own key
+  function tada(i) {
+    const base = i % 3;
+    [0, 2, 4].forEach((step, k) => tone(SCALE[base + step], { vol: 0.2, dur: 0.6, delay: k * 0.07 }));
+  }
+  const creak = () => tone(220, { type: "sine", vol: 0.12, dur: 0.25, slideTo: 520 });
+  const shut = () => tone(160, { type: "sine", vol: 0.15, dur: 0.15, slideTo: 90 });
+  const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+  const knock = () => { tone(180, { type: "sine", vol: 0.12, dur: 0.08 }); tone(180, { type: "sine", vol: 0.12, dur: 0.08, delay: 0.14 }); };
+
+  // ---------- Voice ----------
+  // Animal clips are shared with Tap Zoo. A clip in this folder's voice/
+  // (e.g. voice/peekaboo.m4a) is used first. Missing clips fall back to the
+  // browser's speech voice.
+  const VOICE_DIRS = ["voice/", "../TapZoo/voice/"];
+  const clips = new Map();
+  let clipsRequested = false;
+  function loadClips() {
+    if (clipsRequested || !audio) return;
+    clipsRequested = true;
+    const names = new Set(["peekaboo", "lets-play"]);
+    ANIMALS.forEach(a => names.add(a[1]));
+    names.forEach(async name => {
+      for (const dir of VOICE_DIRS) for (const ext of ["mp3", "m4a"]) {
+        try {
+          const res = await fetch(dir + name + "." + ext);
+          if (!res.ok) continue;
+          const data = await res.arrayBuffer();
+          // Safari only supports the callback form of decodeAudioData
+          const buf = await new Promise((ok, fail) => audio.decodeAudioData(data, ok, fail));
+          clips.set(name, tidyClip(buf));
+          return;
+        } catch (e) {}
+      }
+    });
+  }
+
+  // Phone recordings have silence at both ends and uneven volume, which makes
+  // the voice lag behind a tap. Trim the silence and even out the loudness.
+  function tidyClip(buf) {
+    const rate = buf.sampleRate, chans = buf.numberOfChannels;
+    let peak = 0;
+    for (let c = 0; c < chans; c++) for (const v of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+    if (peak === 0) return buf;
+    const loudAt = i => { for (let c = 0; c < chans; c++) if (Math.abs(buf.getChannelData(c)[i]) > peak * 0.08) return true; return false; };
+    let start = 0, end = buf.length - 1;
+    while (start < end && !loudAt(start)) start++;
+    while (end > start && !loudAt(end)) end--;
+    start = Math.max(0, start - Math.round(rate * 0.03));
+    end = Math.min(buf.length, end + Math.round(rate * 0.12));
+    const out = audio.createBuffer(chans, end - start, rate);
+    const gain = 0.9 / peak;
+    for (let c = 0; c < chans; c++) {
+      const src = buf.getChannelData(c).subarray(start, end), dst = out.getChannelData(c);
+      for (let i = 0; i < src.length; i++) dst[i] = src[i] * gain;
+    }
+    return out;
+  }
+
+  let busyUntil = 0, lastSpeech = 0;
+  function say(name, text) {
+    if (!opt.voice.checked) return;
+    const now = performance.now();
+    // Don't let button mashing pile up a queue of words
+    if (now < busyUntil) return;
+    const clip = clips.get(name);
+    if (clip && audio) {
+      const src = audio.createBufferSource(), g = audio.createGain();
+      g.gain.value = 1.3; // voices sit above the music
+      src.buffer = clip;
+      src.connect(g); g.connect(master);
+      src.start();
+      busyUntil = now + clip.duration * 1000 + 150;
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
+    if (speechSynthesis.speaking) {
+      // Some browsers get stuck "speaking" forever; unstick after a few seconds
+      if (now - lastSpeech < 4000) return;
+      speechSynthesis.cancel();
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+  function sayContent(c) {
+    if (c.photo) say("peekaboo", "Peekaboo!");
+    else say(c.a[1], c.a[2] ? `The ${c.a[1]} says ${c.a[2]}!` : `Peekaboo! A ${c.a[1]}!`);
+  }
+
+  // ---------- World ----------
+  let particles = [], rings = [];
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  let lastPicked = null;
+
+  // Something new to hide behind a door: not already showing, not the last one
+  function pickContent(door) {
+    const inUse = doors.filter(d => d !== door && d.content).map(d => d.content.photo || d.content.a);
+    const free = arr => arr.filter(x => !inUse.includes(x) && x !== lastPicked);
+    const freePhotos = free(photos);
+    let item;
+    if (freePhotos.length && Math.random() < 0.4) item = pick(freePhotos);
+    else item = pick(free(ANIMALS).length ? free(ANIMALS) : ANIMALS);
+    lastPicked = item;
+    return item.img ? { photo: item } : { a: item };
+  }
+
+  function openDoor(d) {
+    const i = doors.indexOf(d);
+    if (d.target === 1 && d.open > 0.5) { boop(d); return; }
+    // A door that's closing swings back open with the same friend inside
+    if (d.target !== 1) {
+      if (d.open < 0.3) { d.s = 0; d.sv = 0; }
+      d.target = 1; d.peek = 0; d.wiggle = 0;
+      d.timer = 4.5;
+      creak();
+      tada(i);
+      burst(d.x + d.w / 2, d.y + d.h / 2, 18);
+      d.rot = rand(-0.25, 0.25);
+      setTimeout(() => sayContent(d.content), 250);
+    }
+  }
+
+  function boop(d) {
+    d.sv += 7; d.rv += rand(-8, 8);
+    d.timer = Math.max(d.timer, 3); // tapping keeps a friend out longer
+    boing();
+    sayContent(d.content);
+    burst(d.x + d.w / 2, d.y + d.h / 2, 8);
+  }
+
+  function burst(x, y, n) {
+    const cols = palette();
+    rings.push({ x, y, r: 10 * UNIT, age: 0, color: pick(cols) });
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, Math.PI * 2), sp = rand(150, 420) * UNIT;
+      particles.push({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 120 * UNIT,
+        size: rand(8, 18) * UNIT, color: pick(cols), shape: Math.floor(rand(0, 3)),
+        rot: rand(0, 6.28), rv: rand(-6, 6), age: 0, life: rand(0.8, 1.4),
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+
+  // Every tap does something: a door hit opens it, a miss opens the nearest one
+  function doorAt(x, y) {
+    let best = null, bestDist = Infinity;
+    for (const d of doors) {
+      const dx = Math.max(d.x - x, 0, x - (d.x + d.w));
+      const dy = Math.max(d.y - y, 0, y - (d.y + d.h));
+      const dist = Math.hypot(dx, dy);
+      if (dist < bestDist) { best = d; bestDist = dist; }
+    }
+    return best;
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    const d = doorAt(e.clientX, e.clientY);
+    if (d) openDoor(d);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+  });
+  const endHold = e => { if (exitHold && exitHold.id === e.pointerId) exitHold = null; };
+  canvas.addEventListener("pointerup", endHold);
+  canvas.addEventListener("pointercancel", endHold);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    // Swallow everything the browser lets us (space scroll, backspace, find, etc.)
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return; // holding a key down shouldn't flood the screen
+    heldKeys.add(e.code);
+    initAudio();
+    // Open a closed door, favoring the one that's peeking
+    const closed = doors.filter(d => d.target !== 1);
+    const peeking = closed.find(d => d.peek > 0);
+    openDoor(peeking || (closed.length ? pick(closed) : pick(doors)));
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+  window.addEventListener("resize", resize);
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    loadClips();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    say("lets-play", "Who's in the barn?");
+    startEl.classList.add("hidden");
+    particles = []; rings = [];
+    lastPicked = null;
+    doors.forEach(d => { d.open = d.target = d.peek = d.wiggle = 0; d.content = null; });
+    doors.forEach(d => { d.content = pickContent(d); });
+    peekTimer = 1.5;
+    playing = true;
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+  [opt.sound, opt.voice, opt.night].forEach(el => el.addEventListener("change", saveOpts));
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Drawing ----------
+  function drawShape(shape, size) {
+    ctx.beginPath();
+    if (shape === 0) ctx.arc(0, 0, size, 0, Math.PI * 2);
+    else if (shape === 1) {
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? size * 0.45 : size, a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+    } else {
+      // heart
+      const s = size * 0.9;
+      ctx.moveTo(0, s * 0.9);
+      ctx.bezierCurveTo(-s * 1.4, -s * 0.1, -s * 0.6, -s * 1.1, 0, -s * 0.4);
+      ctx.bezierCurveTo(s * 0.6, -s * 1.1, s * 1.4, -s * 0.1, 0, s * 0.9);
+    }
+    ctx.fill();
+  }
+
+  const roundRect = (x, y, w, h, r) => {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  };
+
+  // Stars are fixed spots in the sky (as fractions of the screen)
+  const STARS = Array.from({ length: 40 }, () => [Math.random(), Math.random() * 0.3, Math.random() * 6.28]);
+  const clouds = Array.from({ length: 3 }, (_, i) => ({ x: i / 3 + Math.random() * 0.2, y: 0.05 + Math.random() * 0.1, s: 0.8 + Math.random() * 0.5 }));
+  let clock = 0;
+
+  function drawBackground(dt) {
+    const sc = scene(), night = opt.night.checked;
+    const g = ctx.createLinearGradient(0, 0, 0, barn.groundY);
+    g.addColorStop(0, sc.sky[0]); g.addColorStop(1, sc.sky[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    if (night) {
+      ctx.fillStyle = "#fff";
+      STARS.forEach(([sx, sy, ph]) => {
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(clock * 1.5 + ph);
+        ctx.beginPath(); ctx.arc(sx * W, sy * H, 1.8 * UNIT + 0.6, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#f4f1d0";
+      ctx.beginPath(); ctx.arc(70 * UNIT + 20, 70 * UNIT + 16, 38 * UNIT, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // Sun on the left, away from the grown-up exit
+      const sx = 70 * UNIT + 20, sy = 70 * UNIT + 16, r = 40 * UNIT;
+      ctx.strokeStyle = "#ffd43b"; ctx.lineWidth = 6 * UNIT; ctx.lineCap = "round";
+      for (let i = 0; i < 10; i++) {
+        const a = clock * 0.3 + (i * Math.PI) / 5;
+        ctx.beginPath();
+        ctx.moveTo(sx + Math.cos(a) * r * 1.3, sy + Math.sin(a) * r * 1.3);
+        ctx.lineTo(sx + Math.cos(a) * r * 1.6, sy + Math.sin(a) * r * 1.6);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#ffd43b";
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      clouds.forEach(c => {
+        c.x += dt * 0.008;
+        if (c.x > 1.2) c.x = -0.2;
+        const cx = c.x * W, cy = c.y * H, s = 34 * UNIT * c.s;
+        ctx.beginPath();
+        ctx.arc(cx, cy, s, 0, Math.PI * 2);
+        ctx.arc(cx + s * 0.9, cy + s * 0.2, s * 0.8, 0, Math.PI * 2);
+        ctx.arc(cx - s * 0.9, cy + s * 0.25, s * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // Grass
+    ctx.fillStyle = sc.ground;
+    ctx.fillRect(0, barn.groundY - 4 * UNIT, W, H);
+    ctx.fillStyle = sc.groundDark;
+    for (let x = 0; x < W; x += 22 * UNIT) {
+      ctx.beginPath();
+      ctx.moveTo(x, barn.groundY + 2);
+      ctx.lineTo(x + 5 * UNIT, barn.groundY - 12 * UNIT);
+      ctx.lineTo(x + 10 * UNIT, barn.groundY + 2);
+      ctx.fill();
+    }
+  }
+
+  function drawBarn() {
+    const sc = scene(), b = barn;
+    // Roof
+    const over = b.w * 0.04;
+    ctx.fillStyle = sc.roof;
+    ctx.beginPath();
+    ctx.moveTo(b.x - over, b.y + 6 * UNIT);
+    ctx.lineTo(b.x + b.w * 0.2, b.roofTop);
+    ctx.lineTo(b.x + b.w * 0.8, b.roofTop);
+    ctx.lineTo(b.x + b.w + over, b.y + 6 * UNIT);
+    ctx.closePath();
+    ctx.fill();
+    // Hay loft window in the gable
+    const lw = Math.min(b.w * 0.14, (b.y - b.roofTop) * 0.9), lh = (b.y - b.roofTop) * 0.7;
+    const lx = W / 2 - lw / 2, ly = b.roofTop + (b.y - b.roofTop - lh) * 0.55;
+    ctx.fillStyle = sc.trim;
+    roundRect(lx - 4 * UNIT, ly - 4 * UNIT, lw + 8 * UNIT, lh + 8 * UNIT, 6 * UNIT); ctx.fill();
+    ctx.fillStyle = sc.inside;
+    roundRect(lx, ly, lw, lh, 4 * UNIT); ctx.fill();
+    ctx.fillStyle = sc.hay;
+    ctx.fillRect(lx, ly + lh * 0.6, lw, lh * 0.4);
+
+    // Walls with boards
+    ctx.fillStyle = sc.barn;
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = sc.boards; ctx.lineWidth = 2;
+    for (let x = b.x + 18 * UNIT; x < b.x + b.w; x += 18 * UNIT) {
+      ctx.beginPath(); ctx.moveTo(x, b.y); ctx.lineTo(x, b.y + b.h); ctx.stroke();
+    }
+    ctx.strokeStyle = sc.trim; ctx.lineWidth = 6 * UNIT;
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+  }
+
+  // One barn door leaf, swung on its hinge. angle 0 = shut, past 90° it
+  // folds back outside the frame. Drawn as a quad for a bit of depth.
+  function drawLeaf(d, side, angle) {
+    const sc = scene();
+    const half = d.w / 2;
+    const hx = side < 0 ? d.x : d.x + d.w; // hinge edge
+    const cos = Math.cos(angle), lift = Math.sin(angle) * d.h * 0.05;
+    const ox = hx - side * half * cos; // outer edge
+    const top = d.y, bot = d.y + d.h;
+    const P = (u, v) => [hx + (ox - hx) * u, top - lift * u + (bot - top + lift * 2 * u) * v];
+    ctx.fillStyle = cos < 0 ? sc.leafBack : sc.leaf;
+    ctx.beginPath();
+    ctx.moveTo(...P(0, 0)); ctx.lineTo(...P(1, 0)); ctx.lineTo(...P(1, 1)); ctx.lineTo(...P(0, 1));
+    ctx.closePath(); ctx.fill();
+    if (Math.abs(cos) < 0.05) return;
+    // White frame and X brace, like a real barn door
+    ctx.strokeStyle = sc.trim; ctx.lineWidth = Math.max(2, 5 * UNIT * Math.abs(cos) + 1); ctx.lineJoin = "round";
+    const m = 0.1, mv = 0.06;
+    ctx.beginPath();
+    ctx.moveTo(...P(m, mv)); ctx.lineTo(...P(1 - m, mv)); ctx.lineTo(...P(1 - m, 1 - mv)); ctx.lineTo(...P(m, 1 - mv)); ctx.closePath();
+    ctx.moveTo(...P(m, mv)); ctx.lineTo(...P(1 - m, 1 - mv));
+    ctx.moveTo(...P(1 - m, mv)); ctx.lineTo(...P(m, 1 - mv));
+    ctx.stroke();
+    // Handle
+    if (cos > 0.2) {
+      ctx.fillStyle = sc.trim;
+      const [px, py] = P(0.88, 0.5);
+      ctx.beginPath(); ctx.arc(px, py, 5 * UNIT, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function drawContent(d, alpha) {
+    const cx = d.x + d.w / 2, cy = d.y + d.h * 0.52;
+    const size = Math.min(d.w, d.h) * 0.82 * Math.max(0, d.s);
+    if (size <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx, cy + Math.sin(clock * 2.2 + d.x) * 4 * UNIT);
+    ctx.rotate(d.rot + Math.sin(clock * 1.5 + d.y) * 0.05);
+    if (d.content.photo) {
+      const img = d.content.photo.img, r = size / 2;
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(0, 0, r + 6 * UNIT, 0, Math.PI * 2); ctx.fill();
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      if (img.complete && img.naturalWidth) {
+        // cover-fit, leaning toward the top where faces usually are
+        const k = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+        const iw = img.naturalWidth * k, ih = img.naturalHeight * k;
+        ctx.drawImage(img, -iw / 2, -r - (ih - size) * 0.3, iw, ih);
+      } else {
+        ctx.fillStyle = "#eee"; ctx.fillRect(-r, -r, size, size);
+      }
+      ctx.restore();
+    } else {
+      ctx.drawImage(emojiImage(d.content.a[0]), -size / 2, -size / 2, size, size);
+    }
+    ctx.restore();
+  }
+
+  function drawDoor(d, dt) {
+    const sc = scene();
+    // Frame and dark inside
+    ctx.fillStyle = sc.trim;
+    roundRect(d.x - 6 * UNIT, d.y - 6 * UNIT, d.w + 12 * UNIT, d.h + 6 * UNIT, 6 * UNIT); ctx.fill();
+    ctx.fillStyle = sc.inside;
+    ctx.fillRect(d.x, d.y, d.w, d.h);
+    ctx.fillStyle = sc.hay;
+    ctx.beginPath();
+    ctx.moveTo(d.x, d.y + d.h);
+    for (let i = 0; i <= 8; i++) ctx.lineTo(d.x + (d.w * i) / 8, d.y + d.h * (i % 2 ? 0.8 : 0.86));
+    ctx.lineTo(d.x + d.w, d.y + d.h);
+    ctx.fill();
+
+    const open = Math.max(d.open, d.peek);
+    if (d.open > 0.35) drawContent(d, Math.min(1, (d.open - 0.35) * 3));
+    else if (d.peek > 0.02) {
+      // Eyes peeking through the crack
+      const crack = d.w * (1 - Math.cos(d.peek * Math.PI * 0.58));
+      ctx.save();
+      ctx.beginPath(); ctx.rect(d.x + d.w / 2 - crack / 2, d.y, crack, d.h); ctx.clip();
+      const s = Math.min(d.w, d.h) * 0.35;
+      ctx.drawImage(emojiImage("👀"), d.x + d.w / 2 - s / 2, d.y + d.h * 0.4 - s / 2, s, s);
+      ctx.restore();
+    }
+
+    const wig = d.wiggle > 0 ? Math.sin(d.wiggle * 40) * 0.04 * d.wiggle : 0;
+    const angle = open * Math.PI * 0.58;
+    drawLeaf(d, -1, Math.max(0, angle + wig));
+    drawLeaf(d, 1, Math.max(0, angle - wig));
+  }
+
+  let peekTimer = 2;
+  function updateDoors(dt) {
+    for (const d of doors) {
+      // Swing toward the target: quick to open, a little slower to shut
+      const speed = d.target > d.open ? 9 : 5;
+      d.open += (d.target - d.open) * Math.min(1, dt * speed);
+      if (d.target === 1) {
+        // Springy pop-out and boop wobble
+        if (d.open > 0.35) {
+          d.sv += (1 - d.s) * 120 * dt - d.sv * 9 * dt;
+          d.s += d.sv * dt;
+        }
+        d.rv += -d.rot * 60 * dt - d.rv * 6 * dt;
+        d.rot += d.rv * dt;
+        d.timer -= dt;
+        if (d.timer <= 0) { d.target = 0; shut(); }
+      } else {
+        d.s = Math.max(0, d.s - dt * 3);
+        if (d.open < 0.02 && d.open > 0) {
+          // Fully shut: someone new sneaks in
+          d.open = 0; d.s = 0; d.sv = 0;
+          d.content = pickContent(d);
+        }
+      }
+      if (d.peek > 0) {
+        d.peekT -= dt;
+        d.peek += ((d.peekT > 0 ? 0.13 : 0) - d.peek) * Math.min(1, dt * 8);
+        if (d.peekT <= 0 && d.peek < 0.005) d.peek = 0;
+      }
+      if (d.wiggle > 0) d.wiggle = Math.max(0, d.wiggle - dt * 1.4);
+    }
+
+    // Every few seconds a closed door wiggles or peeks, as a hint to tap it
+    peekTimer -= dt;
+    if (peekTimer <= 0) {
+      peekTimer = rand(2.5, 4.5);
+      const closed = doors.filter(d => d.target === 0 && d.open === 0 && d.peek === 0);
+      if (closed.length) {
+        const d = pick(closed);
+        if (Math.random() < 0.5) { d.peek = 0.001; d.peekT = 1.2; }
+        else { d.wiggle = 1; knock(); }
+      }
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    clock += dt;
+    drawBackground(dt);
+    drawBarn();
+    if (playing) updateDoors(dt);
+    doors.forEach(d => drawDoor(d, dt));
+
+    // Rings
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const r = rings[i];
+      r.age += dt;
+      if (r.age > 0.6) { rings.splice(i, 1); continue; }
+      const k = r.age / 0.6;
+      ctx.globalAlpha = 1 - k;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = 10 * UNIT * (1 - k) + 1;
+      ctx.beginPath(); ctx.arc(r.x, r.y, r.r + k * 140 * UNIT, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Confetti
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      drawShape(p.shape, p.size);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Grown-up exit: hold top-right corner
+    if (playing) {
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#d9534f"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * Math.PI * 2);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
