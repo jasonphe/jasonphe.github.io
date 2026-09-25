@@ -1,4 +1,15 @@
-import { joinRoom, selfId } from 'https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm';
+// Trystero lets whichever peer has the smaller id start each connection, but a page
+// that has been open for more than about a minute can't start one anymore (its pooled
+// offers go stale). So the host, who has been there longest, often never connected to
+// people who joined mid-game. Starting each id with a countdown from the join time gives
+// newer pages smaller ids, so the newcomer, whose offers are fresh, always goes first.
+// Trystero builds the id from the first 20 Math.random() calls when it loads.
+const idPrefix = String(9999999999 - Math.floor(Date.now() / 1000)).padStart(10, '0');
+const realRandom = Math.random;
+let idChars = 0;
+Math.random = () => idChars < idPrefix.length ? (Number(idPrefix[idChars++]) + 0.5) / 62 : realRandom();
+const { joinRoom, selfId } = await import('https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm');
+Math.random = realRandom;
 
 // ---------- Settings ----------
 const APP_ID = 'jasonphe-scribble-party';
