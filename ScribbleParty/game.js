@@ -120,7 +120,7 @@ let room, act = {};
 let roomCode;
 const peers = new Map();          // id -> { name, t } (includes me)
 let hostId = selfId;
-let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null };
+let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true };
 let deadline = 0;                 // local clock time the current phase ends
 let secret = {};                  // { choices } or { word } sent only to the drawer
 let strokes = [];                 // [{ i, c, w, p: [x, y, ...] }]
@@ -339,12 +339,13 @@ function takeOverAsHost() {
   }
 }
 
-function startGame({ rounds, words, only }) {
+function startGame({ rounds, words, only, hints }) {
   rounds = Math.min(5, Math.max(1, Number(rounds) || 3));
   H.custom = parseWords(words || '');
   H.only = !!only && H.custom.length >= 3;
   H.used = new Set();
   pub.custom = H.custom.length ? { n: H.custom.length, only: H.only } : null;
+  pub.hints = hints !== false;
   H.scores = {};
   pub.rounds = rounds;
   pub.round = 1;
@@ -416,8 +417,9 @@ function startDraw(word) {
   H.started = Date.now();
   H.deadline = H.started + DRAW_MS;
   pub.phase = 'draw';
-  pub.hint = mask(word, H.revealed);
-  pub.len = norm(word).length;
+  // With hints off, guessers get no blanks, letter count or revealed letters.
+  pub.hint = pub.hints ? mask(word, H.revealed) : '';
+  pub.len = pub.hints ? norm(word).length : 0;
   hostSync();
   sendSecret({ word });
 }
@@ -446,7 +448,7 @@ function tick() {
     // Reveal a letter at 50% and 75% of the time, for longer words.
     const frac = (now - H.started) / DRAW_MS;
     const letters = [...H.word].map((c, i) => isLetter(c) ? i : -1).filter(i => i >= 0 && !H.revealed.has(i));
-    const want = norm(H.word).length > 3 ? (frac > 0.75 ? 2 : frac > 0.5 ? 1 : 0) : 0;
+    const want = pub.hints && norm(H.word).length > 3 ? (frac > 0.75 ? 2 : frac > 0.5 ? 1 : 0) : 0;
     if (H.revealed.size < want && letters.length > 1) {
       H.revealed.add(pick(letters));
       pub.hint = mask(H.word, H.revealed);
@@ -621,6 +623,8 @@ function render() {
   if (pub.phase === 'draw') {
     if (pub.drawer === selfId && secret.word) {
       hint.append(`✏️ ${secret.word}`);
+    } else if (!pub.hints) {
+      hint.append(el('small', { textContent: 'Guess the word!' }));
     } else {
       hint.append([...pub.hint].map(c => c === ' ' ? ' ' : c).join(' '));
       hint.append(el('small', { textContent: `(${pub.len})` }));
@@ -767,7 +771,10 @@ function hostSettings() {
   only.onchange = () => store.set('scribble-only', only.checked ? '1' : '0');
   box.open = !!words.value.trim();
   update();
-  settings = { rounds, words, only, box };
+  const hints = el('input', { type: 'checkbox', checked: store.get('scribble-hints') !== '0' });
+  hints.onchange = () => store.set('scribble-hints', hints.checked ? '1' : '0');
+  const hintsToggle = el('label', { className: 'toggle' }, hints, ' Show letter count & hints');
+  settings = { rounds, words, only, box, hints, hintsToggle };
   return settings;
 }
 
@@ -775,16 +782,17 @@ function hostControls(label) {
   const wrap = el('div');
   if (!isHost()) {
     wrap.append(el('p', { textContent: `Waiting for ${nameOf(hostId)} to start…` }));
+    if (pub.hints === false) wrap.append(el('p', { className: 'fine', textContent: 'Letter count and hints are off.' }));
     if (pub.custom) wrap.append(el('p', { className: 'fine', textContent: `Playing with ${pub.custom.n} custom word${pub.custom.n > 1 ? 's' : ''}${pub.custom.only ? ' only' : ''}.` }));
     return wrap;
   }
-  const { rounds, words, only, box } = hostSettings();
+  const { rounds, words, only, box, hints, hintsToggle } = hostSettings();
   const row = el('div', { className: 'host-row' });
   const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
-  b.onclick = () => toHost('go', { rounds: rounds.value, words: words.value, only: only.checked && !only.disabled });
+  b.onclick = () => toHost('go', { rounds: rounds.value, words: words.value, only: only.checked && !only.disabled, hints: hints.checked });
   row.append(rounds, b);
   wrap.append(row);
   if (peers.size < 2) wrap.append(el('p', { textContent: 'Need at least 2 players.' }));
-  wrap.append(box);
+  wrap.append(hintsToggle, box);
   return wrap;
 }
