@@ -36,6 +36,9 @@ const isLetter = c => /[\p{L}\p{N}]/u.test(c);
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const cleanText = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+const MAX_DELAY = 60;
+const clampDelay = v => Math.min(MAX_DELAY, Math.max(0, Math.round(Number(v)) || 0));
+
 // Splits a word list on commas or new lines, dropping blanks and duplicates.
 function parseWords(text) {
   const seen = new Set();
@@ -120,11 +123,12 @@ let room, act = {};
 let roomCode;
 const peers = new Map();          // id -> { name, t } (includes me)
 let hostId = selfId;
-let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true };
+let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, opensIn: 0 };
+let guessOpen = 0;                // local clock time guessers can start guessing
 let deadline = 0;                 // local clock time the current phase ends
 let secret = {};                  // { choices } or { word } sent only to the drawer
 let strokes = [];                 // [{ i, c, w, p: [x, y, ...] }]
-const H = { scores: {}, word: null, choices: [], deadline: 0, guessed: new Set(), gains: {}, revealed: new Set(), started: 0, custom: [], only: false, used: new Set() };
+const H = { scores: {}, word: null, choices: [], deadline: 0, guessed: new Set(), gains: {}, revealed: new Set(), guessFrom: 0, custom: [], only: false, used: new Set() };
 
 const isHost = () => hostId === selfId;
 const nameOf = id => peers.get(id)?.name ?? pub.players.find(p => p.id === id)?.name ?? 'Someone';
@@ -223,6 +227,7 @@ const handlers = {
     const prevPhase = pub.phase, prevDrawer = pub.drawer;
     pub = d;
     deadline = Date.now() + (d.endsIn || 0);
+    guessOpen = Date.now() + (d.opensIn || 0);
     if (pub.phase !== prevPhase || pub.drawer !== prevDrawer) {
       if (pub.phase !== 'draw' && pub.phase !== 'choose') secret = {};
       if (pub.phase === 'choose') strokes = [], redraw();
@@ -286,6 +291,7 @@ const handlers = {
       for (const id of [pub.drawer, ...H.guessed]) sendMsg(msg, id);
       return;
     }
+    if (Date.now() < H.guessFrom) return; // guessing isn't open yet
     const g = norm(text), w = norm(H.word);
     if (g === w) {
       const frac = Math.max(0, (H.deadline - Date.now()) / DRAW_MS);
@@ -322,6 +328,7 @@ function hostSync() {
   const order = [...peers.entries()].sort((a, b) => a[1].t - b[1].t);
   pub.players = order.map(([id, p]) => ({ id, name: p.name, score: H.scores[id] || 0, g: H.guessed.has(id) }));
   pub.endsIn = Math.max(0, H.deadline - Date.now());
+  pub.opensIn = pub.phase === 'draw' ? Math.max(0, H.guessFrom - Date.now()) : 0;
   pub.queue = pub.queue.filter(id => peers.has(id));
   send('st', pub);
   handlers.st(structuredClone(pub), selfId);
@@ -339,13 +346,14 @@ function takeOverAsHost() {
   }
 }
 
-function startGame({ rounds, words, only, hints }) {
+function startGame({ rounds, words, only, hints, delay }) {
   rounds = Math.min(5, Math.max(1, Number(rounds) || 3));
   H.custom = parseWords(words || '');
   H.only = !!only && H.custom.length >= 3;
   H.used = new Set();
   pub.custom = H.custom.length ? { n: H.custom.length, only: H.only } : null;
   pub.hints = hints !== false;
+  pub.delay = clampDelay(delay);
   H.scores = {};
   pub.rounds = rounds;
   pub.round = 1;
@@ -414,8 +422,9 @@ function mask(word, revealed) {
 function startDraw(word) {
   H.word = word;
   H.revealed = new Set();
-  H.started = Date.now();
-  H.deadline = H.started + DRAW_MS;
+  // The guess delay is a head start for the drawer on top of the normal drawing time.
+  H.guessFrom = Date.now() + pub.delay * 1000;
+  H.deadline = H.guessFrom + DRAW_MS;
   pub.phase = 'draw';
   // With hints off, guessers get no blanks, letter count or revealed letters.
   pub.hint = pub.hints ? mask(word, H.revealed) : '';
@@ -446,7 +455,7 @@ function tick() {
     if (!peers.has(pub.drawer)) return endTurn(true);
     if (now > H.deadline) return endTurn();
     // Reveal a letter at 50% and 75% of the time, for longer words.
-    const frac = (now - H.started) / DRAW_MS;
+    const frac = (now - H.guessFrom) / DRAW_MS;
     const letters = [...H.word].map((c, i) => isLetter(c) ? i : -1).filter(i => i >= 0 && !H.revealed.has(i));
     const want = pub.hints && norm(H.word).length > 3 ? (frac > 0.75 ? 2 : frac > 0.5 ? 1 : 0) : 0;
     if (H.revealed.size < want && letters.length > 1) {
@@ -603,7 +612,24 @@ function addLog({ k, n, x }) {
   log.scrollTop = log.scrollHeight;
 }
 
+// Guessers can't type until the guess delay is over.
+function renderGuessLock() {
+  const gi = $('guessInput');
+  const guessing = pub.phase === 'draw' && pub.drawer !== selfId && !pub.players.find(p => p.id === selfId)?.g;
+  const wait = guessing ? Math.ceil((guessOpen - Date.now()) / 1000) : 0;
+  const locked = wait > 0;
+  if (locked) gi.placeholder = `Guessing opens in ${wait}…`;
+  else if (gi.disabled) {
+    gi.placeholder = 'Type your guess…';
+    gi.disabled = false;
+    gi.focus({ preventScroll: true });
+  }
+  gi.disabled = locked;
+  gi.form.querySelector('button').disabled = locked;
+}
+
 function renderTimer() {
+  renderGuessLock();
   const t = $('timer');
   const active = pub.phase === 'choose' || pub.phase === 'draw';
   t.classList.toggle('hidden', !active);
@@ -669,8 +695,8 @@ function render() {
 function renderOverlay() {
   const ov = $('overlay');
   // Remember focus so the host can keep typing custom words while people join.
-  const typing = settings && document.activeElement === settings.words;
-  const sel = typing && [settings.words.selectionStart, settings.words.selectionEnd];
+  const focused = settings && [settings.words, settings.delay].find(x => x === document.activeElement);
+  const sel = focused && focused === settings.words && [focused.selectionStart, focused.selectionEnd];
   const scroll = ov.scrollTop;
   ov.replaceChildren();
   const box = el('div');
@@ -723,9 +749,9 @@ function renderOverlay() {
   ov.classList.toggle('hidden', !show);
   if (show) ov.append(box);
   ov.scrollTop = scroll;
-  if (typing && box.contains(settings.words)) {
-    settings.words.focus({ preventScroll: true });
-    settings.words.setSelectionRange(...sel);
+  if (focused && box.contains(focused)) {
+    focused.focus({ preventScroll: true });
+    if (sel) focused.setSelectionRange(...sel);
   }
 }
 
@@ -738,43 +764,88 @@ function inviteBox() {
   return row;
 }
 
+// One settings line: the label and optional info icon on the left, the control on the right.
+function settingRow(control, label, info, forId = control?.id) {
+  const row = el('div', { className: 'setting-row' }, el('label', { htmlFor: forId }, ...[label].flat()));
+  if (info) row.append(infoIcon(info));
+  if (control) row.append(control);
+  return row;
+}
+
+// A small "i" that shows its text on hover, or on tap for touch screens.
+function infoIcon(text) {
+  const tip = el('span', { className: 'tip', role: 'tooltip', textContent: text });
+  const btn = el('button', { type: 'button', className: 'info', ariaLabel: 'More info', textContent: 'i' });
+  btn.onclick = e => {
+    e.preventDefault();
+    const open = !btn.classList.contains('open');
+    document.querySelectorAll('.info.open').forEach(b => b.classList.remove('open'));
+    btn.classList.toggle('open', open);
+  };
+  return el('span', { className: 'info-wrap' }, btn, tip);
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.info')) document.querySelectorAll('.info.open').forEach(b => b.classList.remove('open'));
+});
+
 // The host's settings are built once and reused, so re-rendering the lobby
 // (e.g. when someone joins) doesn't wipe what the host is typing.
 let settings;
 function hostSettings() {
   if (settings) return settings;
-  const rounds = el('select', { title: 'Rounds' });
+  const rounds = el('select', { id: 'setRounds' });
   const savedRounds = Number(store.get('scribble-rounds')) || 3;
-  for (let r = 1; r <= 5; r++) rounds.append(el('option', { value: r, textContent: `${r} round${r > 1 ? 's' : ''}`, selected: r === savedRounds }));
-  rounds.onchange = () => store.set('scribble-rounds', rounds.value);
+  for (let r = 1; r <= 5; r++) rounds.append(el('option', { value: r, textContent: r, selected: r === savedRounds }));
 
+  const hints = el('input', { id: 'setHints', type: 'checkbox', checked: store.get('scribble-hints') !== '0' });
+  const delay = el('input', {
+    id: 'setDelay', type: 'number', min: 0, max: MAX_DELAY, step: 1, inputMode: 'numeric',
+    value: clampDelay(store.get('scribble-delay')),
+  });
   const words = el('textarea', {
+    id: 'setWords',
     rows: 3,
     placeholder: 'grandma, the office printer, our dog Biscuit…',
     value: store.get('scribble-words') || '',
   });
-  const only = el('input', { type: 'checkbox', checked: store.get('scribble-only') === '1' });
+  const only = el('input', { id: 'setOnly', type: 'checkbox', checked: store.get('scribble-only') === '1' });
   const count = el('span', { className: 'word-count' });
-  const box = el('details', { className: 'custom-words' },
-    el('summary', {}, 'Custom words ', count),
+  const summary = el('span', { className: 'summary-note' });
+
+  const onlyRow = settingRow(only, 'Only use my words', 'Every word choice comes from your list. Needs at least 3 words.');
+  const box = el('details', { className: 'settings' },
+    el('summary', {}, '⚙️ Settings', summary),
+    settingRow(rounds, 'Rounds'),
+    settingRow(hints, 'Show letter count & hints', 'Guessers see a blank for each letter, and a couple of letters get revealed as time runs out.'),
+    settingRow(delay, 'Guess delay (seconds)', 'Guessers have to wait this long before guessing, which gives the artist a head start. The delay is added on top of the normal drawing time.'),
+    settingRow(null, ['Custom words ', count], 'Separate with commas or new lines. One of your words shows up each turn, mixed in with the built-in list.', 'setWords'),
     words,
-    el('label', { className: 'only' }, only, ' Only use my words'),
-    el('p', { className: 'fine', textContent: 'Separate with commas or new lines. Otherwise one of your words shows up each turn, mixed in with the built-in list.' }),
+    onlyRow,
   );
+
+  // A short summary of anything changed from the defaults, shown while the box is closed.
   const update = () => {
     const n = parseWords(words.value).length;
     count.textContent = n ? `(${n})` : '';
     only.disabled = n < 3;
-    only.parentElement.title = n < 3 ? 'Add at least 3 words' : '';
+    onlyRow.classList.toggle('disabled', n < 3);
+    const d = clampDelay(delay.value);
+    const notes = [
+      rounds.value !== '3' && `${rounds.value} round${rounds.value > 1 ? 's' : ''}`,
+      !hints.checked && 'no hints',
+      d && `${d}s delay`,
+      n && `${n} custom word${n > 1 ? 's' : ''}${only.checked && !only.disabled ? ' only' : ''}`,
+    ].filter(Boolean);
+    summary.textContent = notes.length ? ` · ${notes.join(' · ')}` : '';
   };
+  rounds.onchange = () => { store.set('scribble-rounds', rounds.value); update(); };
+  hints.onchange = () => { store.set('scribble-hints', hints.checked ? '1' : '0'); update(); };
+  delay.oninput = () => { store.set('scribble-delay', clampDelay(delay.value)); update(); };
+  delay.onchange = () => { delay.value = clampDelay(delay.value); };
   words.oninput = () => { store.set('scribble-words', words.value); update(); };
-  only.onchange = () => store.set('scribble-only', only.checked ? '1' : '0');
-  box.open = !!words.value.trim();
+  only.onchange = () => { store.set('scribble-only', only.checked ? '1' : '0'); update(); };
   update();
-  const hints = el('input', { type: 'checkbox', checked: store.get('scribble-hints') !== '0' });
-  hints.onchange = () => store.set('scribble-hints', hints.checked ? '1' : '0');
-  const hintsToggle = el('label', { className: 'toggle' }, hints, ' Show letter count & hints');
-  settings = { rounds, words, only, box, hints, hintsToggle };
+  settings = { rounds, hints, delay, words, only, box };
   return settings;
 }
 
@@ -782,17 +853,27 @@ function hostControls(label) {
   const wrap = el('div');
   if (!isHost()) {
     wrap.append(el('p', { textContent: `Waiting for ${nameOf(hostId)} to start…` }));
-    if (pub.hints === false) wrap.append(el('p', { className: 'fine', textContent: 'Letter count and hints are off.' }));
-    if (pub.custom) wrap.append(el('p', { className: 'fine', textContent: `Playing with ${pub.custom.n} custom word${pub.custom.n > 1 ? 's' : ''}${pub.custom.only ? ' only' : ''}.` }));
+    const notes = [
+      pub.hints === false && 'Letter count and hints are off.',
+      pub.delay > 0 && `Guessing opens ${pub.delay}s after each drawing starts.`,
+      pub.custom && `Playing with ${pub.custom.n} custom word${pub.custom.n > 1 ? 's' : ''}${pub.custom.only ? ' only' : ''}.`,
+    ].filter(Boolean);
+    for (const n of notes) wrap.append(el('p', { className: 'fine', textContent: n }));
     return wrap;
   }
-  const { rounds, words, only, box, hints, hintsToggle } = hostSettings();
+  const { rounds, hints, delay, words, only, box } = hostSettings();
   const row = el('div', { className: 'host-row' });
   const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
-  b.onclick = () => toHost('go', { rounds: rounds.value, words: words.value, only: only.checked && !only.disabled, hints: hints.checked });
-  row.append(rounds, b);
+  b.onclick = () => toHost('go', {
+    rounds: rounds.value,
+    hints: hints.checked,
+    delay: clampDelay(delay.value),
+    words: words.value,
+    only: only.checked && !only.disabled,
+  });
+  row.append(b);
   wrap.append(row);
   if (peers.size < 2) wrap.append(el('p', { textContent: 'Need at least 2 players.' }));
-  wrap.append(hintsToggle, box);
+  wrap.append(box);
   return wrap;
 }
