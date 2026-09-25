@@ -279,6 +279,7 @@ canvas.can-draw { cursor: crosshair; }
 .gains li { display: flex; justify-content: space-between; padding: 2px 0; }
 .gains .plus { color: var(--good); font-weight: 800; }
 .gains .zero { color: var(--muted); }
+.gains .minus { color: var(--warn); font-weight: 800; }
 .podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 14px 0; }
 .podium div { width: 90px; border-radius: 14px 14px 0 0; padding: 8px 4px; background: #efeaff; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
 .podium .p1 { height: 120px; background: #ffe066; }

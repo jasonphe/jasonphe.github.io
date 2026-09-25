@@ -40,6 +40,8 @@ const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i
 const cleanText = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const MAX_DELAY = 60;
 const clampDelay = v => Math.min(MAX_DELAY, Math.max(0, Math.round(Number(v)) || 0));
+const MAX_PENALTY = 50;
+const clampPenalty = v => Math.min(MAX_PENALTY, Math.max(0, Math.round(Number(v)) || 0));
 
 // Splits a word list on commas or new lines, dropping blanks and duplicates.
 function parseWords(text) {
@@ -125,7 +127,7 @@ let room, act = {};
 let roomCode;
 const peers = new Map();          // id -> { name, t } (includes me)
 let hostId = selfId;
-let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, drawTime: DEFAULT_DRAW, opensIn: 0 };
+let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, penalty: 0, drawTime: DEFAULT_DRAW, opensIn: 0 };
 let guessOpen = 0;                // local clock time guessers can start guessing
 let deadline = 0;                 // local clock time the current phase ends
 let secret = {};                  // { choices } or { word } sent only to the drawer
@@ -224,6 +226,11 @@ const handlers = {
     electHost();
     if (isNew) sysMsg(`${nameOf(from)} joined`);
     if (isHost()) {
+      // Someone joining mid-game gets a turn to draw at the end of this round.
+      if (isNew && wasHost && inGame() && from !== pub.drawer && !pub.queue.includes(from)) {
+        pub.queue.push(from);
+        sendMsg({ k: 'sys', x: "You joined mid-game! You'll get a turn to draw this round." }, from);
+      }
       if (!wasHost) takeOverAsHost();
       else hostSync();
       if (pub.phase === 'draw' && strokes.length) send('snap', strokes, from);
@@ -317,6 +324,13 @@ const handlers = {
       return;
     }
     broadcastMsg({ k: 'chat', n: name, x: text });
+    // Wrong guesses cost points, but a score never drops below zero.
+    const loss = Math.min(pub.penalty, H.scores[from] || 0);
+    if (loss) {
+      H.scores[from] -= loss;
+      H.gains[from] = (H.gains[from] || 0) - loss;
+      hostSync();
+    }
     if (w.length > 3 && lev(g, w) === 1) sendMsg({ k: 'close', x: `"${text}" is really close!` }, from);
   },
 };
@@ -354,7 +368,7 @@ function takeOverAsHost() {
   }
 }
 
-function startGame({ rounds, words, only, hints, delay, drawTime }) {
+function startGame({ rounds, words, only, hints, delay, penalty, drawTime }) {
   rounds = Math.min(5, Math.max(1, Number(rounds) || 3));
   H.custom = parseWords(words || '');
   H.only = !!only && H.custom.length >= 3;
@@ -362,6 +376,7 @@ function startGame({ rounds, words, only, hints, delay, drawTime }) {
   pub.custom = H.custom.length ? { n: H.custom.length, only: H.only } : null;
   pub.hints = hints !== false;
   pub.delay = clampDelay(delay);
+  pub.penalty = clampPenalty(penalty);
   pub.drawTime = clampDraw(drawTime);
   H.scores = {};
   pub.rounds = rounds;
@@ -708,7 +723,7 @@ function render() {
 function renderOverlay() {
   const ov = $('overlay');
   // Remember focus so the host can keep typing custom words while people join.
-  const focused = settings && [settings.words, settings.delay].find(x => x === document.activeElement);
+  const focused = settings && [settings.words, settings.delay, settings.penalty].find(x => x === document.activeElement);
   const sel = focused && focused === settings.words && [focused.selectionStart, focused.selectionEnd];
   const scroll = ov.scrollTop;
   ov.replaceChildren();
@@ -741,7 +756,7 @@ function renderOverlay() {
     const ul = el('ul', { className: 'gains' });
     const rows = pub.players.filter(p => peers.has(p.id)).map(p => [p, pub.gains?.[p.id] || 0]).sort((a, b) => b[1] - a[1]);
     for (const [p, g] of rows) {
-      ul.append(el('li', {}, el('span', { textContent: p.name }), el('span', { className: g ? 'plus' : 'zero', textContent: g ? `+${g}` : '+0' })));
+      ul.append(el('li', {}, el('span', { textContent: p.name }), el('span', { className: g > 0 ? 'plus' : g < 0 ? 'minus' : 'zero', textContent: g > 0 ? `+${g}` : g < 0 ? `−${-g}` : '+0' })));
     }
     box.append(ul);
   } else if (pub.phase === 'over') {
@@ -819,6 +834,10 @@ function hostSettings() {
     id: 'setDelay', type: 'number', min: 0, max: MAX_DELAY, step: 1, inputMode: 'numeric',
     value: clampDelay(store.get('scribble-delay')),
   });
+  const penalty = el('input', {
+    id: 'setPenalty', type: 'number', min: 0, max: MAX_PENALTY, step: 1, inputMode: 'numeric',
+    value: clampPenalty(store.get('scribble-penalty')),
+  });
   const words = el('textarea', {
     id: 'setWords',
     rows: 3,
@@ -836,6 +855,7 @@ function hostSettings() {
     settingRow(drawTime, 'Drawing time', 'How long the artist has to draw each word.'),
     settingRow(hints, 'Show letter count & hints', 'Guessers see a blank for each letter, and a couple of letters get revealed as time runs out.'),
     settingRow(delay, 'Guess delay (seconds)', 'Guessers have to wait this long before guessing, which gives the artist a head start. The delay is added on top of the normal drawing time.'),
+    settingRow(penalty, 'Wrong guess penalty (points)', 'Each wrong guess loses this many points, so nobody can just spam guesses. Scores never go below zero.'),
     settingRow(null, ['Custom words ', count], 'Separate with commas or new lines. One of your words shows up each turn, mixed in with the built-in list.', 'setWords'),
     words,
     onlyRow,
@@ -853,6 +873,7 @@ function hostSettings() {
       drawTime.value !== String(DEFAULT_DRAW) && `${drawTime.value}s turns`,
       !hints.checked && 'no hints',
       d && `${d}s delay`,
+      clampPenalty(penalty.value) && `-${clampPenalty(penalty.value)} per miss`,
       n && `${n} custom word${n > 1 ? 's' : ''}${only.checked && !only.disabled ? ' only' : ''}`,
     ].filter(Boolean);
     summary.textContent = notes.length ? ` · ${notes.join(' · ')}` : '';
@@ -862,10 +883,12 @@ function hostSettings() {
   hints.onchange = () => { store.set('scribble-hints', hints.checked ? '1' : '0'); update(); };
   delay.oninput = () => { store.set('scribble-delay', clampDelay(delay.value)); update(); };
   delay.onchange = () => { delay.value = clampDelay(delay.value); };
+  penalty.oninput = () => { store.set('scribble-penalty', clampPenalty(penalty.value)); update(); };
+  penalty.onchange = () => { penalty.value = clampPenalty(penalty.value); };
   words.oninput = () => { store.set('scribble-words', words.value); update(); };
   only.onchange = () => { store.set('scribble-only', only.checked ? '1' : '0'); update(); };
   update();
-  settings = { rounds, drawTime, hints, delay, words, only, box };
+  settings = { rounds, drawTime, hints, delay, penalty, words, only, box };
   return settings;
 }
 
@@ -876,13 +899,14 @@ function hostControls(label) {
     const notes = [
       pub.drawTime !== DEFAULT_DRAW && `Artists get ${pub.drawTime}s to draw.`,
       pub.hints === false && 'Letter count and hints are off.',
+      pub.penalty > 0 && `Wrong guesses cost ${pub.penalty} point${pub.penalty > 1 ? 's' : ''}.`,
       pub.delay > 0 && `Guessing opens ${pub.delay}s after each drawing starts.`,
       pub.custom && `Playing with ${pub.custom.n} custom word${pub.custom.n > 1 ? 's' : ''}${pub.custom.only ? ' only' : ''}.`,
     ].filter(Boolean);
     for (const n of notes) wrap.append(el('p', { className: 'fine', textContent: n }));
     return wrap;
   }
-  const { rounds, drawTime, hints, delay, words, only, box } = hostSettings();
+  const { rounds, drawTime, hints, delay, penalty, words, only, box } = hostSettings();
   const row = el('div', { className: 'host-row' });
   const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
   b.onclick = () => toHost('go', {
@@ -890,6 +914,7 @@ function hostControls(label) {
     drawTime: Number(drawTime.value),
     hints: hints.checked,
     delay: clampDelay(delay.value),
+    penalty: clampPenalty(penalty.value),
     words: words.value,
     only: only.checked && !only.disabled,
   });
