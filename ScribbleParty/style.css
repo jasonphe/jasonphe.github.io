@@ -91,6 +91,47 @@ button { cursor: pointer; }
 .join-row { display: flex; gap: 8px; }
 .join-row input { flex: 1; min-width: 0; }
 
+/* Avatar picker on the join screen */
+.avatar-pick { display: grid; justify-items: center; gap: 2px; margin: 0 0 12px; }
+.avatar-pick small { color: var(--muted); font-size: 13px; }
+.avatar-btn { position: relative; padding: 0; border: 0; background: none; border-radius: 50%; }
+.avatar-btn .avatar { width: 84px; height: 84px; font-size: 40px; box-shadow: 0 0 0 3px var(--line); }
+.avatar-btn:hover .avatar { box-shadow: 0 0 0 3px var(--accent); }
+.avatar-btn .pen {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+
+/* Avatar editor */
+.avatar-dialog {
+  border: 0;
+  padding: 0;
+  border-radius: 24px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(60, 40, 120, .25);
+  max-width: calc(100vw - 32px);
+}
+.avatar-dialog::backdrop { background: rgba(43, 45, 66, .45); }
+.avatar-box { display: grid; justify-items: center; gap: 10px; padding: 18px 16px 16px; }
+.avatar-box h2 { margin: 0; font-size: 24px; }
+#avatarPad {
+  width: min(240px, 70vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--line);
+  touch-action: none;
+  cursor: crosshair;
+}
+.avatar-box .swatches { justify-content: center; max-width: 300px; }
+.avatar-tools { display: flex; gap: 8px; align-items: center; }
+.avatar-actions { display: flex; gap: 10px; margin-top: 4px; }
+
 /* ---------- Game layout ---------- */
 #game { height: 100%; display: grid; grid-template-rows: auto 1fr; }
 .topbar {
@@ -147,8 +188,8 @@ button { cursor: pointer; }
   overflow: hidden;
   flex-shrink: 0;
 }
-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
-canvas.can-draw { cursor: crosshair; }
+.board canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+.board canvas.can-draw { cursor: crosshair; }
 
 .overlay {
   position: absolute;
@@ -328,12 +369,19 @@ canvas.can-draw { cursor: crosshair; }
 }
 .players li.me { background: #f7f4ff; }
 .players li.got { background: var(--good-bg); }
-.players .avatar {
+.avatar {
   width: 30px; height: 30px; flex-shrink: 0;
   border-radius: 50%;
   display: grid; place-items: center;
   color: #fff; font-weight: 800;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--line);
 }
+.avatar img { width: 100%; height: 100%; display: block; }
+.avatar.editable { cursor: pointer; }
+.avatar.editable:hover { box-shadow: 0 0 0 2px var(--accent); }
+.podium .avatar { width: 40px; height: 40px; margin: 0 auto 4px; font-size: 20px; }
 .players .pname { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .players .score { font-weight: 800; }
 .players .tag { font-size: 16px; }

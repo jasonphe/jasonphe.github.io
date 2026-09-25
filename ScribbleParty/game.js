@@ -120,6 +120,132 @@ function getName() {
   store.set('scribble-name', n);
   return n;
 }
+// ---------- Avatar ----------
+// The avatar is drawn on a pad and saved as its strokes, so it can be edited later.
+// Other players get a small JPEG of it.
+const AVATAR_PX = 96;
+const AVATAR_SIZES = [0.02, 0.045, 0.09, 0.16];
+const AVATAR_MAX = 40000;
+const cleanAvatar = a => typeof a === 'string' && a.length < AVATAR_MAX && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(a) ? a : null;
+let avatarStrokes = [];
+try { avatarStrokes = JSON.parse(store.get('scribble-avatar') || '[]'); } catch { }
+if (!Array.isArray(avatarStrokes)) avatarStrokes = [];
+
+function paintAvatar(c, list) {
+  const g = c.getContext('2d'), W = c.width;
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, W, W);
+  g.lineCap = g.lineJoin = 'round';
+  for (const s of list) {
+    const p = s.p;
+    g.strokeStyle = g.fillStyle = s.c;
+    g.lineWidth = s.w * W;
+    g.beginPath();
+    if (p.length === 2) {
+      g.arc(p[0] * W, p[1] * W, g.lineWidth / 2, 0, Math.PI * 2);
+      g.fill();
+      continue;
+    }
+    g.moveTo(p[0] * W, p[1] * W);
+    for (let i = 2; i < p.length; i += 2) g.lineTo(p[i] * W, p[i + 1] * W);
+    g.stroke();
+  }
+}
+function avatarUrl(list) {
+  if (!list.length) return null;
+  const c = el('canvas', { width: AVATAR_PX, height: AVATAR_PX });
+  paintAvatar(c, list);
+  return c.toDataURL('image/jpeg', 0.85);
+}
+let myAvatar = avatarUrl(avatarStrokes);
+
+// An avatar circle: the player's drawing, or the first letter of their name.
+function avatarEl(id, name, url) {
+  const av = el('span', { className: 'avatar' });
+  if (url) av.append(el('img', { src: url, alt: '' }));
+  else {
+    av.textContent = name?.[0]?.toUpperCase() || '?';
+    av.style.background = avatarColor(id);
+  }
+  return av;
+}
+function renderAvatarPreview() {
+  $('avatarPreview').replaceWith(Object.assign(avatarEl(selfId, cleanText($('nameInput').value, 16), myAvatar), { id: 'avatarPreview' }));
+}
+renderAvatarPreview();
+$('nameInput').addEventListener('input', renderAvatarPreview);
+$('avatarBtn').onclick = openAvatarEditor;
+
+let pad;
+function setupAvatarPad() {
+  const c = $('avatarPad');
+  pad = { c, strokes: [], color: COLORS[0], size: AVATAR_SIZES[1], cur: null };
+  const redrawPad = () => paintAvatar(c, pad.strokes);
+  pad.redraw = redrawPad;
+  const pos = e => {
+    const r = c.getBoundingClientRect();
+    const f = v => Math.round(Math.min(1, Math.max(0, v)) * 1000) / 1000;
+    return [f((e.clientX - r.left) / r.width), f((e.clientY - r.top) / r.height)];
+  };
+  c.addEventListener('pointerdown', e => {
+    c.setPointerCapture(e.pointerId);
+    pad.cur = { c: pad.color, w: pad.size, p: pos(e) };
+    pad.strokes.push(pad.cur);
+    redrawPad();
+  });
+  c.addEventListener('pointermove', e => {
+    if (!pad.cur) return;
+    for (const ev of e.getCoalescedEvents?.() ?? [e]) pad.cur.p.push(...pos(ev));
+    redrawPad();
+  });
+  const end = () => { pad.cur = null; };
+  c.addEventListener('pointerup', end);
+  c.addEventListener('pointercancel', end);
+
+  const sw = $('avatarSwatches');
+  for (const col of [...COLORS, '#ffffff']) {
+    const b = el('button', { type: 'button', className: 'swatch' + (col === '#ffffff' ? ' eraser' : ''), title: col === '#ffffff' ? 'Eraser' : col });
+    if (col === '#ffffff') b.textContent = '🧽'; else b.style.background = col;
+    b.onclick = () => { pad.color = col; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
+    if (col === pad.color) b.classList.add('on');
+    sw.append(b);
+  }
+  const sz = $('avatarSizes');
+  AVATAR_SIZES.forEach((s, i) => {
+    const b = el('button', { type: 'button', className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
+    const dot = el('i');
+    dot.style.width = dot.style.height = `${[4, 8, 14, 22][i]}px`;
+    b.append(dot);
+    b.onclick = () => { pad.size = s; sz.querySelectorAll('.size').forEach(x => x.classList.toggle('on', x === b)); };
+    if (s === pad.size) b.classList.add('on');
+    sz.append(b);
+  });
+  $('avatarUndo').onclick = () => { pad.strokes.pop(); redrawPad(); };
+  $('avatarClear').onclick = () => { pad.strokes = []; redrawPad(); };
+  $('avatarDialog').addEventListener('close', () => {
+    if ($('avatarDialog').returnValue === 'save') saveAvatar(pad.strokes);
+  });
+}
+function openAvatarEditor() {
+  if (!pad) setupAvatarPad();
+  pad.strokes = structuredClone(avatarStrokes);
+  pad.redraw();
+  $('avatarDialog').returnValue = '';
+  $('avatarDialog').showModal();
+}
+function saveAvatar(list) {
+  avatarStrokes = list;
+  store.set('scribble-avatar', JSON.stringify(list));
+  myAvatar = avatarUrl(list);
+  renderAvatarPreview();
+  const mine = peers.get(selfId);
+  if (mine) {
+    mine.a = myAvatar;
+    send('hello', me());
+    render();
+  }
+}
+
 $('createBtn').onclick = () => {
   const n = getName();
   if (n) start(n, newCode());
@@ -136,7 +262,7 @@ $('joinForm').onsubmit = e => {
 // ---------- Game state ----------
 let room, act = {};
 let roomCode;
-const peers = new Map();          // id -> { name, t } (includes me)
+const peers = new Map();          // id -> { name, t, a } (includes me; a is the avatar image)
 let hostId = selfId;
 let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, penalty: 0, drawTime: DEFAULT_DRAW, opensIn: 0 };
 let guessOpen = 0;                // local clock time guessers can start guessing
@@ -177,7 +303,7 @@ function start(name, code) {
   $('roomCode').textContent = code;
   document.title = `Scribble Party · ${code}`;
 
-  peers.set(selfId, { name, t: Date.now() });
+  peers.set(selfId, { name, t: Date.now(), a: myAvatar });
   setupCanvas();
   setupTools();
   connect();
@@ -210,7 +336,7 @@ function connect() {
     render();
   };
 }
-const me = () => ({ n: peers.get(selfId).name, t: peers.get(selfId).t });
+const me = () => ({ n: peers.get(selfId).name, t: peers.get(selfId).t, a: myAvatar });
 function send(name, data, target) {
   try { act[name].send(data, target ? { target } : undefined); } catch (e) { console.warn(name, e); }
 }
@@ -232,7 +358,7 @@ function electHost() {
 const handlers = {
   hello(d, from) {
     const isNew = !peers.has(from);
-    peers.set(from, { name: cleanText(d?.n, 16) || 'Player', t: Number(d?.t) || Date.now() });
+    peers.set(from, { name: cleanText(d?.n, 16) || 'Player', t: Number(d?.t) || Date.now(), a: cleanAvatar(d?.a) });
     const wasHost = isHost();
     electHost();
     if (isNew) sysMsg(`${nameOf(from)} joined`);
@@ -709,8 +835,12 @@ function render() {
   for (const [id, p] of peers) if (!shown.some(s => s.id === id)) shown.push({ id, name: p.name, score: 0 });
   for (const p of shown) {
     const li = el('li', { className: (p.id === selfId ? 'me ' : '') + (p.g ? 'got' : '') });
-    const av = el('span', { className: 'avatar', textContent: p.name[0]?.toUpperCase() || '?' });
-    av.style.background = avatarColor(p.id);
+    const av = avatarEl(p.id, p.name, peers.get(p.id)?.a);
+    if (p.id === selfId) {
+      av.classList.add('editable');
+      av.title = 'Draw your avatar';
+      av.onclick = openAvatarEditor;
+    }
     li.append(av, el('span', { className: 'pname', textContent: p.name + (p.id === selfId ? ' (you)' : '') }));
     if (p.id === hostId) li.append(el('span', { className: 'tag', title: 'Host', textContent: '👑' }));
     if (p.id === pub.drawer && (pub.phase === 'draw' || pub.phase === 'choose')) li.append(el('span', { className: 'tag', title: 'Drawing', textContent: '✏️' }));
@@ -777,7 +907,7 @@ function renderOverlay() {
     const slots = [[ranked[1], 'p2', '🥈'], [ranked[0], 'p1', '🥇'], [ranked[2], 'p3', '🥉']];
     for (const [p, cls, medal] of slots) {
       if (!p) continue;
-      pod.append(el('div', { className: cls }, `${medal} ${p.name}`, el('span', { textContent: `${p.score} pts` })));
+      pod.append(el('div', { className: cls }, avatarEl(p.id, p.name, peers.get(p.id)?.a), `${medal} ${p.name}`, el('span', { textContent: `${p.score} pts` })));
     }
     box.append(pod);
     box.append(hostControls('Play again'));

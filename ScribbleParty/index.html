@@ -19,6 +19,14 @@
       <h1>Scribble Party</h1>
       <p class="sub">Take turns drawing. Everyone else races to guess the word.</p>
 
+      <div class="avatar-pick">
+        <button type="button" class="avatar-btn" id="avatarBtn" title="Draw your avatar">
+          <span class="avatar" id="avatarPreview"></span>
+          <span class="pen" aria-hidden="true">✏️</span>
+        </button>
+        <small>Tap to draw your avatar</small>
+      </div>
+
       <label class="field">Your name
         <input id="nameInput" maxlength="16" placeholder="e.g. Pengu" required>
       </label>
@@ -83,6 +91,24 @@
       </aside>
     </div>
   </div>
+
+  <!-- ---------- Avatar editor ---------- -->
+  <dialog id="avatarDialog" class="avatar-dialog">
+    <form method="dialog" class="avatar-box">
+      <h2>Draw your avatar</h2>
+      <canvas id="avatarPad" width="480" height="480"></canvas>
+      <div class="swatches" id="avatarSwatches"></div>
+      <div class="avatar-tools">
+        <div class="sizes" id="avatarSizes"></div>
+        <button type="button" class="btn ghost small" id="avatarUndo" title="Undo">↶</button>
+        <button type="button" class="btn ghost small" id="avatarClear" title="Clear">🗑</button>
+      </div>
+      <div class="avatar-actions">
+        <button class="btn ghost" value="cancel">Cancel</button>
+        <button class="btn" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <div class="toast" id="toast"></div>
 
