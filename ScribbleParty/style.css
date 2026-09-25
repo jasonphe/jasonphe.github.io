@@ -380,7 +380,7 @@ canvas.can-draw { cursor: crosshair; }
 @media (max-width: 800px) {
   .topbar { grid-template-columns: auto 1fr auto; padding: 6px 10px; }
   #hint { font-size: 18px; letter-spacing: .04em; }
-  #copyTop .label { display: none; }
+  #copyTop .label, #endBtn .label { display: none; }
   #roundLabel { display: none; }
   .room-chip .status { display: none; }
   .main { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding: 8px; }

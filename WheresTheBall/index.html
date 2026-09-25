@@ -428,7 +428,10 @@
 
   function kick(towardX) {
     const dir = towardX == null ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(towardX - ball.x) || 1;
-    ball.vy = -Math.sqrt(2 * G * (floorY - ball.r - H * rand(0.18, 0.3)));
+    // Aim for a peak near the top, measured from where the ball is now, so rapid
+    // clicks mid-air can't stack up and send it off screen
+    const apex = Math.max(ball.r + H * 0.03, Math.min(H * rand(0.18, 0.3), ball.y - ball.r));
+    ball.vy = -Math.sqrt(2 * G * Math.max(0, ball.y - apex));
     ball.vx = dir * rand(150, 380) * UNIT;
     ball.sq = -0.15;
     ball.happy = 0.8;

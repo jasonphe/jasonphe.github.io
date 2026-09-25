@@ -3,7 +3,9 @@ import { joinRoom, selfId } from 'https://cdn.jsdelivr.net/npm/trystero@0.25.4/+
 // ---------- Settings ----------
 const APP_ID = 'jasonphe-scribble-party';
 const CHOOSE_MS = 15000;
-const DRAW_MS = 80000;
+const DRAW_TIMES = [30, 45, 60, 80, 100, 120, 150, 180]; // seconds
+const DEFAULT_DRAW = 80;
+const clampDraw = v => DRAW_TIMES.includes(Number(v)) ? Number(v) : DEFAULT_DRAW;
 const REVEAL_MS = 6000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
@@ -123,7 +125,7 @@ let room, act = {};
 let roomCode;
 const peers = new Map();          // id -> { name, t } (includes me)
 let hostId = selfId;
-let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, opensIn: 0 };
+let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, drawTime: DEFAULT_DRAW, opensIn: 0 };
 let guessOpen = 0;                // local clock time guessers can start guessing
 let deadline = 0;                 // local clock time the current phase ends
 let secret = {};                  // { choices } or { word } sent only to the drawer
@@ -131,6 +133,7 @@ let strokes = [];                 // [{ i, c, w, p: [x, y, ...] }]
 const H = { scores: {}, word: null, choices: [], deadline: 0, guessed: new Set(), gains: {}, revealed: new Set(), guessFrom: 0, custom: [], only: false, used: new Set() };
 
 const isHost = () => hostId === selfId;
+const inGame = () => pub.phase !== 'lobby' && pub.phase !== 'over';
 const nameOf = id => peers.get(id)?.name ?? pub.players.find(p => p.id === id)?.name ?? 'Someone';
 const iAmDrawer = () => pub.drawer === selfId && pub.phase === 'draw';
 
@@ -146,6 +149,11 @@ async function copyInvite() {
   catch { prompt('Copy this link:', url); }
 }
 $('copyTop').onclick = copyInvite;
+$('endBtn').onclick = () => {
+  if (!isHost() || !inGame() || !confirm('End the game now? Scores so far will be final.')) return;
+  broadcastMsg({ k: 'sys', x: `${nameOf(selfId)} ended the game.` });
+  endGame();
+};
 
 function start(name, code) {
   roomCode = code;
@@ -294,7 +302,7 @@ const handlers = {
     if (Date.now() < H.guessFrom) return; // guessing isn't open yet
     const g = norm(text), w = norm(H.word);
     if (g === w) {
-      const frac = Math.max(0, (H.deadline - Date.now()) / DRAW_MS);
+      const frac = Math.max(0, (H.deadline - Date.now()) / (pub.drawTime * 1000));
       const pts = 50 + Math.round(50 * frac) + Math.max(0, 20 - 5 * H.guessed.size);
       H.guessed.add(from);
       H.gains[from] = (H.gains[from] || 0) + pts;
@@ -346,7 +354,7 @@ function takeOverAsHost() {
   }
 }
 
-function startGame({ rounds, words, only, hints, delay }) {
+function startGame({ rounds, words, only, hints, delay, drawTime }) {
   rounds = Math.min(5, Math.max(1, Number(rounds) || 3));
   H.custom = parseWords(words || '');
   H.only = !!only && H.custom.length >= 3;
@@ -354,6 +362,7 @@ function startGame({ rounds, words, only, hints, delay }) {
   pub.custom = H.custom.length ? { n: H.custom.length, only: H.only } : null;
   pub.hints = hints !== false;
   pub.delay = clampDelay(delay);
+  pub.drawTime = clampDraw(drawTime);
   H.scores = {};
   pub.rounds = rounds;
   pub.round = 1;
@@ -362,18 +371,21 @@ function startGame({ rounds, words, only, hints, delay }) {
   nextTurn();
 }
 
+function endGame() {
+  pub.phase = 'over';
+  pub.drawer = null;
+  pub.word = null;
+  H.word = null;
+  H.deadline = 0;
+  H.guessed.clear();
+  hostSync();
+}
+
 function nextTurn() {
   pub.queue = pub.queue.filter(id => peers.has(id));
   if (!pub.queue.length) {
     pub.round++;
-    if (pub.round > pub.rounds || peers.size < 2) {
-      pub.phase = 'over';
-      pub.drawer = null;
-      pub.word = null;
-      H.deadline = 0;
-      H.guessed.clear();
-      return hostSync();
-    }
+    if (pub.round > pub.rounds || peers.size < 2) return endGame();
     pub.queue = [...peers.entries()].sort((a, b) => a[1].t - b[1].t).map(([id]) => id);
   }
   pub.drawer = pub.queue.shift();
@@ -424,7 +436,7 @@ function startDraw(word) {
   H.revealed = new Set();
   // The guess delay is a head start for the drawer on top of the normal drawing time.
   H.guessFrom = Date.now() + pub.delay * 1000;
-  H.deadline = H.guessFrom + DRAW_MS;
+  H.deadline = H.guessFrom + pub.drawTime * 1000;
   pub.phase = 'draw';
   // With hints off, guessers get no blanks, letter count or revealed letters.
   pub.hint = pub.hints ? mask(word, H.revealed) : '';
@@ -455,7 +467,7 @@ function tick() {
     if (!peers.has(pub.drawer)) return endTurn(true);
     if (now > H.deadline) return endTurn();
     // Reveal a letter at 50% and 75% of the time, for longer words.
-    const frac = (now - H.guessFrom) / DRAW_MS;
+    const frac = (now - H.guessFrom) / (pub.drawTime * 1000);
     const letters = [...H.word].map((c, i) => isLetter(c) ? i : -1).filter(i => i >= 0 && !H.revealed.has(i));
     const want = pub.hints && norm(H.word).length > 3 ? (frac > 0.75 ? 2 : frac > 0.5 ? 1 : 0) : 0;
     if (H.revealed.size < want && letters.length > 1) {
@@ -661,7 +673,8 @@ function render() {
     hint.append(pub.word || '');
   }
 
-  $('roundLabel').textContent = pub.phase !== 'lobby' && pub.phase !== 'over' ? `Round ${Math.min(pub.round, pub.rounds)}/${pub.rounds}` : '';
+  $('endBtn').classList.toggle('hidden', !isHost() || !inGame());
+  $('roundLabel').textContent = inGame() ? `Round ${Math.min(pub.round, pub.rounds)}/${pub.rounds}` : '';
 
   // Players
   const list = $('players');
@@ -797,6 +810,10 @@ function hostSettings() {
   const savedRounds = Number(store.get('scribble-rounds')) || 3;
   for (let r = 1; r <= 5; r++) rounds.append(el('option', { value: r, textContent: r, selected: r === savedRounds }));
 
+  const drawTime = el('select', { id: 'setDrawTime' });
+  const savedDraw = clampDraw(store.get('scribble-draw'));
+  for (const t of DRAW_TIMES) drawTime.append(el('option', { value: t, textContent: `${t}s`, selected: t === savedDraw }));
+
   const hints = el('input', { id: 'setHints', type: 'checkbox', checked: store.get('scribble-hints') !== '0' });
   const delay = el('input', {
     id: 'setDelay', type: 'number', min: 0, max: MAX_DELAY, step: 1, inputMode: 'numeric',
@@ -816,6 +833,7 @@ function hostSettings() {
   const box = el('details', { className: 'settings' },
     el('summary', {}, '⚙️ Settings', summary),
     settingRow(rounds, 'Rounds'),
+    settingRow(drawTime, 'Drawing time', 'How long the artist has to draw each word.'),
     settingRow(hints, 'Show letter count & hints', 'Guessers see a blank for each letter, and a couple of letters get revealed as time runs out.'),
     settingRow(delay, 'Guess delay (seconds)', 'Guessers have to wait this long before guessing, which gives the artist a head start. The delay is added on top of the normal drawing time.'),
     settingRow(null, ['Custom words ', count], 'Separate with commas or new lines. One of your words shows up each turn, mixed in with the built-in list.', 'setWords'),
@@ -832,6 +850,7 @@ function hostSettings() {
     const d = clampDelay(delay.value);
     const notes = [
       rounds.value !== '3' && `${rounds.value} round${rounds.value > 1 ? 's' : ''}`,
+      drawTime.value !== String(DEFAULT_DRAW) && `${drawTime.value}s turns`,
       !hints.checked && 'no hints',
       d && `${d}s delay`,
       n && `${n} custom word${n > 1 ? 's' : ''}${only.checked && !only.disabled ? ' only' : ''}`,
@@ -839,13 +858,14 @@ function hostSettings() {
     summary.textContent = notes.length ? ` · ${notes.join(' · ')}` : '';
   };
   rounds.onchange = () => { store.set('scribble-rounds', rounds.value); update(); };
+  drawTime.onchange = () => { store.set('scribble-draw', drawTime.value); update(); };
   hints.onchange = () => { store.set('scribble-hints', hints.checked ? '1' : '0'); update(); };
   delay.oninput = () => { store.set('scribble-delay', clampDelay(delay.value)); update(); };
   delay.onchange = () => { delay.value = clampDelay(delay.value); };
   words.oninput = () => { store.set('scribble-words', words.value); update(); };
   only.onchange = () => { store.set('scribble-only', only.checked ? '1' : '0'); update(); };
   update();
-  settings = { rounds, hints, delay, words, only, box };
+  settings = { rounds, drawTime, hints, delay, words, only, box };
   return settings;
 }
 
@@ -854,6 +874,7 @@ function hostControls(label) {
   if (!isHost()) {
     wrap.append(el('p', { textContent: `Waiting for ${nameOf(hostId)} to start…` }));
     const notes = [
+      pub.drawTime !== DEFAULT_DRAW && `Artists get ${pub.drawTime}s to draw.`,
       pub.hints === false && 'Letter count and hints are off.',
       pub.delay > 0 && `Guessing opens ${pub.delay}s after each drawing starts.`,
       pub.custom && `Playing with ${pub.custom.n} custom word${pub.custom.n > 1 ? 's' : ''}${pub.custom.only ? ' only' : ''}.`,
@@ -861,11 +882,12 @@ function hostControls(label) {
     for (const n of notes) wrap.append(el('p', { className: 'fine', textContent: n }));
     return wrap;
   }
-  const { rounds, hints, delay, words, only, box } = hostSettings();
+  const { rounds, drawTime, hints, delay, words, only, box } = hostSettings();
   const row = el('div', { className: 'host-row' });
   const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
   b.onclick = () => toHost('go', {
     rounds: rounds.value,
+    drawTime: Number(drawTime.value),
     hints: hints.checked,
     delay: clampDelay(delay.value),
     words: words.value,
