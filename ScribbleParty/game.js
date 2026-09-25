@@ -30,6 +30,8 @@ fetch('words.txt')
 
 const COLORS = ['#1f1f1f', '#868e96', '#e03131', '#f76707', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#e64980', '#8b5a2b'];
 const SIZES = [0.006, 0.014, 0.03, 0.06];
+// A pink eraser block for the eraser swatch.
+const ERASER_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g transform="rotate(-35 12 12)" stroke="#c2255c" stroke-width="1.2" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="9" rx="2" fill="#ff8fb1"/><path d="M15 7.5v9" fill="none"/><rect x="15" y="7.5" width="6.5" height="9" rx="2" fill="#f06595"/></g><rect x="4" y="19" width="16" height="1.6" rx=".8" fill="#ffc9d9"/></svg>`;
 const AVATAR_COLORS = ['#ff6b6b', '#f59f00', '#37b24d', '#1c7ed6', '#7048e8', '#e64980', '#0ca678', '#d9480f'];
 
 // ---------- Helpers ----------
@@ -205,7 +207,7 @@ function setupAvatarPad() {
   const sw = $('avatarSwatches');
   for (const col of [...COLORS, '#ffffff']) {
     const b = el('button', { type: 'button', className: 'swatch' + (col === '#ffffff' ? ' eraser' : ''), title: col === '#ffffff' ? 'Eraser' : col });
-    if (col === '#ffffff') b.textContent = '🧽'; else b.style.background = col;
+    if (col === '#ffffff') b.innerHTML = ERASER_SVG; else b.style.background = col;
     b.onclick = () => { pad.color = col; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
     if (col === pad.color) b.classList.add('on');
     sw.append(b);
@@ -541,6 +543,7 @@ function nextTurn() {
     pub.queue = [...peers.entries()].sort((a, b) => a[1].t - b[1].t).map(([id]) => id);
   }
   pub.drawer = pub.queue.shift();
+  broadcastMsg({ k: 'turn', x: `✏️ It's ${nameOf(pub.drawer)}'s turn to draw!` });
   pub.phase = 'choose';
   pub.word = null;
   pub.gains = null;
@@ -718,7 +721,7 @@ function setupTools() {
   const sw = $('swatches');
   for (const c of [...COLORS, '#ffffff']) {
     const b = el('button', { className: 'swatch' + (c === '#ffffff' ? ' eraser' : ''), title: c === '#ffffff' ? 'Eraser' : c });
-    if (c === '#ffffff') b.textContent = '🧽'; else b.style.background = c;
+    if (c === '#ffffff') b.innerHTML = ERASER_SVG; else b.style.background = c;
     b.onclick = () => { color = c; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
     if (c === color) b.classList.add('on');
     sw.append(b);
