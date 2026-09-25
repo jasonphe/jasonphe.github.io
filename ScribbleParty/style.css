@@ -128,7 +128,7 @@ button { cursor: pointer; }
   touch-action: none;
   cursor: crosshair;
 }
-.avatar-box .swatches { justify-content: center; max-width: 300px; }
+.avatar-box .swatches { justify-content: center; max-width: 360px; }
 .avatar-tools { display: flex; gap: 8px; align-items: center; }
 .avatar-actions { display: flex; gap: 10px; margin-top: 4px; }
 
@@ -340,6 +340,28 @@ button { cursor: pointer; }
 .swatch.on { box-shadow: 0 0 0 3px var(--accent); }
 .swatch.eraser { background: #fff; display: grid; place-items: center; }
 .swatch.eraser svg { display: block; }
+/* The rainbow "more colors" button; the picked color shows as a dot in the middle */
+.swatch.custom {
+  position: relative;
+  display: block;
+  cursor: pointer;
+  background: conic-gradient(#e03131, #fcc419, #2f9e44, #1c7ed6, #7048e8, #e64980, #e03131);
+}
+.swatch.custom.picked::after {
+  content: "";
+  position: absolute;
+  inset: 25%;
+  border-radius: 50%;
+  background: var(--pick);
+  box-shadow: 0 0 0 2px #fff;
+}
+.swatch.custom input {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  padding: 0; border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 .sizes { display: flex; gap: 4px; }
 .size {
   width: 36px; height: 36px;

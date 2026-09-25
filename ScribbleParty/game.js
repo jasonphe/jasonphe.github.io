@@ -28,7 +28,7 @@ fetch('words.txt')
   .then(t => { defaultWords = parseWords(t); })
   .catch(e => console.warn('Could not load words.txt', e));
 
-const COLORS = ['#1f1f1f', '#868e96', '#e03131', '#f76707', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#e64980', '#8b5a2b'];
+const COLORS = ['#1f1f1f', '#e03131', '#f76707', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#8b5a2b'];
 const SIZES = [0.006, 0.014, 0.03, 0.06];
 // A pink eraser block for the eraser swatch.
 const ERASER_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g transform="rotate(-35 12 12)" stroke="#c2255c" stroke-width="1.2" stroke-linejoin="round"><rect x="2.5" y="7.5" width="19" height="9" rx="2" fill="#ff8fb1"/><path d="M15 7.5v9" fill="none"/><rect x="15" y="7.5" width="6.5" height="9" rx="2" fill="#f06595"/></g><rect x="4" y="19" width="16" height="1.6" rx=".8" fill="#ffc9d9"/></svg>`;
@@ -78,6 +78,34 @@ function avatarColor(id) {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+// The color buttons, a rainbow button that opens the full color picker, and the eraser.
+// The last custom color is remembered and shown in the middle of the rainbow button.
+function colorSwatches(sw, initial, onPick) {
+  const select = b => sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b));
+  const button = c => {
+    const b = el('button', { type: 'button', className: 'swatch' + (c === '#ffffff' ? ' eraser' : ''), title: c === '#ffffff' ? 'Eraser' : c });
+    if (c === '#ffffff') b.innerHTML = ERASER_SVG; else b.style.background = c;
+    b.onclick = () => { onPick(c); select(b); };
+    if (c === initial) b.classList.add('on');
+    return b;
+  };
+  for (const c of COLORS) sw.append(button(c));
+  const saved = store.get('scribble-custom-color');
+  const input = el('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(saved) ? saved : '#ff66cc', ariaLabel: 'Pick any color' });
+  const custom = el('label', { className: 'swatch custom' + (saved ? ' picked' : ''), title: 'More colors' }, input);
+  custom.style.setProperty('--pick', input.value);
+  const use = () => {
+    custom.style.setProperty('--pick', input.value);
+    custom.classList.add('picked');
+    store.set('scribble-custom-color', input.value);
+    onPick(input.value);
+    select(custom);
+  };
+  input.oninput = input.onchange = use;
+  // Clicking it again reuses the last custom color, even if the picker is closed without changes.
+  input.onclick = () => { if (custom.classList.contains('picked')) use(); };
+  sw.append(custom, button('#ffffff'));
 }
 function toast(msg) {
   const t = $('toast');
@@ -204,14 +232,7 @@ function setupAvatarPad() {
   c.addEventListener('pointerup', end);
   c.addEventListener('pointercancel', end);
 
-  const sw = $('avatarSwatches');
-  for (const col of [...COLORS, '#ffffff']) {
-    const b = el('button', { type: 'button', className: 'swatch' + (col === '#ffffff' ? ' eraser' : ''), title: col === '#ffffff' ? 'Eraser' : col });
-    if (col === '#ffffff') b.innerHTML = ERASER_SVG; else b.style.background = col;
-    b.onclick = () => { pad.color = col; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
-    if (col === pad.color) b.classList.add('on');
-    sw.append(b);
-  }
+  colorSwatches($('avatarSwatches'), pad.color, c => { pad.color = c; });
   const sz = $('avatarSizes');
   AVATAR_SIZES.forEach((s, i) => {
     const b = el('button', { type: 'button', className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
@@ -718,14 +739,7 @@ function redraw() {
 }
 
 function setupTools() {
-  const sw = $('swatches');
-  for (const c of [...COLORS, '#ffffff']) {
-    const b = el('button', { className: 'swatch' + (c === '#ffffff' ? ' eraser' : ''), title: c === '#ffffff' ? 'Eraser' : c });
-    if (c === '#ffffff') b.innerHTML = ERASER_SVG; else b.style.background = c;
-    b.onclick = () => { color = c; sw.querySelectorAll('.swatch').forEach(x => x.classList.toggle('on', x === b)); };
-    if (c === color) b.classList.add('on');
-    sw.append(b);
-  }
+  colorSwatches($('swatches'), color, c => { color = c; });
   const sz = $('sizes');
   SIZES.forEach((s, i) => {
     const b = el('button', { className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
