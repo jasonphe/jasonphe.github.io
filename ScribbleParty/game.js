@@ -944,7 +944,8 @@ function renderOverlay() {
 function inviteBox() {
   const row = el('div', { className: 'invite' });
   row.append(el('span', { className: 'invite-link', textContent: inviteUrl() }));
-  const b = el('button', { className: 'btn small', textContent: 'Copy link' });
+  const b = el('button', { className: 'btn small copy-btn', title: 'Copy link', ariaLabel: 'Copy link' });
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
   b.onclick = copyInvite;
   row.append(b);
   return row;
@@ -1066,8 +1067,8 @@ function hostControls(label) {
   }
   const { rounds, drawTime, hints, delay, penalty, words, only, box } = hostSettings();
   const row = el('div', { className: 'host-row' });
-  const b = el('button', { className: 'btn', textContent: label, disabled: peers.size < 2 });
-  b.onclick = () => toHost('go', {
+  const b = el('button', { className: 'btn', textContent: label });
+  b.onclick = () => peers.size < 2 ? toast('Need at least 2 players to start') : toHost('go', {
     rounds: rounds.value,
     drawTime: Number(drawTime.value),
     hints: hints.checked,
@@ -1078,7 +1079,6 @@ function hostControls(label) {
   });
   row.append(b);
   wrap.append(row);
-  if (peers.size < 2) wrap.append(el('p', { textContent: 'Need at least 2 players.' }));
   wrap.append(box);
   return wrap;
 }

@@ -205,7 +205,8 @@ button { cursor: pointer; }
 .overlay h2 { margin: 0 0 6px; font-size: 30px; line-height: 1.1; }
 .overlay p { margin: 4px 0; color: var(--muted); }
 .overlay .big-word { font-size: 40px; font-weight: 800; color: var(--accent); margin: 4px 0 10px; }
-.invite { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 14px 0; }
+.invite { display: flex; gap: 6px; justify-content: center; align-items: center; margin: 12px auto; max-width: 420px; }
+.invite .copy-btn { flex-shrink: 0; display: grid; place-items: center; padding: 6px 10px; }
 .invite-link {
   max-width: 100%;
   min-width: 0;
@@ -441,6 +442,8 @@ button { cursor: pointer; }
 .toast {
   position: fixed; left: 50%; bottom: 24px;
   translate: -50% 0;
+  width: max-content; max-width: calc(100vw - 32px);
+  text-align: center;
   background: var(--ink); color: #fff;
   padding: 8px 16px; border-radius: 999px;
   font-weight: 600;
