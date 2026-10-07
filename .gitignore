@@ -1,2 +1,8 @@
 
 .claude/launch.json
+
+# Voice clip generator (tools/voices): local env, model files, voice samples
+tools/voices/.venv/
+tools/voices/.models/
+tools/voices/samples/
+tools/voices/__pycache__/

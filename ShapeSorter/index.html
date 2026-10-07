@@ -217,13 +217,52 @@
   }
 
   // ---------- Voice ----------
-  let busyUntil = 0, lastSpeech = 0;
+  // Voice lines are pre-made clips in voice/ (made by tools/voices/make_voices.py).
+  // Anything without a clip falls back to the browser's speech voice.
+  const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const voiceFiles = new Map(); // slug -> mp3 bytes, fetched as soon as the page opens
+  const voiceClips = new Map(); // slug -> decoded clip, once there's an audio context
+  fetch("voice/lines.json").then(r => r.json()).then(list => {
+    for (const s of list) voiceFiles.set(s, fetch(`voice/${s}.mp3`).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }));
+  }).catch(() => {});
+  function voiceClip(s) {
+    if (!audio || !voiceFiles.has(s)) return null;
+    if (!voiceClips.has(s)) {
+      // Safari only supports the callback form of decodeAudioData
+      voiceClips.set(s, voiceFiles.get(s).then(data => new Promise((ok, fail) => audio.decodeAudioData(data.slice(0), ok, fail))));
+    }
+    return voiceClips.get(s);
+  }
+
+  let busyUntil = 0, lastSpeech = 0, voiceSrc = null;
   function say(text, important) {
-    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    if (!opt.voice.checked) return;
     const now = performance.now();
     // Don't let mashing pile up a queue of words, but big moments can cut in
+    if (!important && now < busyUntil) return;
+    const clip = voiceClip(slug(text));
+    if (!clip) {
+      if (voiceFiles.size) console.warn("No voice clip for:", text);
+      return speak(text, important);
+    }
+    busyUntil = now + 700; // until the clip's real length is known
+    clip.then(buf => {
+      // The very first line can wait on a download; if it's late, skip it
+      if (performance.now() - now > 1500 || !opt.voice.checked) return;
+      if (voiceSrc) try { voiceSrc.stop(); } catch (e) {}
+      const src = audio.createBufferSource(), g = audio.createGain();
+      g.gain.value = 1.8; // voices sit above the sound effects
+      src.buffer = buf;
+      src.connect(g); g.connect(master);
+      src.start();
+      voiceSrc = src;
+      busyUntil = performance.now() + buf.duration * 1000 + 150;
+    }, () => speak(text, important));
+  }
+  function speak(text, important) {
+    if (!("speechSynthesis" in window)) return;
+    const now = performance.now();
     if (speechSynthesis.speaking) {
-      if (!important && now < busyUntil) return;
       if (!important && now - lastSpeech < 4000) return;
       speechSynthesis.cancel(); // also unsticks browsers that get stuck "speaking"
     }
