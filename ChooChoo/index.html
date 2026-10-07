@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Choo-Choo Train</title>
+  <meta name="description" content="A toddler toy: drive a little train, toot the whistle, and pick up animal friends at each station.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #ff6b6b;
+      --accent-2: #ffa94d;
+      --bg: #dff3ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(255, 107, 107, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Choo-Choo Train</h1>
+      <p class="sub">All aboard!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Sounds</label>
+        <label><input type="checkbox" id="optVoice" checked> Voice</label>
+        <label><input type="checkbox" id="optNight"> Night ride</label>
+      </div>
+      <ul class="tips">
+        <li>The big <b>green button</b> makes the train go, and red makes it stop. The horn button toots the whistle.</li>
+        <li>The train stops at every station so animal friends can hop on and off.</li>
+        <li>Tap the train, the riders, or the animals in the fields to hear them.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>Computer: Space or Enter means go and stop, and any other key toots.</li>
+      </ul>
+      <a class="home" href="../">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // [emoji, name, what it says]
+  const RIDERS = [
+    ["🐶", "dog", "woof woof"], ["🐱", "cat", "meow"], ["🐷", "pig", "oink oink"], ["🦆", "duck", "quack quack"],
+    ["🐸", "frog", "ribbit"], ["🐵", "monkey", "ooh ooh ah ah"], ["🐰", "bunny", null], ["🐻", "bear", null],
+    ["🐼", "panda", null], ["🦁", "lion", "roar"], ["🐧", "penguin", null], ["🐯", "tiger", null], ["🐨", "koala", null],
+  ];
+  const FIELD = [["🐮", "cow", "moo"], ["🐑", "sheep", "baa"], ["🐴", "horse", "neigh"], ["🐔", "chicken", "bawk bawk"], ["🐐", "goat", "maa"], ["🦃", "turkey", "gobble gobble"]];
+  const STATIONS = ["Duck Pond", "Apple Town", "Teddy Hill", "Rainbow Stop", "Sunny Farm", "Cookie Corner", "Bubble Bay", "Moo Meadow", "Banana Junction", "Sleepy Hollow"];
+  const CAR_COLORS = ["#ffd43b", "#69db7c", "#9775fa", "#4dabf7"];
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("choochoo") || "null");
+    if (saved) for (const k in opt) { if (k in saved) opt[k].checked = saved[k]; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    const o = {};
+    for (const k in opt) o[k] = opt[k].checked;
+    try { localStorage.setItem("choochoo", JSON.stringify(o)); } catch (e) {}
+  };
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const TAU = Math.PI * 2;
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.max(0.3, Math.min(W, H) / 600);
+    layout();
+  }
+  window.addEventListener("resize", resize);
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+  const drawEmoji = (e, x, y, s) => ctx.drawImage(emojiImage(e), x - s / 2, y - s / 2, s, s);
+
+  // ---------- Sound ----------
+  let audio = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 1.2, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null, delay = 0, attack = 0.015 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise({ vol = 0.4, dur = 0.12, freq = 800, q = 1, delay = 0, attack = 0.01, type = "bandpass" } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+    src.buffer = noiseBuf;
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  let lastToot = 0;
+  function whistle() {
+    const now = performance.now();
+    if (now - lastToot < 450) return false;
+    lastToot = now;
+    // Two notes a third apart, like a real steam whistle, with a breathy edge
+    for (const [f, d] of [[587, 0], [740, 0], [587, 0.55], [740, 0.55]]) tone(f, { type: "sine", vol: 0.16, dur: 0.45, delay: d, attack: 0.06 });
+    tone(1174, { type: "sine", vol: 0.04, dur: 0.45, attack: 0.06 });
+    noise({ vol: 0.08, dur: 1.0, freq: 2500, q: 0.7, attack: 0.08 });
+    return true;
+  }
+  const chug = vol => noise({ vol, dur: 0.11, freq: 450, q: 0.9 });
+  const hiss = () => noise({ vol: 0.25, dur: 0.9, freq: 5000, q: 0.5, attack: 0.05 });
+  function bell() { for (let i = 0; i < 3; i++) { tone(1568, { type: "sine", vol: 0.15, dur: 0.6, delay: i * 0.32 }); tone(2093, { type: "sine", vol: 0.05, dur: 0.4, delay: i * 0.32 }); } }
+  const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+  const hop = () => tone(400, { type: "sine", vol: 0.15, dur: 0.25, slideTo: 900 });
+  const plink = () => tone([1046, 1174, 1318, 1568][Math.floor(Math.random() * 4)], { type: "sine", vol: 0.07, dur: 0.4 });
+
+  // ---------- Voice ----------
+  let busyUntil = 0, lastSpeech = 0;
+  function say(text, important) {
+    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    const now = performance.now();
+    if (speechSynthesis.speaking) {
+      if (!important && now < busyUntil) return;
+      if (!important && now - lastSpeech < 4000) return;
+      speechSynthesis.cancel(); // also unsticks browsers that get stuck "speaking"
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+  const phrase = a => (a[2] ? `The ${a[1]} says ${a[2]}!` : `A ${a[1]}!`);
+
+  // ---------- Helpers ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const hash = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  function rrect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- Layout ----------
+  // u is the train's size unit: a car is about u tall
+  let NCARS = 3;
+  const L = { u: 40, trackY: 0, frontX: 0, engineLen: 1.7, carLen: 1.25, gap: 0.14, btnR: 40, btnY: 0, goX: 0, tootX: 0 };
+  function layout() {
+    const portrait = H > W;
+    L.btnR = clamp(Math.min(W, H) * 0.085, 30, 60);
+    L.btnY = H - L.btnR - Math.max(14, L.btnR * 0.35);
+    L.trackY = Math.min(H * (portrait ? 0.62 : 0.68), L.btnY - L.btnR - 24);
+    const len = L.engineLen + NCARS * (L.carLen + L.gap);
+    L.u = Math.max(16, Math.min(H * 0.17, (W * 0.9) / len, L.trackY / 3.2));
+    L.frontX = W / 2 + (len * L.u) / 2;
+    L.goX = L.btnR + 24;
+    L.tootX = W - L.btnR - 24;
+  }
+  const engineRear = () => L.frontX - L.engineLen * L.u;
+  const carRear = i => engineRear() - (i + 1) * (L.carLen + L.gap) * L.u;
+  const carCenter = i => carRear(i) + (L.carLen * L.u) / 2;
+  const tailX = () => carRear(NCARS - 1);
+  const seatY = () => L.trackY - 1.1 * L.u;      // rider's emoji center, half hidden in the car
+  const platformY = () => L.trackY - 1.02 * L.u;  // top of the station platform
+  const waitY = () => platformY() - 0.4 * L.u;    // waiting animal's emoji center
+
+  // ---------- World ----------
+  let dist = 0, v = 0;
+  let mode = "stopped";   // stopped | going | braking | station
+  let cars = [];          // rider object or null for each car
+  let station = null, nextName = 0;
+  let hops = [], leavers = [], smoke = [], particles = [], bounces = new Map();
+  let chugAt = 0, autoGo = 0, goPulse = 0, wheelRot = 0;
+  const maxV = () => W * 0.28 + 60;
+  const ACCEL = () => maxV() * 0.45, DECEL = () => maxV() * 0.6;
+
+  function newRider(exclude) {
+    let a;
+    do { a = pick(RIDERS); } while (exclude.includes(a));
+    return { a, s: 0, sv: 7, rot: 0, rv: 0 };
+  }
+  const onBoard = () => cars.filter(Boolean).map(r => r.a);
+
+  function planStation(ahead) {
+    const name = STATIONS[nextName++ % STATIONS.length];
+    const st = { name, stopAt: dist + ahead, waiting: [], t: 0, phase: -1, announced: false };
+    const n = 1 + Math.floor(Math.random() * NCARS);
+    const taken = onBoard();
+    const slots = [...Array(NCARS).keys()].sort(() => Math.random() - 0.5).slice(0, n);
+    for (const slot of slots) { const r = newRider(taken); taken.push(r.a); r.slot = slot; r.s = 1; r.sv = 0; st.waiting.push(r); }
+    station = st;
+  }
+
+  function go() {
+    if (mode === "going") return;
+    if (mode === "station" && (station.phase < 2 || hops.length)) { boing(); return; } // still boarding
+    if (mode === "station") { planStation(rand(2.4, 3.4) * W); }
+    mode = "going";
+    whistle();
+    goPulse = 0;
+    if (Math.random() < 0.5) say("Choo choo!");
+  }
+  function stopTrain() {
+    if (mode !== "going") return;
+    mode = "braking";
+    hiss();
+  }
+
+  function arrive() {
+    mode = "station";
+    v = 0; dist = station.stopAt;
+    station.t = 0; station.phase = 0;
+    bell();
+    hiss();
+    say(`${station.name}!`, true);
+  }
+
+  function updateStation(dt) {
+    const st = station;
+    st.t += dt;
+    if (st.phase === 0 && st.t > 1.2) {
+      st.phase = 1;
+      // Some riders get off. If a waiting friend has no seat, make room.
+      const riders = cars.map((r, i) => (r ? i : -1)).filter(i => i >= 0);
+      const empty = NCARS - riders.length;
+      let leaving = riders.filter(() => Math.random() < 0.5);
+      while (leaving.length < Math.min(riders.length, st.waiting.length - empty)) {
+        const more = riders.find(i => !leaving.includes(i));
+        leaving.push(more);
+      }
+      leaving.forEach((i, k) => {
+        const r = cars[i];
+        cars[i] = null;
+        hops.push({ r, fx: carCenter(i), fy: seatY(), tx: carCenter(i) - 0.15 * L.u, ty: waitY(), t: -k * 0.35, dur: 0.6, then: () => leavers.push({ r, x: carCenter(i) - 0.15 * L.u + dist, t: 0 }) });
+      });
+      if (leaving.length) { say(leaving.length > 1 ? "Bye bye, friends!" : "Bye bye!"); }
+    }
+    if (st.phase === 1 && st.t > 2.6 && !hops.length) {
+      st.phase = 2;
+      // Waiting friends hop on, each into the nearest empty car
+      let boarded = 0;
+      for (const r of st.waiting.slice()) {
+        const free = cars.map((c, i) => (c ? -1 : i)).filter(i => i >= 0);
+        if (!free.length) break;
+        free.sort((a, b) => Math.abs(a - r.slot) - Math.abs(b - r.slot));
+        const i = free[0];
+        cars[i] = "reserved";
+        st.waiting.splice(st.waiting.indexOf(r), 1);
+        const x0 = st.stopAt - dist + carCenter(r.slot);
+        hops.push({ r, fx: x0, fy: waitY(), tx: carCenter(i), ty: seatY(), t: -boarded * 0.35, dur: 0.6, then: () => { cars[i] = r; r.sv += 6; } });
+        boarded++;
+      }
+      if (boarded) setTimeout(() => say("All aboard!", true), 300);
+      autoGo = 9;
+    }
+    if (st.phase === 2 && !hops.length) {
+      goPulse += dt;
+      autoGo -= dt;
+      if (autoGo <= 0) go(); // keep the trip going if nobody presses the button
+    }
+  }
+
+  function updateTrain(dt) {
+    if (mode === "going") {
+      v = Math.min(maxV(), v + ACCEL() * dt);
+      // Brake smoothly so the train lines up with the platform
+      const remaining = station.stopAt - dist;
+      const brake = (v * v) / (2 * DECEL());
+      if (remaining <= brake + 2) {
+        v = Math.sqrt(2 * DECEL() * Math.max(0, remaining));
+        if (remaining < 1.5) arrive();
+        else if (!station.braked) { station.braked = true; hiss(); }
+      }
+      if (!station.announced && station.stopAt - dist + tailX() < W) {
+        station.announced = true;
+        say(`Next stop, ${station.name}!`);
+      }
+    } else if (mode === "braking") {
+      // Too close to the station to stop before it? Then just stop at the station.
+      if (station.stopAt - dist <= (v * v) / (2 * DECEL()) + 2) mode = "going";
+      else {
+        v = Math.max(0, v - DECEL() * 1.4 * dt);
+        if (v === 0) mode = "stopped";
+      }
+    }
+    dist += v * dt;
+    wheelRot += (v * dt) / (0.22 * L.u);
+
+    // Chug sound in step with the wheels
+    if (v > 1) {
+      chugAt -= v * dt;
+      if (chugAt <= 0) { chugAt = 0.55 * L.u; chug(0.12 + 0.3 * (v / maxV())); }
+    }
+    // Smoke puffs: lots when moving, a lazy one now and then when stopped
+    const rate = v > 1 ? 4 + 10 * (v / maxV()) : 0.8;
+    if (Math.random() < rate * dt) puff();
+  }
+
+  function puff() {
+    const x = L.frontX - 0.38 * L.u, y = L.trackY - 1.42 * L.u;
+    smoke.push({ x, y, r: 0.14 * L.u, vx: -v * 0.6 - rand(5, 20) * UNIT, vy: -rand(30, 55) * UNIT, age: 0, life: rand(1.6, 2.4) });
+    if (smoke.length > 60) smoke.shift();
+  }
+
+  function burst(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, TAU), sp = rand(120, 320) * UNIT;
+      particles.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 100 * UNIT, size: rand(5, 10) * UNIT, color: pick(["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa"]), age: 0, life: rand(0.6, 1.1) });
+    }
+    if (particles.length > 200) particles.splice(0, particles.length - 200);
+  }
+
+  function bounce(key) {
+    const b = bounces.get(key) || { s: 1, sv: 0, rot: 0, rv: 0 };
+    b.sv += 8; b.rv += rand(-6, 6);
+    bounces.set(key, b);
+  }
+  const bounceOf = key => bounces.get(key) || { s: 1, rot: 0 };
+
+  // ---------- Field animals and trees (placed by a hash so they're stable) ----------
+  const FIELD_PAR = 0.7, FIELD_GAP = () => Math.max(160, W * 0.32), TREE_PAR = 0.4, TREE_GAP = () => Math.max(70, W * 0.11);
+  function fieldAnimals() {
+    const out = [], gap = FIELD_GAP(), off = dist * FIELD_PAR;
+    for (let i = Math.floor((off - 100) / gap); i <= Math.floor((off + W + 100) / gap); i++) {
+      if (hash(i) > 0.6) continue;
+      out.push({ i, a: FIELD[Math.floor(hash(i + 7) * FIELD.length)], x: i * gap + hash(i + 3) * gap * 0.6 - off, y: L.trackY - 1.25 * L.u - hash(i + 5) * 0.5 * L.u });
+    }
+    return out;
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null;
+  const near = (x, y, cx, cy, r) => Math.hypot(x - cx, y - cy) < r;
+
+  function tap(x, y) {
+    const u = L.u;
+    if (near(x, y, L.goX, L.btnY, L.btnR * 1.25)) {
+      if (mode === "going") stopTrain(); else go();
+      bounce("go");
+      return;
+    }
+    if (near(x, y, L.tootX, L.btnY, L.btnR * 1.25)) { bounce("toot"); if (whistle()) { puff(); puff(); } return; }
+    // Riders
+    for (let i = 0; i < NCARS; i++) {
+      const r = cars[i];
+      if (r && r !== "reserved" && near(x, y, carCenter(i), seatY(), 0.6 * u)) { r.sv += 8; r.rv += rand(-6, 6); hop(); say(phrase(r.a)); return; }
+    }
+    // Waiting friends on the platform
+    if (station) for (const r of station.waiting) {
+      if (near(x, y, station.stopAt - dist + carCenter(r.slot), waitY(), 0.6 * u)) { r.sv += 8; hop(); say(phrase(r.a)); return; }
+    }
+    // The engine
+    if (x > engineRear() - 0.1 * u && x < L.frontX + 0.3 * u && y > L.trackY - 1.6 * u && y < L.trackY + 0.1 * u) {
+      if (whistle()) { puff(); puff(); }
+      return;
+    }
+    // Field animals
+    for (const f of fieldAnimals()) {
+      if (near(x, y, f.x, f.y, 0.55 * u)) { bounce("f" + f.i); boing(); say(phrase(f.a)); return; }
+    }
+    // Anything else: a little sparkle
+    burst(x, y, 6);
+    plink();
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    tap(e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+  });
+  const endHold = e => { if (exitHold && exitHold.id === e.pointerId) exitHold = null; };
+  canvas.addEventListener("pointerup", endHold);
+  canvas.addEventListener("pointercancel", endHold);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return;
+    heldKeys.add(e.code);
+    initAudio();
+    if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") {
+      if (mode === "going") stopTrain(); else go();
+      bounce("go");
+    } else {
+      bounce("toot");
+      if (whistle()) { puff(); puff(); }
+    }
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    startEl.classList.add("hidden");
+    NCARS = H > W ? 2 : 3; // fewer cars on a tall phone so everything stays big
+    layout();
+    dist = 0; v = 0; mode = "stopped";
+    cars = Array(NCARS).fill(null);
+    cars[0] = newRider([]); cars[0].s = 1;
+    hops = []; leavers = []; smoke = []; particles = []; bounces.clear();
+    nextName = Math.floor(Math.random() * STATIONS.length);
+    planStation(rand(1.6, 2.2) * W);
+    goPulse = 0.01;
+    playing = true;
+    say("All aboard! Press the green button to go!", true);
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+  for (const k in opt) opt[k].addEventListener("change", saveOpts);
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Drawing ----------
+  const stars = Array.from({ length: 60 }, () => [Math.random(), Math.random() * 0.5, rand(0.6, 1.6), rand(0, TAU)]);
+  let time = 0;
+
+  function drawScenery() {
+    const night = opt.night.checked, u = L.u, ty = L.trackY;
+    // Sky
+    const g = ctx.createLinearGradient(0, 0, 0, ty);
+    if (night) { g.addColorStop(0, "#141936"); g.addColorStop(1, "#353066"); }
+    else { g.addColorStop(0, "#7cc8ff"); g.addColorStop(1, "#dff3ff"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const sr = clamp(Math.min(W, H) * 0.07, 24, 60);
+    if (night) {
+      ctx.fillStyle = "#fff";
+      for (const [sx, sy, s, ph] of stars) {
+        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 2 + ph);
+        ctx.beginPath(); ctx.arc(sx * W, sy * ty, s, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff4c2";
+      ctx.beginPath(); ctx.arc(W * 0.78, sr * 1.8, sr, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#1d2148";
+      ctx.beginPath(); ctx.arc(W * 0.78 + sr * 0.4, sr * 1.55, sr * 0.85, 0, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = "rgba(255, 220, 90, .35)";
+      ctx.beginPath(); ctx.arc(W * 0.78, sr * 1.8, sr * 1.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#ffd43b";
+      ctx.beginPath(); ctx.arc(W * 0.78, sr * 1.8, sr, 0, TAU); ctx.fill();
+    }
+    // Clouds drift slowly on their own and a little with the train
+    ctx.fillStyle = night ? "rgba(200, 200, 255, .1)" : "rgba(255, 255, 255, .9)";
+    const cgap = Math.max(220, W * 0.45), coff = dist * 0.06 + time * 8;
+    for (let i = Math.floor((coff - 200) / cgap); i <= Math.floor((coff + W + 200) / cgap); i++) {
+      const s = (0.6 + hash(i + 11) * 0.7) * 55 * UNIT, x = i * cgap + hash(i + 2) * cgap * 0.5 - coff, y = (0.1 + hash(i + 9) * 0.3) * ty;
+      ctx.beginPath();
+      ctx.arc(x, y, s * 0.7, 0, TAU); ctx.arc(x + s * 0.7, y + s * 0.1, s * 0.55, 0, TAU);
+      ctx.arc(x - s * 0.7, y + s * 0.15, s * 0.5, 0, TAU); ctx.arc(x + s * 0.25, y - s * 0.35, s * 0.5, 0, TAU);
+      ctx.fill();
+    }
+    // Far hills
+    const hill = (par, base, amp, color) => {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(0, ty);
+      const off = dist * par;
+      for (let x = 0; x <= W + 16; x += 16) {
+        const wx = x + off;
+        ctx.lineTo(x, base - (Math.sin(wx * 0.004) * 0.6 + Math.sin(wx * 0.0093 + 1) * 0.4 + 1) * amp);
+      }
+      ctx.lineTo(W, ty); ctx.fill();
+    };
+    hill(0.15, ty * 0.62, ty * 0.12, night ? "#26335a" : "#a7d8f0");
+    hill(0.4, ty * 0.76, ty * 0.08, night ? "#2b4a45" : "#8ed08a");
+    // Trees on the near hills
+    const tgap = TREE_GAP(), toff = dist * TREE_PAR;
+    for (let i = Math.floor((toff - 80) / tgap); i <= Math.floor((toff + W + 80) / tgap); i++) {
+      if (hash(i + 21) > 0.45) continue;
+      const x = i * tgap + hash(i + 4) * tgap * 0.5 - toff, s = (0.5 + hash(i + 8) * 0.5) * u, wx = x + toff;
+      const y = ty * 0.76 - (Math.sin(wx * 0.004) * 0.6 + Math.sin(wx * 0.0093 + 1) * 0.4 + 1) * ty * 0.08 + s * 0.3;
+      ctx.fillStyle = night ? "#3b2e25" : "#8a5a3b";
+      ctx.fillRect(x - s * 0.08, y - s * 0.5, s * 0.16, s * 0.6);
+      ctx.fillStyle = night ? "#24463a" : (hash(i) > 0.5 ? "#51b85f" : "#3fa653");
+      ctx.beginPath(); ctx.arc(x, y - s * 0.8, s * 0.45, 0, TAU); ctx.arc(x - s * 0.25, y - s * 0.55, s * 0.32, 0, TAU); ctx.arc(x + s * 0.25, y - s * 0.55, s * 0.32, 0, TAU); ctx.fill();
+    }
+    // Field the track runs through
+    ctx.fillStyle = night ? "#2f523f" : "#a6e3a0";
+    ctx.fillRect(0, ty - 1.9 * u, W, H - ty + 1.9 * u);
+    // Fence posts along the field
+    ctx.strokeStyle = night ? "#6d5a48" : "#c9a27a"; ctx.lineWidth = Math.max(2, u * 0.05);
+    const fgap = u * 0.9, foff = (dist * FIELD_PAR) % fgap, fy = ty - 1.55 * u;
+    ctx.beginPath();
+    ctx.moveTo(0, fy); ctx.lineTo(W, fy); ctx.moveTo(0, fy + 0.18 * u); ctx.lineTo(W, fy + 0.18 * u);
+    for (let x = -foff; x < W + fgap; x += fgap) { ctx.moveTo(x, fy - 0.12 * u); ctx.lineTo(x, fy + 0.3 * u); }
+    ctx.stroke();
+    // Field animals (tap them!)
+    for (const f of fieldAnimals()) {
+      const b = bounceOf("f" + f.i);
+      const s = 0.85 * u * b.s;
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(b.rot);
+      drawEmoji(f.a[0], 0, -Math.abs(Math.sin(time * 3 + f.i)) * 0.05 * u, s);
+      ctx.restore();
+    }
+  }
+
+  function drawStation(dt) {
+    const st = station;
+    if (!st) return;
+    const u = L.u, night = opt.night.checked;
+    const ox = st.stopAt - dist;
+    const x0 = ox + tailX() - 0.5 * u, x1 = ox + L.frontX + 0.5 * u;
+    if (x1 < -2 * u || x0 > W + 2 * u) return;
+    const py = platformY();
+    // Little station house at the back end
+    const hx = x0 - 0.2 * u, hw = 1.5 * u, hh = 1.1 * u;
+    ctx.fillStyle = night ? "#a8836a" : "#ffe3c2";
+    ctx.fillRect(hx, py - hh, hw, hh);
+    ctx.fillStyle = night ? "#8a3c3c" : "#ff6b6b";
+    ctx.beginPath(); ctx.moveTo(hx - 0.15 * u, py - hh); ctx.lineTo(hx + hw / 2, py - hh - 0.6 * u); ctx.lineTo(hx + hw + 0.15 * u, py - hh); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = night ? "#ffe08a" : "#9be0ff";
+    ctx.fillRect(hx + 0.2 * u, py - hh + 0.25 * u, 0.4 * u, 0.35 * u);
+    ctx.fillStyle = night ? "#5a3a26" : "#a8693a";
+    ctx.fillRect(hx + 0.85 * u, py - 0.75 * u, 0.4 * u, 0.75 * u);
+    // Clock
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(hx + hw / 2, py - hh - 0.18 * u, 0.15 * u, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = Math.max(1, u * 0.03);
+    ctx.beginPath(); ctx.moveTo(hx + hw / 2, py - hh - 0.18 * u); ctx.lineTo(hx + hw / 2, py - hh - 0.29 * u); ctx.moveTo(hx + hw / 2, py - hh - 0.18 * u); ctx.lineTo(hx + hw / 2 + 0.08 * u, py - hh - 0.18 * u); ctx.stroke();
+    // Platform
+    ctx.fillStyle = night ? "#5c5f73" : "#c9ccd6";
+    ctx.fillRect(x0, py, x1 - x0, 0.5 * u);
+    ctx.fillStyle = night ? "#7a7d91" : "#e6e8ef";
+    ctx.fillRect(x0, py - 0.08 * u, x1 - x0, 0.1 * u);
+    ctx.fillStyle = night ? "#c9b45c" : "#ffd43b";
+    ctx.fillRect(x0, py + 0.02 * u, x1 - x0, 0.05 * u);
+    // Name sign on a post over the middle, so it's on screen even on narrow phones
+    const sx = (x0 + x1) / 2 + 0.4 * u;
+    ctx.fillStyle = "#6b6f86";
+    ctx.fillRect(sx - 0.04 * u, py - 1.5 * u, 0.08 * u, 1.5 * u);
+    ctx.font = `800 ${Math.round(0.32 * u)}px "Baloo 2", sans-serif`;
+    const tw = ctx.measureText(st.name).width + 0.4 * u;
+    ctx.fillStyle = night ? "#2f6f4f" : "#2f9e6a";
+    rrect(sx - tw / 2, py - 2.05 * u, tw, 0.6 * u, 0.12 * u); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(st.name, sx, py - 1.73 * u);
+    // Lamp glow at night
+    if (night) {
+      ctx.fillStyle = "rgba(255, 220, 120, .18)";
+      ctx.beginPath(); ctx.arc(hx + hw / 2, py - hh / 2, 1.4 * u, 0, TAU); ctx.fill();
+    }
+    // Friends waiting
+    for (const r of st.waiting) {
+      r.sv += (1 - r.s) * 120 * dt - r.sv * 9 * dt;
+      r.s += r.sv * dt;
+      const x = ox + carCenter(r.slot);
+      const jig = Math.abs(Math.sin(time * 4 + r.slot * 2)) * 0.06 * u; // excited little hops
+      drawEmoji(r.a[0], x, waitY() - jig, 0.8 * u * Math.max(0, r.s));
+    }
+  }
+
+  function drawWheel(x, y, r, color) {
+    ctx.fillStyle = "#2b2d42";
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = Math.max(1.5, r * 0.14);
+    ctx.beginPath();
+    for (let k = 0; k < 3; k++) {
+      const a = wheelRot + (k * Math.PI) / 3;
+      ctx.moveTo(x - Math.cos(a) * r * 0.7, y - Math.sin(a) * r * 0.7);
+      ctx.lineTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7);
+    }
+    ctx.stroke();
+    ctx.fillStyle = "#ffd43b";
+    ctx.beginPath(); ctx.arc(x, y, r * 0.18, 0, TAU); ctx.fill();
+  }
+
+  function drawTrack() {
+    const u = L.u, ty = L.trackY, night = opt.night.checked;
+    // Gravel bed, sleepers, rail
+    ctx.fillStyle = night ? "#4a4256" : "#b9a58f";
+    ctx.fillRect(0, ty, W, 0.28 * u);
+    ctx.fillStyle = night ? "#5b4636" : "#8a5a3b";
+    const sg = 0.55 * u, so = dist % sg;
+    for (let x = -so; x < W + sg; x += sg) ctx.fillRect(x, ty + 0.02 * u, 0.3 * u, 0.14 * u);
+    ctx.fillStyle = night ? "#9aa0b8" : "#6b6f86";
+    ctx.fillRect(0, ty - 0.04 * u, W, 0.08 * u);
+    // Ground below the track
+    ctx.fillStyle = night ? "#2a4636" : "#93d68c";
+    ctx.fillRect(0, ty + 0.28 * u, W, H - ty);
+  }
+
+  function drawTrain(dt) {
+    const u = L.u, ty = L.trackY, night = opt.night.checked;
+    const bob = v > 1 ? Math.sin(dist * 0.08) * 0.02 * u : 0;
+    // Cars, back to front
+    for (let i = NCARS - 1; i >= 0; i--) {
+      const x = carRear(i), C = L.carLen * u, color = CAR_COLORS[i % CAR_COLORS.length];
+      const b = bob * (i % 2 ? 1 : -1);
+      // Coupler to the next thing in front
+      ctx.fillStyle = "#2b2d42";
+      ctx.fillRect(x + C - 0.02 * u, ty - 0.42 * u, L.gap * u + 0.04 * u, 0.07 * u);
+      // Rider sits down in the car
+      const r = cars[i];
+      if (r && r !== "reserved") {
+        r.sv += (1 - r.s) * 120 * dt - r.sv * 9 * dt;
+        r.s += r.sv * dt;
+        r.rv += -r.rot * 60 * dt - r.rv * 6 * dt;
+        r.rot += r.rv * dt;
+        ctx.save();
+        ctx.translate(x + C / 2, seatY() + b - (v > 1 ? Math.abs(Math.sin(dist * 0.05 + i)) * 0.04 * u : 0));
+        ctx.rotate(r.rot);
+        drawEmoji(r.a[0], 0, 0, 0.8 * u * Math.max(0, r.s));
+        ctx.restore();
+      }
+      ctx.fillStyle = color;
+      rrect(x, ty - 0.86 * u + b, C, 0.5 * u, 0.1 * u); ctx.fill();
+      ctx.fillStyle = "rgba(0, 0, 0, .12)";
+      ctx.fillRect(x, ty - 0.5 * u + b, C, 0.14 * u);
+      ctx.fillStyle = "rgba(255, 255, 255, .35)";
+      ctx.fillRect(x + 0.08 * u, ty - 0.8 * u + b, C - 0.16 * u, 0.06 * u);
+      ctx.fillStyle = "#2b2d42";
+      ctx.fillRect(x + 0.05 * u, ty - 0.38 * u, C - 0.1 * u, 0.08 * u);
+      drawWheel(x + 0.3 * u, ty - 0.19 * u, 0.19 * u, "#e9ecef");
+      drawWheel(x + C - 0.3 * u, ty - 0.19 * u, 0.19 * u, "#e9ecef");
+    }
+
+    // Engine
+    const ex = engineRear(), red = "#ff6b6b", blue = "#4dabf7";
+    const yb = ty + bob;
+    // Headlight beam at night
+    if (night) {
+      const g = ctx.createLinearGradient(L.frontX, 0, L.frontX + 4 * u, 0);
+      g.addColorStop(0, "rgba(255, 236, 150, .45)"); g.addColorStop(1, "rgba(255, 236, 150, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(L.frontX - 0.1 * u, yb - 0.82 * u); ctx.lineTo(L.frontX + 4 * u, yb - 1.4 * u); ctx.lineTo(L.frontX + 4 * u, yb - 0.1 * u); ctx.closePath(); ctx.fill();
+    }
+    // Chassis
+    ctx.fillStyle = "#2b2d42";
+    ctx.fillRect(ex, ty - 0.44 * u, 1.62 * u, 0.12 * u);
+    // Cowcatcher
+    ctx.fillStyle = "#fcc419";
+    ctx.beginPath(); ctx.moveTo(ex + 1.55 * u, ty - 0.44 * u); ctx.lineTo(ex + 1.82 * u, ty - 0.06 * u); ctx.lineTo(ex + 1.5 * u, ty - 0.06 * u); ctx.closePath(); ctx.fill();
+    // Boiler
+    ctx.fillStyle = blue;
+    rrect(ex + 0.55 * u, yb - 0.98 * u, 1.05 * u, 0.56 * u, 0.2 * u); ctx.fill();
+    ctx.fillStyle = "#fcc419";
+    for (const k of [0.8, 1.15]) ctx.fillRect(ex + k * u, yb - 0.98 * u, 0.07 * u, 0.56 * u);
+    // Chimney with a funnel top
+    ctx.fillStyle = "#2b2d42";
+    ctx.fillRect(ex + 1.24 * u, yb - 1.32 * u, 0.2 * u, 0.36 * u);
+    ctx.beginPath(); ctx.moveTo(ex + 1.16 * u, yb - 1.42 * u); ctx.lineTo(ex + 1.52 * u, yb - 1.42 * u); ctx.lineTo(ex + 1.44 * u, yb - 1.3 * u); ctx.lineTo(ex + 1.24 * u, yb - 1.3 * u); ctx.closePath(); ctx.fill();
+    // Dome
+    ctx.fillStyle = "#fcc419";
+    ctx.beginPath(); ctx.arc(ex + 0.95 * u, yb - 0.98 * u, 0.14 * u, Math.PI, 0); ctx.fill();
+    // Headlight
+    ctx.fillStyle = night ? "#fff3b0" : "#fff9db";
+    ctx.beginPath(); ctx.arc(ex + 1.6 * u, yb - 0.8 * u, 0.1 * u, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = Math.max(1, u * 0.03); ctx.stroke();
+    // Cab with the driver in the window
+    ctx.fillStyle = red;
+    rrect(ex, yb - 1.28 * u, 0.68 * u, 0.86 * u, 0.06 * u); ctx.fill();
+    ctx.fillStyle = night ? "#ffe08a" : "#d0ebff";
+    rrect(ex + 0.13 * u, yb - 1.15 * u, 0.42 * u, 0.34 * u, 0.06 * u); ctx.fill();
+    ctx.save();
+    ctx.beginPath(); ctx.rect(ex + 0.13 * u, yb - 1.25 * u, 0.42 * u, 0.44 * u); ctx.clip();
+    drawEmoji("🐻", ex + 0.36 * u, yb - 0.9 * u, 0.42 * u);
+    ctx.restore();
+    ctx.fillStyle = "#c92a2a";
+    rrect(ex - 0.06 * u, yb - 1.4 * u, 0.8 * u, 0.14 * u, 0.05 * u); ctx.fill();
+    ctx.fillStyle = "rgba(255, 255, 255, .25)";
+    ctx.fillRect(ex + 0.06 * u, yb - 0.62 * u, 0.56 * u, 0.05 * u);
+    // Wheels and the rod that links them
+    const wy = ty - 0.22 * u, wr = 0.22 * u;
+    const wxs = [ex + 0.32 * u, ex + 0.85 * u, ex + 1.35 * u];
+    for (const wx of wxs) drawWheel(wx, wy, wr, red);
+    const rx = Math.cos(wheelRot) * wr * 0.5, ry = Math.sin(wheelRot) * wr * 0.5;
+    ctx.strokeStyle = "#adb5bd"; ctx.lineWidth = Math.max(2, u * 0.06); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(wxs[0] + rx, wy + ry); ctx.lineTo(wxs[2] + rx, wy + ry); ctx.stroke();
+  }
+
+  function drawHops(dt) {
+    for (let i = hops.length - 1; i >= 0; i--) {
+      const h = hops[i];
+      h.t += dt;
+      if (h.t < 0) continue;
+      if (!h.sounded) { h.sounded = true; hop(); }
+      const k = Math.min(1, h.t / h.dur);
+      const x = lerp(h.fx, h.tx, k), y = lerp(h.fy, h.ty, k) - Math.sin(Math.PI * k) * 0.9 * L.u;
+      drawEmoji(h.r.a[0], x, y, 0.8 * L.u);
+      if (k >= 1) { hops.splice(i, 1); h.then(); }
+    }
+    // Friends who got off wave and wander away down the platform
+    for (let i = leavers.length - 1; i >= 0; i--) {
+      const l = leavers[i];
+      l.t += dt;
+      const x = l.x - dist - Math.max(0, l.t - 0.6) * 40 * UNIT;
+      const a = clamp(2.6 - l.t, 0, 1);
+      if (a <= 0 || x < -L.u) { leavers.splice(i, 1); continue; }
+      ctx.globalAlpha = a;
+      drawEmoji(l.r.a[0], x, waitY() - Math.abs(Math.sin(l.t * 8)) * 0.08 * L.u, 0.8 * L.u);
+      if (l.t < 1.6) drawEmoji("👋", x + 0.42 * L.u, waitY() - 0.35 * L.u + Math.sin(l.t * 14) * 0.05 * L.u, 0.4 * L.u);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawSmoke(dt) {
+    const night = opt.night.checked;
+    for (let i = smoke.length - 1; i >= 0; i--) {
+      const s = smoke[i];
+      s.age += dt;
+      if (s.age > s.life) { smoke.splice(i, 1); continue; }
+      s.x += s.vx * dt; s.y += s.vy * dt;
+      s.vx *= 1 - 0.6 * dt;
+      const k = s.age / s.life;
+      ctx.globalAlpha = (1 - k) * 0.85;
+      ctx.fillStyle = night ? "#c8c8de" : "#ffffff";
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r * (1 + k * 3), 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawButtons(dt) {
+    const r = L.btnR;
+    for (const key of ["go", "toot"]) {
+      const b = bounces.get(key);
+      if (b) { b.sv += (1 - b.s) * 120 * dt - b.sv * 9 * dt; b.s += b.sv * dt; }
+    }
+    // Go / stop
+    const moving = mode === "going";
+    const ready = mode === "stopped" || (mode === "station" && station.phase === 2 && !hops.length);
+    const pulse = !moving && ready ? 1 + Math.sin(time * 6) * 0.06 : 1;
+    let s = r * bounceOf("go").s * pulse;
+    ctx.save();
+    ctx.translate(L.goX, L.btnY);
+    ctx.fillStyle = "rgba(0, 0, 0, .15)";
+    ctx.beginPath(); ctx.arc(0, s * 0.1, s, 0, TAU); ctx.fill();
+    ctx.fillStyle = moving ? "#fa5252" : ready ? "#40c057" : "#9dd9a8";
+    ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#fff";
+    if (moving) { rrect(-s * 0.32, -s * 0.32, s * 0.64, s * 0.64, s * 0.08); ctx.fill(); }
+    else { ctx.beginPath(); ctx.moveTo(-s * 0.25, -s * 0.4); ctx.lineTo(s * 0.45, 0); ctx.lineTo(-s * 0.25, s * 0.4); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
+    // Whistle
+    s = r * bounceOf("toot").s;
+    ctx.save();
+    ctx.translate(L.tootX, L.btnY);
+    ctx.fillStyle = "rgba(0, 0, 0, .15)";
+    ctx.beginPath(); ctx.arc(0, s * 0.1, s, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#fcc419";
+    ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU); ctx.fill();
+    // Music notes for the whistle (the horn emoji is tiny on some systems)
+    ctx.fillStyle = "#fff";
+    ctx.font = `800 ${Math.round(s * 1.05)}px "Baloo 2", system-ui, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("♫", 0, s * 0.06);
+    ctx.restore();
+  }
+
+  function drawParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 500 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * 0.6, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame); // first, so one bad frame can't stop the game
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    step(dt);
+  }
+  function step(dt) {
+    time += dt;
+    if (playing) {
+      updateTrain(dt);
+      if (mode === "station") updateStation(dt);
+      for (const [k, b] of bounces) {
+        if (k === "go" || k === "toot") continue;
+        b.sv += (1 - b.s) * 120 * dt - b.sv * 9 * dt; b.s += b.sv * dt;
+        b.rv += -b.rot * 60 * dt - b.rv * 6 * dt; b.rot += b.rv * dt;
+        if (Math.abs(b.s - 1) < 0.001 && Math.abs(b.sv) < 0.01 && Math.abs(b.rot) < 0.001) bounces.delete(k);
+      }
+    }
+    drawScenery();
+    if (playing) {
+      drawStation(dt);
+      drawTrack();
+      drawTrain(dt);
+      drawSmoke(dt);
+      drawHops(dt);
+      drawButtons(dt);
+      drawParticles(dt);
+
+      // Grown-up exit: hold top-right corner
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#ff6b6b"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * TAU);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    } else {
+      drawTrack();
+    }
+  }
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

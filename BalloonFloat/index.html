@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Balloon Float</title>
+  <meta name="description" content="A toddler toy: hold to blow up a balloon, let go to watch it float away, and tap to pop it.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #ff6b8b;
+      --accent-2: #ffd43b;
+      --bg: #dff3ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(255, 107, 139, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Balloon Float</h1>
+      <p class="sub">Hold to blow, let go to float!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Sounds</label>
+        <label><input type="checkbox" id="optVoice" checked> Animal voices</label>
+        <label><input type="checkbox" id="optNight"> Night sky</label>
+      </div>
+      <ul class="tips">
+        <li><b>Hold</b> a finger down to blow up a balloon. Let go and it floats away.</li>
+        <li>Hold too long and it goes <b>pop</b>! Tap floating balloons to pop them too. Some have a friend inside.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>Computer: hold the mouse button, or hold down any key.</li>
+      </ul>
+      <a class="home" href="../">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // [emoji, name, what it says]
+  const ANIMALS = [
+    ["🐶", "dog", "woof woof"], ["🐱", "cat", "meow"], ["🐮", "cow", "moo"], ["🐷", "pig", "oink oink"],
+    ["🦆", "duck", "quack quack"], ["🐸", "frog", "ribbit"], ["🐑", "sheep", "baa"], ["🐵", "monkey", "ooh ooh ah ah"],
+    ["🐰", "bunny", null], ["🐻", "bear", null], ["🐧", "penguin", null], ["🐼", "panda", null],
+  ];
+  const DAY = ["#ff6b8b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#38d9a9"];
+  const NIGHT = ["#c9728a", "#c99060", "#c9b45c", "#6fae80", "#5f93c4", "#8f7cc9", "#c47ea0", "#56b09a"];
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("balloonfloat") || "null");
+    if (saved) for (const k in opt) { if (k in saved) opt[k].checked = saved[k]; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    const o = {};
+    for (const k in opt) o[k] = opt[k].checked;
+    try { localStorage.setItem("balloonfloat", JSON.stringify(o)); } catch (e) {}
+  };
+  const palette = () => (opt.night.checked ? NIGHT : DAY);
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const TAU = Math.PI * 2;
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.max(0.3, Math.min(W, H) / 600);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 0.5, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise({ vol = 0.4, dur = 0.15, freq = 1500, q = 0.8 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime;
+    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+    src.buffer = noiseBuf;
+    f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  function popSound() {
+    noise({ vol: 0.9, dur: 0.12, freq: 2200, q: 0.5 });
+    tone(700, { type: "sine", vol: 0.2, dur: 0.12, slideTo: 150 });
+  }
+  const floatAway = () => tone(500, { type: "sine", vol: 0.12, dur: 0.6, slideTo: 1100 });
+
+  // A squeaky rising note that plays the whole time a balloon is being blown up
+  function blowSound() {
+    if (!audio || !opt.sound.checked) return null;
+    const t = audio.currentTime;
+    const o = audio.createOscillator(), g = audio.createGain(), lfo = audio.createOscillator(), lg = audio.createGain();
+    o.type = "triangle";
+    o.frequency.value = 180;
+    lfo.frequency.value = 11; lg.gain.value = 12;
+    lfo.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.07, t + 0.05);
+    o.connect(g); g.connect(master);
+    o.start(t); lfo.start(t);
+    return {
+      set(k) { o.frequency.setTargetAtTime(180 + k * 520, audio.currentTime, 0.05); },
+      stop() {
+        const n = audio.currentTime;
+        g.gain.cancelScheduledValues(n);
+        g.gain.setValueAtTime(g.gain.value, n);
+        g.gain.exponentialRampToValueAtTime(0.0001, n + 0.06);
+        o.stop(n + 0.08); lfo.stop(n + 0.08);
+      },
+    };
+  }
+
+  // ---------- Voice ----------
+  let busyUntil = 0, lastSpeech = 0;
+  function say(text) {
+    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    const now = performance.now();
+    if (now < busyUntil) return;
+    if (speechSynthesis.speaking) {
+      // Some browsers get stuck "speaking" forever; unstick after a few seconds
+      if (now - lastSpeech < 4000) return;
+      speechSynthesis.cancel();
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+  const phrase = a => (a[2] ? `The ${a[1]} says ${a[2]}!` : `A ${a[1]}!`);
+
+  // ---------- World ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const GROW_TIME = 2.2, POP_AFTER = 0.7; // seconds to full size, then how long it strains before popping
+  const maxR = () => clamp(Math.min(W, H) * 0.16, 50, 120);
+  const minR = () => maxR() * 0.32;
+
+  let held = new Map();   // pointerId or key code -> balloon being blown up
+  let balloons = [];      // floating away
+  let chutes = [];        // friends drifting down under little parachutes
+  let particles = [];
+  let clouds = [];
+  let lastColor = null, lastAnimal = null;
+
+  function newColor() {
+    let c;
+    do { c = pick(palette()); } while (c === lastColor);
+    return (lastColor = c);
+  }
+
+  function startBalloon(id, x, y) {
+    if (held.has(id)) return;
+    held.set(id, { x, y, r: minR(), t: 0, color: newColor(), sound: blowSound(), wob: rand(0, TAU), hasFriend: Math.random() < 0.45 });
+  }
+
+  function letGo(id) {
+    const b = held.get(id);
+    if (!b) return;
+    held.delete(id);
+    b.sound && b.sound.stop();
+    floatAway();
+    balloons.push({
+      x: b.x, y: b.y - b.r, r: b.r, color: b.color, hasFriend: b.hasFriend,
+      vy: -rand(55, 85) * UNIT, vx: 0, sway: rand(0, TAU), swaySpeed: rand(0.8, 1.4), s: 1.15, sv: 0, age: 0,
+    });
+    while (balloons.length > 30) balloons.shift();
+  }
+
+  function pop(x, y, r, color, hasFriend) {
+    popSound();
+    burst(x, y, Math.round(14 + r / 4), color);
+    if (hasFriend) {
+      let a;
+      do { a = pick(ANIMALS); } while (a === lastAnimal);
+      lastAnimal = a;
+      chutes.push({ a, x, y, vy: rand(45, 65) * UNIT, sway: rand(0, TAU), color, size: clamp(r * 1.1, 60, 110), s: 0, sv: 8, rv: 0, rot: 0 });
+      while (chutes.length > 8) chutes.shift();
+      setTimeout(() => say(phrase(a)), 150);
+    }
+  }
+
+  function burst(x, y, n, color) {
+    const cols = palette();
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, TAU), sp = rand(150, 450) * UNIT;
+      particles.push({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 100 * UNIT,
+        size: rand(5, 11) * UNIT, color: i % 2 ? color : pick(cols),
+        rot: rand(0, TAU), rv: rand(-8, 8), age: 0, life: rand(0.8, 1.5), strip: Math.random() < 0.5,
+      });
+    }
+    if (particles.length > 400) particles.splice(0, particles.length - 400);
+  }
+
+  function makeClouds() {
+    clouds = [];
+    for (let i = 0; i < 5; i++) clouds.push({ x: rand(0, W), y: rand(0.08, 0.6) * H, s: rand(0.6, 1.3), v: rand(6, 16) });
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+
+  function tapHit(x, y) {
+    for (let i = chutes.length - 1; i >= 0; i--) {
+      const c = chutes[i];
+      if (Math.hypot(c.x - x, c.y - y) < c.size * 0.7) {
+        c.sv += 8; c.rv += rand(-6, 6);
+        tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+        say(phrase(c.a));
+        return true;
+      }
+    }
+    for (let i = balloons.length - 1; i >= 0; i--) {
+      const b = balloons[i];
+      // Generous: anywhere on the balloon or a bit around it counts
+      if (Math.hypot(b.drawX - x, b.y - y) < b.r * 1.25) {
+        balloons.splice(i, 1);
+        pop(b.drawX, b.y, b.r, b.color, b.hasFriend);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    if (tapHit(e.clientX, e.clientY)) return;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    startBalloon(e.pointerId, e.clientX, e.clientY);
+  });
+  canvas.addEventListener("pointermove", e => {
+    if (!playing) return;
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+    const b = held.get(e.pointerId);
+    if (b) { b.x = e.clientX; b.y = e.clientY; }
+  });
+  const endPointer = e => {
+    if (exitHold && exitHold.id === e.pointerId) exitHold = null;
+    letGo(e.pointerId);
+  };
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    initAudio();
+    // Each key blows its balloon at its own spot along the bottom
+    let h = 0;
+    for (const ch of e.code) h = (h * 31 + ch.charCodeAt(0)) % 997;
+    startBalloon("key:" + e.code, W * (0.12 + (h / 997) * 0.76), H * rand(0.72, 0.85));
+  });
+  window.addEventListener("keyup", e => letGo("key:" + e.code));
+  window.addEventListener("blur", () => { for (const id of [...held.keys()]) letGo(id); });
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    say("Let's blow up balloons!");
+    startEl.classList.add("hidden");
+    held.clear(); balloons = []; chutes = []; particles = [];
+    makeClouds();
+    playing = true;
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+  for (const k in opt) opt[k].addEventListener("change", saveOpts);
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    for (const b of held.values()) b.sound && b.sound.stop();
+    held.clear();
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") {
+      wakeLock = null;
+      for (const id of [...held.keys()]) letGo(id);
+    }
+  });
+
+  // ---------- Drawing ----------
+  const stars = Array.from({ length: 70 }, () => [Math.random(), Math.random() * 0.75, rand(0.6, 1.8), rand(0, TAU)]);
+  let time = 0;
+  function drawSky(dt) {
+    const night = opt.night.checked;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    if (night) { g.addColorStop(0, "#151a3a"); g.addColorStop(1, "#3a3168"); }
+    else { g.addColorStop(0, "#8fd3ff"); g.addColorStop(1, "#e6f7ff"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    const sr = clamp(Math.min(W, H) * 0.08, 30, 70);
+    if (night) {
+      for (const [sx, sy, s, ph] of stars) {
+        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 2 + ph);
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(sx * W, sy * H, s, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#fff4c2";
+      ctx.beginPath(); ctx.arc(sr * 1.6, sr * 1.6, sr, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#151a3a";
+      ctx.beginPath(); ctx.arc(sr * 2.0, sr * 1.35, sr * 0.85, 0, TAU); ctx.fill();
+    } else {
+      ctx.fillStyle = "rgba(255, 220, 90, .35)";
+      ctx.beginPath(); ctx.arc(sr * 1.6, sr * 1.6, sr * 1.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#ffd43b";
+      ctx.beginPath(); ctx.arc(sr * 1.6, sr * 1.6, sr, 0, TAU); ctx.fill();
+    }
+    // Clouds
+    ctx.fillStyle = night ? "rgba(200, 200, 255, .12)" : "rgba(255, 255, 255, .85)";
+    for (const c of clouds) {
+      c.x += c.v * UNIT * dt;
+      const s = c.s * 60 * UNIT;
+      if (c.x - s * 2 > W) { c.x = -s * 2; c.y = rand(0.08, 0.6) * H; }
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, s * 0.7, 0, TAU);
+      ctx.arc(c.x + s * 0.7, c.y + s * 0.1, s * 0.55, 0, TAU);
+      ctx.arc(c.x - s * 0.7, c.y + s * 0.15, s * 0.5, 0, TAU);
+      ctx.arc(c.x + s * 0.25, c.y - s * 0.35, s * 0.5, 0, TAU);
+      ctx.fill();
+    }
+    // Grass hill along the bottom
+    ctx.fillStyle = night ? "#2e4a3e" : "#8fd694";
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 20; x += 20) ctx.lineTo(x, H - 30 * UNIT - Math.sin(x / W * Math.PI * 2) * 12 * UNIT);
+    ctx.lineTo(W, H);
+    ctx.fill();
+  }
+
+  // The balloon's knot sits at (x, y); the body is above it
+  function drawBalloon(x, y, r, color, tilt, stretch) {
+    const rx = r * 0.86 * (1 + stretch * 0.08), ry = r * (1 - stretch * 0.04);
+    const cy = y - ry;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(tilt); ctx.translate(-x, -y);
+    // String
+    ctx.strokeStyle = opt.night.checked ? "rgba(255, 255, 255, .5)" : "rgba(60, 60, 80, .55)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y + r * 0.08);
+    for (let i = 1; i <= 12; i++) {
+      const k = i / 12;
+      ctx.lineTo(x + Math.sin(time * 3 + k * 5 + x * 0.01) * r * 0.12 * k, y + r * 0.08 + k * r * 1.6);
+    }
+    ctx.stroke();
+    // Knot
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x, y - r * 0.04);
+    ctx.lineTo(x - r * 0.1, y + r * 0.1);
+    ctx.lineTo(x + r * 0.1, y + r * 0.1);
+    ctx.closePath(); ctx.fill();
+    // Body: a slightly egg-shaped oval
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(x - rx * 1.35, cy + ry * 0.55, x - rx * 1.05, cy - ry * 1.05, x, cy - ry);
+    ctx.bezierCurveTo(x + rx * 1.05, cy - ry * 1.05, x + rx * 1.35, cy + ry * 0.55, x, y);
+    ctx.fill();
+    // Shine
+    ctx.fillStyle = "rgba(255, 255, 255, .45)";
+    ctx.beginPath(); ctx.ellipse(x - rx * 0.38, cy - ry * 0.35, rx * 0.16, ry * 0.3, 0.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(255, 255, 255, .3)";
+    ctx.beginPath(); ctx.arc(x - rx * 0.2, cy - ry * 0.72, rx * 0.07, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawChute(c, dt) {
+    c.sv += (1 - c.s) * 120 * dt - c.sv * 9 * dt;
+    c.s += c.sv * dt;
+    c.rv += -c.rot * 60 * dt - c.rv * 6 * dt;
+    c.rot += c.rv * dt;
+    c.sway += dt * 1.6;
+    c.y += c.vy * dt;
+    c.x += Math.sin(c.sway) * 20 * UNIT * dt;
+    const s = c.size * Math.max(0, c.s);
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(Math.sin(c.sway) * 0.15 + c.rot);
+    // Canopy with stripes
+    const cw = s * 0.75, top = -s * 1.25;
+    ctx.strokeStyle = opt.night.checked ? "rgba(255, 255, 255, .55)" : "rgba(60, 60, 80, .5)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (const k of [-1, -0.35, 0.35, 1]) { ctx.moveTo(k * cw, top); ctx.lineTo(k * s * 0.15, -s * 0.3); }
+    ctx.stroke();
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? "#fff" : c.color;
+      ctx.beginPath();
+      ctx.moveTo(0, top);
+      ctx.arc(0, top, cw, Math.PI + (i * Math.PI) / 4, Math.PI + ((i + 1) * Math.PI) / 4);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.drawImage(emojiImage(c.a[0]), -s / 2, -s * 0.55, s, s);
+    ctx.restore();
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    time += dt;
+    drawSky(dt);
+    if (!playing) return;
+
+    // Floating balloons
+    for (let i = balloons.length - 1; i >= 0; i--) {
+      const b = balloons[i];
+      b.age += dt;
+      b.sway += dt * b.swaySpeed;
+      b.vy = Math.max(b.vy - 8 * UNIT * dt, -140 * UNIT);
+      b.y += b.vy * dt;
+      b.sv += (1 - b.s) * 80 * dt - b.sv * 7 * dt;
+      b.s += b.sv * dt;
+      b.drawX = b.x + Math.sin(b.sway) * 22 * UNIT;
+      if (b.y + b.r * 3 < 0) { balloons.splice(i, 1); continue; }
+      drawBalloon(b.drawX, b.y + b.r, b.r * b.s, b.color, Math.sin(b.sway + 0.6) * 0.12, 0);
+    }
+
+    // Balloons being blown up
+    for (const [id, b] of held) {
+      b.t += dt; b.wob += dt * 20;
+      const k = Math.min(1, b.t / GROW_TIME);
+      b.r = minR() + (maxR() - minR()) * (1 - Math.pow(1 - k, 2));
+      b.sound && b.sound.set(k);
+      const strain = Math.max(0, (b.t - GROW_TIME) / POP_AFTER); // 0..1 once it's full
+      const jiggle = Math.sin(b.wob) * (0.02 + strain * 0.08);
+      drawBalloon(b.x + Math.sin(b.wob * 1.3) * strain * 4 * UNIT, b.y, b.r * (1 + strain * 0.12), b.color, jiggle, strain);
+      if (strain >= 1) {
+        held.delete(id);
+        b.sound && b.sound.stop();
+        pop(b.x, b.y - b.r, b.r, b.color, true); // holding all the way always finds a friend
+      }
+    }
+
+    for (let i = chutes.length - 1; i >= 0; i--) {
+      if (chutes[i].y - chutes[i].size * 1.8 > H) { chutes.splice(i, 1); continue; }
+      drawChute(chutes[i], dt);
+    }
+
+    // Confetti
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 500 * UNIT * dt; p.vx *= 1 - 1.8 * dt; p.vy *= 1 - 1.2 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      if (p.strip) ctx.fillRect(-p.size, -p.size * 0.35, p.size * 2, p.size * 0.7);
+      else { ctx.beginPath(); ctx.arc(0, 0, p.size * 0.7, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+
+    // Grown-up exit: hold top-right corner
+    const cx = W - 34, cy = 34;
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+    ctx.beginPath(); ctx.arc(cx, cy, 14, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (exitHold) {
+      exitHold.t += dt;
+      ctx.strokeStyle = "#ff6b8b"; ctx.lineWidth = 6; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * TAU);
+      ctx.stroke();
+      if (exitHold.t >= EXIT_HOLD) stop();
+    }
+  }
+  let last = performance.now();
+  makeClouds();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

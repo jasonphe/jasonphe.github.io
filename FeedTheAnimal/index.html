@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Feed the Animal</title>
+  <meta name="description" content="A toddler toy: drag food into a hungry critter's mouth until it's full.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #51cf66;
+      --accent-2: #ffd43b;
+      --bg: #eafbe6;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(81, 207, 102, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Feed the Animal</h1>
+      <p class="sub">Somebody is hungry!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Sounds</label>
+        <label><input type="checkbox" id="optVoice" checked> Voice</label>
+        <label><input type="checkbox" id="optAsk" checked> Asks for food</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <ul class="tips">
+        <li>Drag food into the open mouth. Tap food to hear its name, and tap the critter to tickle it.</li>
+        <li><b>Asks for food</b>: a thought bubble shows what it wants. Any food is fine, but the right one gets hearts.</li>
+        <li>After five bites it's full, and a new hungry friend comes along.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>Computer: it goes full screen, and any key feeds it a snack.</li>
+      </ul>
+      <a class="home" href="../">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  const FOODS = [
+    ["🍎", "apple"], ["🍌", "banana"], ["🍓", "strawberry"], ["🥕", "carrot"], ["🍪", "cookie"],
+    ["🧀", "cheese"], ["🍉", "watermelon"], ["🍇", "grapes"], ["🥦", "broccoli"], ["🍩", "donut"],
+    ["🍕", "pizza"], ["🫐", "blueberries"], ["🥚", "egg"], ["🍊", "orange"],
+  ];
+  // Each critter is drawn from these few parts
+  const CRITTERS = [
+    { name: "monster", body: "#9775fa", belly: "#c9b8ff", top: "horns", eyes: 1 },
+    { name: "frog", body: "#51cf66", belly: "#c3f5cb", top: "frog", eyes: 2 },
+    { name: "bear", body: "#c08457", belly: "#ecc9a3", top: "round", eyes: 2 },
+    { name: "kitty", body: "#ffa94d", belly: "#ffe3c2", top: "pointy", eyes: 2 },
+    { name: "alien", body: "#38d9a9", belly: "#b5f5e1", top: "antennae", eyes: 3 },
+    { name: "piggy", body: "#f9a8c4", belly: "#ffd6e5", top: "pointy", eyes: 2, snout: true },
+  ];
+  const FULL = 5;
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    ask: document.getElementById("optAsk"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("feedtheanimal") || "null");
+    if (saved) for (const k in opt) { if (k in saved) opt[k].checked = saved[k]; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    const o = {};
+    for (const k in opt) o[k] = opt[k].checked;
+    try { localStorage.setItem("feedtheanimal", JSON.stringify(o)); } catch (e) {}
+  };
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const TAU = Math.PI * 2;
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.max(0.3, Math.min(W, H) / 600);
+    layout();
+  }
+  window.addEventListener("resize", resize);
+
+  // Emoji are drawn once to an offscreen canvas, then reused
+  const emojiCache = new Map();
+  function emojiImage(e) {
+    let img = emojiCache.get(e);
+    if (!img) {
+      img = document.createElement("canvas");
+      img.width = img.height = 256;
+      const g = img.getContext("2d");
+      g.font = '200px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.fillText(e, 128, 140);
+      emojiCache.set(e, img);
+    }
+    return img;
+  }
+
+  // ---------- Sound ----------
+  let audio = null, master = null, noiseBuf = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+    noiseBuf = audio.createBuffer(1, audio.sampleRate * 0.5, audio.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise({ vol = 0.4, dur = 0.12, freq = 800, q = 1, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const src = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
+    src.buffer = noiseBuf;
+    f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur + 0.02);
+  }
+  const pickUp = () => tone(420, { type: "sine", vol: 0.2, dur: 0.15, slideTo: 720 });
+  const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+  function nom() {
+    for (let i = 0; i < 3; i++) {
+      noise({ vol: 0.5, dur: 0.09, freq: 700 + i * 150, q: 1.2, delay: i * 0.17 });
+      tone(220 - i * 20, { type: "sine", vol: 0.25, dur: 0.12, slideTo: 130, delay: i * 0.17 });
+    }
+  }
+  function giggle() {
+    [0, 1, 2, 3].forEach(i => tone(SCALE[7 - i] * 0.9, { type: "sine", vol: 0.15, dur: 0.12, slideTo: SCALE[7 - i] * 0.75, delay: i * 0.09 }));
+  }
+  function burp() {
+    tone(120, { type: "sawtooth", vol: 0.12, dur: 0.7, slideTo: 70 });
+    tone(124, { type: "square", vol: 0.06, dur: 0.6, slideTo: 72 });
+  }
+  const rumble = () => tone(75, { type: "sine", vol: 0.4, dur: 0.7, slideTo: 50 });
+  function chime() { [2, 4, 5, 7].forEach((n, i) => tone(SCALE[n], { vol: 0.18, dur: 0.6, delay: i * 0.08 })); }
+  function fanfare() {
+    [0, 2, 4, 5, 7].forEach((n, i) => tone(SCALE[n], { vol: 0.2, dur: 0.6, delay: 0.5 + i * 0.11 }));
+  }
+
+  // ---------- Voice ----------
+  let busyUntil = 0, lastSpeech = 0;
+  function say(text, important) {
+    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    const now = performance.now();
+    // Don't let mashing pile up a queue of words, but big moments can cut in
+    if (speechSynthesis.speaking) {
+      if (!important && now < busyUntil) return;
+      if (!important && now - lastSpeech < 4000) return;
+      speechSynthesis.cancel(); // also unsticks browsers that get stuck "speaking"
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- Helpers ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const easeOut = k => 1 - Math.pow(1 - k, 3);
+
+  // ---------- World ----------
+  const SLOTS = 5;
+  let foods = [];          // tray food, one per slot
+  let particles = [];
+  let critter = null;
+  let lastCritter = null;
+  let lay = { cx: 0, cy: 0, R: 50, tableY: 0, F: 50 };
+  let hungryTimer = 0;
+  let look = null;         // where the critter's eyes go when nothing is dragged
+
+  function layout() {
+    const F = clamp(Math.min(W / 6.2, H * 0.12), 44, 100);
+    const tableY = H - F * 1.7;
+    const top = 40, bottom = tableY - 16;
+    const R = Math.max(30, Math.min(W * 0.34, (bottom - top) / 2.75, 220));
+    lay = { F, tableY, R, cx: W / 2, cy: top + R * 1.45 + Math.max(0, (bottom - top - R * 2.75) * 0.6) };
+    foods.forEach(f => {
+      f.homeX = W / 2 + (f.slot - (SLOTS - 1) / 2) * Math.min(W / SLOTS, F * 1.7);
+      f.homeY = tableY + F * 0.8;
+      if (f.state === "idle") { f.x = f.homeX; f.y = f.homeY; }
+    });
+  }
+
+  const mouthPos = () => ({ x: lay.cx + critter.ox, y: lay.cy + critter.R() * 0.3 });
+
+  function newFood(slot, pop) {
+    const onTray = foods.filter(f => f && f.state !== "gone").map(f => f.item);
+    let item;
+    do { item = pick(FOODS); } while (onTray.includes(item));
+    const f = { item, slot, x: 0, y: 0, homeX: 0, homeY: 0, state: "idle", s: pop ? 0 : 1, sv: pop ? 7 : 0, rot: 0, rv: 0, bob: rand(0, TAU) };
+    foods[slot] = f;
+    layout();
+    return f;
+  }
+
+  function newCritter() {
+    let kind;
+    do { kind = pick(CRITTERS); } while (kind === lastCritter);
+    lastCritter = kind;
+    critter = {
+      kind, eaten: 0, state: "enter", t: 0, ox: -W, want: null,
+      squash: 0, sv: 0, rot: 0, rv: 0, mouth: 0, chew: 0, happy: 0, blink: 2, bubble: 0,
+      R() { return lay.R * (1 + this.eaten * 0.035); },
+    };
+    hungryTimer = 0;
+  }
+
+  function chooseWant() {
+    if (!critter) return;
+    const idle = foods.filter(f => f.state === "idle");
+    critter.want = idle.length ? pick(idle).item : null;
+    critter.bubble = 0;
+  }
+
+  function eat(f) {
+    f.state = "eating"; f.t = 0;
+    f.from = { x: f.x, y: f.y };
+    critter.mouth = 1;
+    hungryTimer = 0;
+  }
+
+  // Runs when the food reaches the mouth
+  function swallowed(f) {
+    f.state = "gone";
+    const c = critter;
+    c.eaten++;
+    c.chew = 0.9;
+    c.sv -= 6;
+    nom();
+    const m = mouthPos();
+    crumbs(m.x, m.y);
+    const loved = opt.ask.checked && c.want === f.item;
+    if (loved) {
+      chime();
+      hearts(m.x, m.y - c.R());
+      say(`Yummy ${f.item[1]}!`, true);
+      c.want = null;
+    } else {
+      say(`Mmm, ${f.item[1]}!`);
+    }
+    setTimeout(() => {
+      newFood(f.slot, true);
+      if (critter === c && c.state === "hungry" && !c.want) chooseWant();
+    }, 650);
+    if (c.eaten >= FULL) {
+      c.state = "full"; c.t = 0;
+      c.want = null;
+    }
+  }
+
+  function flyFood(f, x, y, dur, then) {
+    f.state = "fly";
+    f.fly = { fx: f.x, fy: f.y, tx: x, ty: y, t: 0, dur, then };
+  }
+
+  function crumbs(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const ang = rand(-Math.PI, 0), sp = rand(80, 260) * UNIT;
+      particles.push({ kind: "crumb", x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, size: rand(3, 7) * UNIT, color: pick(["#e8b26a", "#c98a4b", "#fff3c4", "#ff8787"]), age: 0, life: rand(0.5, 0.9), rot: 0, rv: 0 });
+    }
+  }
+  function hearts(x, y) {
+    for (let i = 0; i < 9; i++) {
+      particles.push({ kind: "heart", x: x + rand(-40, 40) * UNIT, y, vx: rand(-60, 60) * UNIT, vy: -rand(120, 260) * UNIT, size: rand(12, 22) * UNIT, color: pick(["#ff6b8b", "#f783ac", "#ff8787"]), age: 0, life: rand(1, 1.6), rot: rand(-0.3, 0.3), rv: rand(-1, 1) });
+    }
+  }
+  function confetti(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, TAU), sp = rand(150, 420) * UNIT;
+      particles.push({ kind: "confetti", x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 140 * UNIT, size: rand(6, 11) * UNIT, color: pick(["#ff6b8b", "#ffa94d", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa"]), age: 0, life: rand(0.8, 1.4), rot: rand(0, TAU), rv: rand(-8, 8) });
+    }
+    if (particles.length > 350) particles.splice(0, particles.length - 350);
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null;
+  const drags = new Map(); // pointerId -> {f, dx, dy, x0, y0, t0, moved}
+
+  function foodAt(x, y) {
+    for (const f of foods) {
+      if (f.state === "idle" && Math.hypot(f.x - x, f.y - y) < lay.F * 0.75) return f;
+    }
+    return null;
+  }
+  const onCritter = (x, y) => critter && Math.hypot(x - (lay.cx + critter.ox), y - lay.cy) < critter.R() * 1.1;
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    look = { x: e.clientX, y: e.clientY, t: 1.5 };
+    const f = foodAt(e.clientX, e.clientY);
+    if (f) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      f.state = "drag";
+      drags.set(e.pointerId, { f, dx: f.x - e.clientX, dy: f.y - e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: false });
+      f.sv += 4;
+      pickUp();
+      return;
+    }
+    if (onCritter(e.clientX, e.clientY)) {
+      // Tickle
+      critter.happy = 0.8; critter.sv += 8; critter.rv += rand(-3, 3);
+      giggle();
+      say("Hee hee!");
+      return;
+    }
+    confetti(e.clientX, e.clientY, 5);
+  });
+
+  canvas.addEventListener("pointermove", e => {
+    if (!playing) return;
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+    if (e.pointerType === "mouse") look = { x: e.clientX, y: e.clientY, t: 1.5 };
+    const d = drags.get(e.pointerId);
+    if (!d || d.f.state !== "drag") return;
+    const f = d.f;
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 12) d.moved = true;
+    f.x = clamp(e.clientX + d.dx, 0, W); f.y = clamp(e.clientY + d.dy, 0, H);
+    f.rv += (e.movementX || 0) * 0.002;
+    // Small hands don't always let go: chomp it as soon as it reaches the mouth
+    if (critter.state === "hungry") {
+      const m = mouthPos();
+      if (Math.hypot(m.x - f.x, m.y - f.y) < critter.R() * 0.5) { drags.delete(e.pointerId); eat(f); }
+    }
+  });
+
+  function endPointer(e) {
+    if (exitHold && exitHold.id === e.pointerId) exitHold = null;
+    const d = drags.get(e.pointerId);
+    if (!d) return;
+    drags.delete(e.pointerId);
+    const f = d.f;
+    if (f.state !== "drag") return;
+    if (!d.moved && performance.now() - d.t0 < 400) {
+      // A tap: say what it is
+      f.state = "idle"; f.x = f.homeX; f.y = f.homeY;
+      f.sv += 7; f.rv += rand(-6, 6);
+      boing();
+      say(f.item[1] + "!");
+      return;
+    }
+    if (critter.state === "hungry" && onCritter(f.x, f.y)) return eat(f);
+    flyFood(f, f.homeX, f.homeY, 0.35);
+  }
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return;
+    heldKeys.add(e.code);
+    initAudio();
+    if (critter.state !== "hungry") return;
+    const idle = foods.filter(f => f.state === "idle");
+    if (!idle.length) return;
+    // Mostly give it what it asked for, so mashing still gets hearts sometimes
+    const want = idle.find(f => f.item === critter.want);
+    const f = want && Math.random() < 0.5 ? want : pick(idle);
+    pickUp();
+    critter.mouth = 1;
+    const m = mouthPos();
+    flyFood(f, m.x, m.y, 0.5, () => eat(f));
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    startEl.classList.add("hidden");
+    particles = []; drags.clear(); foods = [];
+    for (let i = 0; i < SLOTS; i++) newFood(i, true);
+    newCritter();
+    playing = true;
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+  for (const k in opt) opt[k].addEventListener("change", saveOpts);
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    drags.clear();
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Critter ----------
+  function updateCritter(dt) {
+    const c = critter;
+    c.t += dt;
+    c.sv += -c.squash * 120 * dt - c.sv * 8 * dt;
+    c.squash += c.sv * dt;
+    c.rv += -c.rot * 50 * dt - c.rv * 5 * dt;
+    c.rot += c.rv * dt;
+    c.blink -= dt;
+    if (c.blink < 0) c.blink = rand(2, 5);
+    c.happy = Math.max(0, c.happy - dt);
+    c.chew = Math.max(0, c.chew - dt);
+    c.bubble = Math.min(1, c.bubble + dt * 3);
+
+    if (c.state === "enter") {
+      // Waddles in from the left
+      c.ox = lerp(-W * 0.8, 0, easeOut(Math.min(1, c.t / 1.1)));
+      c.rot = Math.sin(c.t * 14) * 0.08 * (1 - Math.min(1, c.t / 1.1));
+      if (c.t >= 1.1) {
+        c.state = "hungry"; c.t = 0; c.ox = 0;
+        c.mouth = 1;
+        rumble();
+        say(`Hi! I'm a hungry ${c.kind.name}!`, true);
+        if (opt.ask.checked) setTimeout(() => critter === c && !c.want && chooseWant(), 1600);
+      }
+    } else if (c.state === "full") {
+      if (c.t > 0.9 && !c.burped) {
+        c.burped = true;
+        burp();
+        c.sv += 10;
+        setTimeout(() => { say("I'm full! Thank you!", true); fanfare(); confetti(lay.cx, lay.cy - c.R(), 30); }, 700);
+      }
+      if (c.t > 1.6) { c.rot = Math.sin(c.t * 9) * 0.18; c.happy = 0.2; } // happy dance
+      if (c.t > 4.2) { c.state = "leave"; c.t = 0; }
+    } else if (c.state === "leave") {
+      c.ox = lerp(0, W * 0.9, Math.pow(Math.min(1, c.t / 1), 2));
+      c.rot = Math.sin(c.t * 14) * 0.1;
+      if (c.t >= 1) newCritter();
+    } else if (c.state === "hungry") {
+      if (!drags.size) hungryTimer += dt;
+      if (hungryTimer > 8) {
+        hungryTimer = 0;
+        c.mouth = 1; c.sv += 5;
+        rumble();
+        say("I'm hungry!");
+        c.bubble = 0;
+      }
+    }
+
+    // How wide the mouth is: opens as food comes close
+    let target = 0;
+    if (c.state === "hungry" || c.state === "enter") {
+      const m = mouthPos();
+      for (const d of drags.values()) target = Math.max(target, clamp(1.25 - Math.hypot(m.x - d.f.x, m.y - d.f.y) / (c.R() * 2.6), 0, 1));
+      for (const f of foods) if (f.state === "fly" || f.state === "eating") target = 1;
+    }
+    if (c.chew > 0) target = Math.abs(Math.sin(c.chew * 18)) * 0.35;
+    c.mouth += (target - c.mouth) * Math.min(1, dt * 12);
+  }
+
+  function drawEye(x, y, r, lookX, lookY, c) {
+    const ink = "#2b2d42";
+    if (c.happy > 0 || c.state === "full") {
+      ctx.strokeStyle = ink; ctx.lineWidth = r * 0.3; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(x, y + r * 0.25, r * 0.6, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+      return;
+    }
+    if (c.blink < 0.12) {
+      ctx.strokeStyle = ink; ctx.lineWidth = r * 0.25; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(x - r * 0.7, y); ctx.lineTo(x + r * 0.7, y); ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(43, 45, 66, .25)"; ctx.lineWidth = r * 0.08; ctx.stroke();
+    const dx = lookX - x, dy = lookY - y, d = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, d / (r * 6)) * r * 0.42;
+    const px = x + (dx / d) * k, py = y + (dy / d) * k;
+    ctx.fillStyle = ink;
+    ctx.beginPath(); ctx.arc(px, py, r * 0.52, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(px + r * 0.18, py - r * 0.2, r * 0.17, 0, TAU); ctx.fill();
+  }
+
+  function drawCritter() {
+    const c = critter, k = c.kind, R = c.R();
+    const night = opt.night.checked;
+    const x = lay.cx + c.ox, y = lay.cy;
+    // Where the eyes look: dragged food first, then the last touch, then the food tray
+    let lx = W / 2, ly = lay.tableY;
+    const d = drags.values().next().value;
+    if (d) { lx = d.f.x; ly = d.f.y; }
+    else if (look && look.t > 0) { lx = look.x; ly = look.y; }
+    else { const fl = foods.find(f => f.state === "fly" || f.state === "eating"); if (fl) { lx = fl.x; ly = fl.y; } }
+
+    // Shadow
+    ctx.fillStyle = night ? "rgba(0, 0, 0, .25)" : "rgba(40, 80, 30, .15)";
+    ctx.beginPath(); ctx.ellipse(x, y + R * 1.02, R * 0.85 * (1 + c.squash * 0.1), R * 0.16, 0, 0, TAU); ctx.fill();
+
+    ctx.save();
+    ctx.translate(x, y + R);
+    ctx.rotate(c.rot);
+    ctx.scale(1 + c.squash * 0.06, 1 - c.squash * 0.06);
+    ctx.translate(0, -R);
+    const body = k.body;
+
+    // Things on top of the head go behind the body
+    ctx.fillStyle = body;
+    if (k.top === "round") {
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = body; ctx.beginPath(); ctx.arc(s * R * 0.62, -R * 0.72, R * 0.3, 0, TAU); ctx.fill();
+        ctx.fillStyle = k.belly; ctx.beginPath(); ctx.arc(s * R * 0.62, -R * 0.72, R * 0.16, 0, TAU); ctx.fill();
+      }
+    } else if (k.top === "pointy") {
+      for (const s of [-1, 1]) {
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.moveTo(s * R * 0.25, -R * 0.85); ctx.lineTo(s * R * 0.72, -R * 1.18); ctx.lineTo(s * R * 0.85, -R * 0.45); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = k.belly;
+        ctx.beginPath(); ctx.moveTo(s * R * 0.4, -R * 0.82); ctx.lineTo(s * R * 0.7, -R * 1.02); ctx.lineTo(s * R * 0.76, -R * 0.6); ctx.closePath(); ctx.fill();
+      }
+    } else if (k.top === "horns") {
+      ctx.fillStyle = "#ffd43b";
+      for (const s of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(s * R * 0.3, -R * 0.8); ctx.quadraticCurveTo(s * R * 0.75, -R * 1.05, s * R * 0.62, -R * 1.42); ctx.quadraticCurveTo(s * R * 0.5, -R * 1.05, s * R * 0.6, -R * 0.66); ctx.closePath(); ctx.fill();
+      }
+    } else if (k.top === "antennae") {
+      ctx.strokeStyle = body; ctx.lineWidth = R * 0.07; ctx.lineCap = "round";
+      for (const s of [-1, 1]) {
+        const wob = Math.sin(performance.now() / 300 + s) * R * 0.06;
+        ctx.beginPath(); ctx.moveTo(s * R * 0.25, -R * 0.85); ctx.quadraticCurveTo(s * R * 0.35, -R * 1.25, s * R * 0.45 + wob, -R * 1.4); ctx.stroke();
+        ctx.fillStyle = "#ffd43b"; ctx.beginPath(); ctx.arc(s * R * 0.45 + wob, -R * 1.42, R * 0.12, 0, TAU); ctx.fill();
+      }
+    } else if (k.top === "frog") {
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * R * 0.45, -R * 0.78, R * 0.32, 0, TAU); ctx.fill(); }
+    }
+
+    // Body and belly
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(0, 0, R, R * 0.98, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = k.belly;
+    ctx.beginPath(); ctx.ellipse(0, R * 0.48, R * 0.62, R * 0.45, 0, 0, TAU); ctx.fill();
+    // Little feet
+    ctx.fillStyle = body;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * R * 0.45, R * 0.93, R * 0.24, R * 0.13, 0, 0, TAU); ctx.fill(); }
+    // Shine
+    ctx.fillStyle = "rgba(255, 255, 255, .22)";
+    ctx.beginPath(); ctx.ellipse(-R * 0.45, -R * 0.5, R * 0.25, R * 0.14, -0.6, 0, TAU); ctx.fill();
+
+    // Eyes (in critter space, so turn the look target into it too)
+    const lxl = lx - x, lyl = ly - y;
+    const eyes = k.top === "frog" ? [[-0.45, -0.8, 0.22], [0.45, -0.8, 0.22]]
+      : k.eyes === 1 ? [[0, -0.38, 0.3]]
+      : k.eyes === 3 ? [[-0.42, -0.3, 0.16], [0, -0.5, 0.18], [0.42, -0.3, 0.16]]
+      : [[-0.36, -0.32, 0.2], [0.36, -0.32, 0.2]];
+    for (const [ex, ey, er] of eyes) drawEye(ex * R, ey * R, er * R, lxl, lyl, c);
+
+    // Cheeks (puff out while chewing)
+    const puff = c.chew > 0 ? 1.5 : 1;
+    ctx.fillStyle = "rgba(255, 100, 130, .35)";
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * R * 0.6, R * 0.1, R * 0.13 * puff, R * 0.09 * puff, 0, 0, TAU); ctx.fill(); }
+    if (k.snout) {
+      ctx.fillStyle = "#f57fa8";
+      ctx.beginPath(); ctx.ellipse(0, -R * 0.02, R * 0.2, R * 0.14, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#c2527a";
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(s * R * 0.07, -R * 0.02, R * 0.035, R * 0.05, 0, 0, TAU); ctx.fill(); }
+    }
+
+    // Mouth
+    const m = c.mouth, my = R * 0.3, mw = R * 0.3 * (1 + m * 0.35);
+    if (m < 0.06) {
+      ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = R * 0.06; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(0, my - R * 0.12, R * 0.22, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+    } else {
+      const mh = R * 0.5 * m;
+      ctx.beginPath();
+      ctx.moveTo(-mw, my - mh * 0.15);
+      ctx.quadraticCurveTo(0, my - mh * 0.45, mw, my - mh * 0.15);
+      ctx.quadraticCurveTo(mw * 0.9, my + mh * 1.3, 0, my + mh * 1.1);
+      ctx.quadraticCurveTo(-mw * 0.9, my + mh * 1.3, -mw, my - mh * 0.15);
+      ctx.closePath();
+      ctx.fillStyle = "#5c1a2b"; ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = "#ff8fa3";
+      ctx.beginPath(); ctx.ellipse(0, my + mh * 1.05, mw * 0.6, mh * 0.45, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff";
+      for (const s of [-1, 1]) ctx.fillRect(s * mw * 0.32 - mw * 0.14, my - mh * 0.4, mw * 0.28, mh * 0.3 + R * 0.04);
+      ctx.restore();
+      ctx.strokeStyle = "#2b2d42"; ctx.lineWidth = R * 0.04; ctx.stroke();
+    }
+    ctx.restore();
+
+    // Thought bubble with what it wants
+    if (opt.ask.checked && c.want && c.state === "hungry") {
+      const s = easeOut(c.bubble);
+      const bx = x + R * 0.95, by = y - R * 0.95, br = R * 0.42 * s;
+      const pulse = 1 + Math.sin(performance.now() / 260) * 0.04;
+      ctx.fillStyle = night ? "rgba(255, 255, 255, .9)" : "#fff";
+      ctx.beginPath(); ctx.arc(x + R * 0.55, y - R * 0.5, R * 0.07 * s, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + R * 0.7, y - R * 0.66, R * 0.11 * s, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, by, br * pulse, 0, TAU); ctx.fill();
+      const es = br * 1.25 * pulse;
+      if (es > 1) ctx.drawImage(emojiImage(c.want[0]), bx - es / 2, by - es / 2, es, es);
+    }
+  }
+
+  // ---------- Drawing ----------
+  function drawScene() {
+    const night = opt.night.checked;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    if (night) { g.addColorStop(0, "#1d2340"); g.addColorStop(1, "#2c3355"); }
+    else { g.addColorStop(0, "#c9f0ff"); g.addColorStop(1, "#effbe8"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    // Grass the critter stands on
+    const gy = lay.cy + lay.R * 0.9;
+    ctx.fillStyle = night ? "#2f4a3a" : "#a9e5a0";
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.quadraticCurveTo(W / 2, gy - 40 * UNIT, W, gy);
+    ctx.lineTo(W, H); ctx.lineTo(0, H);
+    ctx.fill();
+    // Table with the food
+    const ty = lay.tableY;
+    ctx.fillStyle = night ? "#6b4b33" : "#d79a5e";
+    ctx.fillRect(0, ty, W, H - ty);
+    ctx.fillStyle = night ? "#80593c" : "#e8b179";
+    ctx.fillRect(0, ty, W, 10 * UNIT);
+    // Checked tablecloth stripe
+    ctx.fillStyle = night ? "rgba(255, 120, 120, .15)" : "rgba(255, 90, 90, .25)";
+    const sq = 22 * UNIT;
+    for (let x = 0; x < W; x += sq * 2) ctx.fillRect(x, ty + 10 * UNIT, sq, sq * 0.6);
+  }
+
+  function updateFood(f, dt) {
+    f.sv += (1 - f.s) * 120 * dt - f.sv * 9 * dt;
+    f.s += f.sv * dt;
+    f.rv += -f.rot * 60 * dt - f.rv * 6 * dt;
+    f.rot += f.rv * dt;
+    f.bob += dt * 2;
+    if (f.state === "fly") {
+      const fl = f.fly;
+      fl.t += dt;
+      const k = Math.min(1, fl.t / fl.dur), e = easeOut(k);
+      f.x = lerp(fl.fx, fl.tx, e);
+      f.y = lerp(fl.fy, fl.ty, e) - Math.sin(Math.PI * k) * 60 * UNIT;
+      if (k >= 1) { f.state = "idle"; if (fl.then) fl.then(); }
+    } else if (f.state === "eating") {
+      f.t += dt;
+      const m = mouthPos();
+      const k = Math.min(1, f.t / 0.2);
+      f.x = lerp(f.from.x, m.x, easeOut(k));
+      f.y = lerp(f.from.y, m.y + critter.R() * 0.1, easeOut(k));
+      f.s = 1 - k * 0.7;
+      if (k >= 1) swallowed(f);
+    }
+  }
+
+  function drawFood(f) {
+    if (f.state === "gone") return;
+    const F = lay.F * (f.state === "drag" ? 1.15 : 1) * Math.max(0, f.s);
+    const bob = f.state === "idle" ? Math.sin(f.bob) * 3 * UNIT : 0;
+    if (f.state === "idle") {
+      ctx.fillStyle = "rgba(60, 30, 10, .18)";
+      ctx.beginPath(); ctx.ellipse(f.x, f.y + lay.F * 0.42, lay.F * 0.36, lay.F * 0.09, 0, 0, TAU); ctx.fill();
+    }
+    ctx.save();
+    ctx.translate(f.x, f.y + bob);
+    ctx.rotate(f.rot);
+    ctx.drawImage(emojiImage(f.item[0]), -F / 2, -F / 2, F, F);
+    ctx.restore();
+  }
+
+  function drawParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      if (p.kind === "heart") { p.vy *= 1 - 1.5 * dt; p.x += Math.sin(p.age * 6) * 20 * UNIT * dt; }
+      else { p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      ctx.beginPath();
+      if (p.kind === "heart") {
+        const s = p.size;
+        ctx.moveTo(0, s * 0.8);
+        ctx.bezierCurveTo(-s * 1.3, 0, -s * 0.8, -s, 0, -s * 0.4);
+        ctx.bezierCurveTo(s * 0.8, -s, s * 1.3, 0, 0, s * 0.8);
+      } else if (p.kind === "confetti") ctx.rect(-p.size, -p.size * 0.35, p.size * 2, p.size * 0.7);
+      else ctx.arc(0, 0, p.size, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame); // first, so one bad frame can't stop the game
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    step(dt);
+  }
+  function step(dt) {
+    drawScene();
+    if (!playing || !critter) return;
+    if (look) look.t -= dt;
+    for (const f of foods) updateFood(f, dt);
+    updateCritter(dt);
+    drawCritter();
+    // Dragged and flying food draw on top of everything
+    for (const f of foods) if (f.state === "idle") drawFood(f);
+    for (const f of foods) if (f.state !== "idle") drawFood(f);
+    drawParticles(dt);
+
+    // Grown-up exit: hold top-right corner
+    const cx = W - 34, cy = 34;
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+    ctx.beginPath(); ctx.arc(cx, cy, 14, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (exitHold) {
+      exitHold.t += dt;
+      ctx.strokeStyle = "#51cf66"; ctx.lineWidth = 6; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * TAU);
+      ctx.stroke();
+      if (exitHold.t >= EXIT_HOLD) stop();
+    }
+  }
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

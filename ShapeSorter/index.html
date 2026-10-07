@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Shape Sorter</title>
+  <meta name="description" content="A toddler toy: drag smiley shapes into the matching holes of a wooden box.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #2b2d42;
+      --muted: #6b6f86;
+      --card: rgba(255, 255, 255, .9);
+      --accent: #4dabf7;
+      --accent-2: #69db7c;
+      --bg: #fff6e8;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Baloo 2", system-ui, sans-serif;
+      /* Stop long-press menus, text selection, pinch zoom and double-tap zoom */
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+    #start {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      z-index: 2;
+      overflow-y: auto;
+    }
+    #start.hidden { display: none; }
+    .panel {
+      width: min(440px, 100%);
+      background: var(--card);
+      border-radius: 28px;
+      padding: 28px 24px 22px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(60, 40, 80, .18);
+      backdrop-filter: blur(8px);
+    }
+    h1 { margin: 0; font-size: clamp(36px, 9vw, 52px); line-height: 1; font-weight: 800; }
+    .sub { margin: 8px 0 20px; color: var(--muted); font-size: 18px; }
+    #play {
+      width: 150px;
+      height: 150px;
+      border: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--accent));
+      color: #fff;
+      font: 800 26px "Baloo 2", sans-serif;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(77, 171, 247, .45);
+      animation: breathe 2.4s ease-in-out infinite;
+      touch-action: manipulation;
+    }
+    #play span { display: block; font-size: 54px; line-height: 1; margin-bottom: 2px; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 22px 0 14px; }
+    .opts label {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 999px;
+      background: rgba(43, 45, 66, .06);
+      font-size: 16px; cursor: pointer;
+    }
+    .opts input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .tips { margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 14px; line-height: 1.45; text-align: left; }
+    .tips li { margin-top: 6px; padding-left: 20px; position: relative; }
+    .tips li::before { content: "•"; position: absolute; left: 6px; }
+    .home { display: inline-block; margin-top: 14px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="start">
+    <div class="panel">
+      <h1>Shape Sorter</h1>
+      <p class="sub">Put each shape in its hole!</p>
+      <button id="play" aria-label="Start playing"><span>▶</span>Play</button>
+      <div class="opts">
+        <label><input type="checkbox" id="optSound" checked> Sounds</label>
+        <label><input type="checkbox" id="optVoice" checked> Voice</label>
+        <label><input type="checkbox" id="optHelp"> Extra help</label>
+        <label><input type="checkbox" id="optNight"> Night colors</label>
+      </div>
+      <ul class="tips">
+        <li>Drag a shape into the matching hole. Tap a shape to hear its name.</li>
+        <li><b>Extra help</b>: drop a shape anywhere on the box and it finds its own hole.</li>
+        <li>Each finished box adds a new shape, up to five.</li>
+        <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
+        <li>Computer: it goes full screen, and any key pops the next shape into its hole.</li>
+      </ul>
+      <a class="home" href="../">← Back to Jason's site</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Content ----------
+  // Shapes join in this order: 3 in the first box, then one more each round
+  const TYPES = ["circle", "square", "triangle", "star", "heart"];
+  // [name, day color, night color]
+  const COLORS = [
+    ["red", "#ff6b6b", "#c45a5f"], ["orange", "#ffa94d", "#c98a4e"], ["yellow", "#fcc419", "#c9a43a"],
+    ["green", "#51cf66", "#4f9f62"], ["blue", "#4dabf7", "#4f88bf"], ["purple", "#9775fa", "#7d6cc4"],
+    ["pink", "#f783ac", "#c06d8c"],
+  ];
+  const THEMES = {
+    day: {
+      wall: ["#fff6e8", "#ffe9d2"], floor: "#f1d3ac", floorLine: "#e2bd8d",
+      woodTop: ["#f0bd7f", "#e3a462"], woodFront: "#c7834a", grain: "rgba(140, 80, 30, .12)",
+      hole: "#4a2c14", holeDeep: "#2a1709", rim: "#b8743d", glow: "255, 255, 255",
+    },
+    night: {
+      wall: ["#24253b", "#2e2f4a"], floor: "#3a3450", floorLine: "#464060",
+      woodTop: ["#a47a52", "#946b45"], woodFront: "#7a5638", grain: "rgba(40, 20, 5, .18)",
+      hole: "#2e1c0e", holeDeep: "#180e06", rim: "#7f5534", glow: "255, 240, 200",
+    },
+  };
+
+  // ---------- Settings ----------
+  const opt = {
+    sound: document.getElementById("optSound"),
+    voice: document.getElementById("optVoice"),
+    help: document.getElementById("optHelp"),
+    night: document.getElementById("optNight"),
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("shapesorter") || "null");
+    if (saved) for (const k in opt) { if (k in saved) opt[k].checked = saved[k]; }
+    else opt.night.checked = matchMedia("(prefers-color-scheme: dark)").matches;
+  } catch (e) {}
+  const saveOpts = () => {
+    const o = {};
+    for (const k in opt) o[k] = opt[k].checked;
+    try { localStorage.setItem("shapesorter", JSON.stringify(o)); } catch (e) {}
+  };
+  const theme = () => (opt.night.checked ? THEMES.night : THEMES.day);
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+  const TAU = Math.PI * 2;
+  let W = 0, H = 0, DPR = 1, UNIT = 1;
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    UNIT = Math.min(W, H) / 600;
+    layout();
+  }
+  window.addEventListener("resize", resize);
+
+  // ---------- Sound ----------
+  let audio = null, master = null;
+  function initAudio() {
+    if (audio) { if (audio.state === "suspended") audio.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = new AC();
+    const comp = audio.createDynamicsCompressor();
+    master = audio.createGain();
+    master.gain.value = 0.45;
+    master.connect(comp); comp.connect(audio.destination);
+  }
+  // C major pentatonic
+  const SCALE = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.51];
+  function tone(freq, { type = "triangle", vol = 0.25, dur = 0.7, slideTo = null, delay = 0 } = {}) {
+    if (!audio || !opt.sound.checked) return;
+    const t = audio.currentTime + delay;
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur * 0.8);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  const pickUp = () => tone(420, { type: "sine", vol: 0.2, dur: 0.15, slideTo: 720 });
+  const boing = () => tone(260, { type: "sine", vol: 0.25, dur: 0.35, slideTo: 700 });
+  const nope = () => { tone(330, { type: "sine", vol: 0.2, dur: 0.18, slideTo: 260 }); tone(330, { type: "sine", vol: 0.2, dur: 0.22, slideTo: 220, delay: 0.16 }); };
+  const whee = d => tone(300, { type: "sine", vol: 0.12, dur: 0.45, slideTo: 900, delay: d });
+  function thunk(i) {
+    tone(170, { type: "sine", vol: 0.55, dur: 0.28, slideTo: 60 });
+    // Each shape in the box plays the next note up, so finishing a box sounds like a little tune
+    tone(SCALE[i % SCALE.length], { vol: 0.22, dur: 0.8, delay: 0.08 });
+    tone(SCALE[i % SCALE.length] * 1.5, { type: "sine", vol: 0.08, dur: 0.9, delay: 0.08 });
+  }
+  function fanfare() {
+    [0, 2, 4, 5, 7].forEach((n, i) => tone(SCALE[n], { vol: 0.22, dur: 0.6, delay: i * 0.11 }));
+    tone(SCALE[5], { type: "sine", vol: 0.15, dur: 1.4, delay: 0.6 });
+    tone(SCALE[2], { type: "sine", vol: 0.12, dur: 1.4, delay: 0.6 });
+  }
+
+  // ---------- Voice ----------
+  let busyUntil = 0, lastSpeech = 0;
+  function say(text, important) {
+    if (!opt.voice.checked || !("speechSynthesis" in window)) return;
+    const now = performance.now();
+    // Don't let mashing pile up a queue of words, but big moments can cut in
+    if (speechSynthesis.speaking) {
+      if (!important && now < busyUntil) return;
+      if (!important && now - lastSpeech < 4000) return;
+      speechSynthesis.cancel(); // also unsticks browsers that get stuck "speaking"
+    }
+    busyUntil = now + 700;
+    lastSpeech = now;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.85; u.pitch = 1.25; u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+
+  // ---------- Helpers ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const easeOut = k => 1 - Math.pow(1 - k, 3);
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  function shade(hex, k) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = c => Math.round(clamp(c * k, 0, 255));
+    return `rgb(${f(n >> 16)}, ${f((n >> 8) & 255)}, ${f(n & 255)})`;
+  }
+  // Polygon with rounded corners
+  function roundPoly(g, pts, rad) {
+    const n = pts.length, a = pts[n - 1], b = pts[0];
+    g.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+    for (let i = 0; i < n; i++) {
+      const p = pts[i], q = pts[(i + 1) % n];
+      g.arcTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2, rad);
+    }
+    g.closePath();
+  }
+  const rectPts = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+
+  // Every shape is centered on 0,0 and about 2r across
+  function shapePath(g, type, r) {
+    g.beginPath();
+    if (type === "circle") g.arc(0, 0, r, 0, TAU);
+    else if (type === "square") roundPoly(g, rectPts(-r * 0.88, -r * 0.88, r * 1.76, r * 1.76), r * 0.22);
+    else if (type === "triangle") {
+      const R = r * 1.2, pts = [];
+      for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + (i * TAU) / 3; pts.push([Math.cos(a) * R, Math.sin(a) * R + r * 0.2]); }
+      roundPoly(g, pts, r * 0.18);
+    } else if (type === "star") {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const R = i % 2 ? r * 0.52 : r * 1.15, a = -Math.PI / 2 + (i * Math.PI) / 5;
+        pts.push([Math.cos(a) * R, Math.sin(a) * R + r * 0.08]);
+      }
+      roundPoly(g, pts, r * 0.1);
+    } else {
+      const s = r * 1.05;
+      g.moveTo(0, s * 0.88);
+      g.bezierCurveTo(-s * 1.3, s * 0.05, -s * 0.95, -s * 1.08, 0, -s * 0.46);
+      g.bezierCurveTo(s * 0.95, -s * 1.08, s * 1.3, s * 0.05, 0, s * 0.88);
+      g.closePath();
+    }
+  }
+  // Where the face sits on each shape, and how big
+  const FACE = { circle: [0, 1], square: [0, 1], triangle: [0.3, 0.72], star: [0.12, 0.62], heart: [-0.08, 0.85] };
+
+  // ---------- World ----------
+  let round = 0;
+  let shapes = [], holes = [], particles = [];
+  const box = { x: 0, y: 0, w: 0, h: 0, front: 0, shake: 0 };
+  let celebrating = false, lastProgress = 0, hintTimer = 0;
+
+  function makeRound(fromBox) {
+    const n = Math.min(TYPES.length, 3 + round);
+    const types = TYPES.slice(0, n);
+    const cols = shuffle(COLORS).slice(0, n);
+    shapes = types.map((type, i) => ({
+      type, color: cols[i],
+      x: 0, y: 0, homeX: 0, homeY: 0, r: 40, slot: 0,
+      state: "idle", s: 1, sv: 0, rot: rand(-0.15, 0.15), rv: 0,
+      bob: rand(0, TAU), blink: rand(1, 5), t: 0,
+    }));
+    shuffle(shapes.map((_, i) => i)).forEach((slot, i) => (shapes[i].slot = slot));
+    holes = shuffle(types).map(type => ({ type, x: 0, y: 0, r: 40, filled: null, glow: 0, pop: 0 }));
+    layout();
+    shapes.forEach((sh, i) => {
+      if (fromBox) {
+        // Shapes tumble out of the box to start the next round
+        sh.x = box.x + box.w / 2; sh.y = box.y + box.h / 2; sh.s = 0.4;
+        flyTo(sh, sh.homeX, sh.homeY, { dur: 0.75, arc: rand(120, 200) * UNIT, delay: i * 0.13, grow: true });
+        whee(i * 0.13);
+      } else { sh.x = sh.homeX; sh.y = sh.homeY; sh.s = 0; sh.sv = 6 + i; }
+    });
+    celebrating = false;
+    lastProgress = performance.now();
+  }
+
+  // Box at the bottom, shapes scattered above it. Recomputed on resize.
+  function layout() {
+    if (!holes.length) return;
+    const n = holes.length, m = 16;
+    const portrait = H > W * 1.1;
+    const cols = n <= 3 || !portrait ? n : Math.ceil(n / 2);
+    const rows = Math.ceil(n / cols);
+    const availH = H * (portrait ? 0.46 : 0.5) - m;
+    const front = Math.min(availH * 0.16, 40);
+    // Floor of 20 keeps sizes positive while the window is tiny or still opening
+    const cell = Math.max(20, Math.min((W - 2 * m) / (cols + 0.35), (availH - front) / (rows + 0.2), 230));
+    box.w = cell * (cols + 0.35);
+    box.h = cell * (rows + 0.2);
+    box.front = front;
+    box.x = (W - box.w) / 2;
+    box.y = H - m - front - box.h - Math.max(0, (availH - front - box.h) * 0.35);
+
+    // Shapes get slots in a jittered grid above the box
+    const areaTop = m + 50, areaH = Math.max(40, box.y - areaTop - m);
+    let r = cell * 0.34;
+    let sc = clamp(Math.floor((W - 2 * m) / (r * 2.6)), 1, n);
+    let sr = Math.ceil(n / sc);
+    r = Math.max(14, Math.min(r, areaH / (sr * 2.5)));
+    sc = clamp(Math.floor((W - 2 * m) / (r * 2.6)), 1, n);
+    sr = Math.ceil(n / sc);
+
+    holes.forEach((h, i) => {
+      const c = i % cols, rw = Math.floor(i / cols);
+      const inRow = Math.min(cols, n - rw * cols); // center a short last row
+      h.x = box.x + box.w / 2 + (c - (inRow - 1) / 2) * cell;
+      h.y = box.y + cell * 0.6 + rw * cell;
+      h.r = r;
+    });
+    const cw = (W - 2 * m) / sc, ch = areaH / sr;
+    shapes.forEach(sh => {
+      sh.r = r;
+      const c = sh.slot % sc, rw = Math.floor(sh.slot / sc);
+      const inRow = Math.min(sc, n - rw * sc);
+      const jx = Math.max(0, cw / 2 - r * 1.3), jy = Math.max(0, ch / 2 - r * 1.3);
+      sh.homeX = W / 2 + (c - (inRow - 1) / 2) * cw + rand(-jx, jx) * 0.6;
+      sh.homeY = areaTop + ch * (rw + 0.5) + rand(-jy, jy) * 0.6;
+      if (sh.state === "idle") { sh.x = sh.homeX; sh.y = sh.homeY; }
+    });
+  }
+
+  function flyTo(sh, x, y, { dur = 0.45, arc = 0, delay = 0, grow = false, then = null } = {}) {
+    sh.state = "fly";
+    sh.fly = { fx: sh.x, fy: sh.y, tx: x, ty: y, t: -delay, dur, arc, grow, then };
+  }
+
+  function insert(sh, hole) {
+    sh.state = "sink"; sh.t = 0;
+    sh.from = { x: sh.x, y: sh.y, rot: sh.rot };
+    hole.filled = sh; sh.hole = hole;
+    const count = holes.filter(h => h.filled).length;
+    thunk(count - 1);
+    say(sh.type + "!");
+    lastProgress = performance.now();
+    hintTimer = 0;
+  }
+
+  const holeFor = sh => holes.find(h => h.type === sh.type && !h.filled);
+  const inBox = (x, y) => x > box.x && x < box.x + box.w && y > box.y - 10 && y < box.y + box.h + box.front;
+
+  // Send a shape into its own hole (keyboard, or extra help)
+  function autoSort(sh, dur = 0.55) {
+    const hole = holeFor(sh);
+    if (!hole) return;
+    hole.filled = sh; // reserve it so nothing else heads there
+    flyTo(sh, hole.x, hole.y, { dur, arc: 90 * UNIT, then: () => { hole.filled = null; insert(sh, hole); } });
+  }
+
+  function reject(sh) {
+    nope();
+    sh.rv += 14; sh.sv -= 3;
+    flyTo(sh, sh.homeX, sh.homeY, { dur: 0.5, arc: 60 * UNIT });
+  }
+
+  function release(sh) {
+    sh.state = "idle";
+    let best = null, bestD = Infinity;
+    for (const h of holes) {
+      if (h.filled) continue;
+      const d = Math.hypot(h.x - sh.x, h.y - sh.y);
+      if (d < bestD) { bestD = d; best = h; }
+    }
+    if (best && bestD < sh.r * 1.6) {
+      if (best.type === sh.type) return insert(sh, best);
+      return opt.help.checked ? autoSort(sh) : reject(sh);
+    }
+    if (inBox(sh.x, sh.y)) {
+      // Lying on top of the box would cover the holes
+      if (opt.help.checked) return autoSort(sh);
+      return flyTo(sh, sh.homeX, sh.homeY, { dur: 0.45, arc: 50 * UNIT });
+    }
+    // Anywhere else, it stays where it was put
+    sh.homeX = sh.x; sh.homeY = sh.y;
+    sh.sv -= 4;
+  }
+
+  function celebrate() {
+    celebrating = true;
+    setTimeout(() => {
+      fanfare();
+      say("You did it!", true);
+      box.shake = 0.8;
+      for (let i = 0; i < 5; i++) setTimeout(() => burst(rand(0.15, 0.85) * W, rand(0.15, 0.55) * H, 22), i * 180);
+      burst(box.x + box.w / 2, box.y, 30);
+    }, 450);
+    setTimeout(() => {
+      if (!playing) return;
+      round++;
+      makeRound(true);
+    }, 3200);
+  }
+
+  function burst(x, y, n, color) {
+    for (let i = 0; i < n; i++) {
+      const ang = rand(0, TAU), sp = rand(150, 420) * UNIT;
+      particles.push({
+        x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 140 * UNIT,
+        size: rand(7, 14) * UNIT, color: color || pick(COLORS)[opt.night.checked ? 2 : 1], type: pick(TYPES),
+        rot: rand(0, TAU), rv: rand(-6, 6), age: 0, life: rand(0.8, 1.4),
+      });
+    }
+    if (particles.length > 300) particles.splice(0, particles.length - 300);
+  }
+
+  // ---------- Input ----------
+  let playing = false;
+  const EXIT_ZONE = 90, EXIT_HOLD = 2;
+  let exitHold = null; // {id, t}
+  const drags = new Map(); // pointerId -> {sh, dx, dy, x0, y0, t0, moved}
+
+  function shapeAt(x, y) {
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      const sh = shapes[i];
+      if (sh.state !== "idle") continue;
+      if (Math.hypot(sh.x - x, sh.y - y) < sh.r * 1.35) return sh;
+    }
+    return null;
+  }
+
+  canvas.addEventListener("pointerdown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    initAudio();
+    if (e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE) { exitHold = { id: e.pointerId, t: 0 }; return; }
+    const sh = shapeAt(e.clientX, e.clientY);
+    if (!sh) {
+      // Tapping empty space still does something small
+      burst(e.clientX, e.clientY, 6);
+      tone(pick(SCALE) * 2, { type: "sine", vol: 0.06, dur: 0.4 });
+      return;
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+    sh.state = "drag";
+    // Dragged shape draws on top
+    shapes.splice(shapes.indexOf(sh), 1); shapes.push(sh);
+    drags.set(e.pointerId, { sh, dx: sh.x - e.clientX, dy: sh.y - e.clientY, x0: e.clientX, y0: e.clientY, t0: performance.now(), moved: false });
+    sh.sv += 4;
+    pickUp();
+  });
+
+  canvas.addEventListener("pointermove", e => {
+    if (!playing) return;
+    if (exitHold && exitHold.id === e.pointerId && !(e.clientX > W - EXIT_ZONE && e.clientY < EXIT_ZONE)) exitHold = null;
+    const d = drags.get(e.pointerId);
+    if (!d || d.sh.state !== "drag") return;
+    const sh = d.sh;
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 12) d.moved = true;
+    const nx = clamp(e.clientX + d.dx, sh.r, W - sh.r), ny = clamp(e.clientY + d.dy, sh.r, H - sh.r);
+    sh.rv += (nx - sh.x) * 0.004; // a little swing while moving
+    sh.x = nx; sh.y = ny;
+    // Small hands don't always let go: drop in as soon as it's right over its hole
+    const hole = holeFor(sh);
+    if (hole && Math.hypot(hole.x - sh.x, hole.y - sh.y) < sh.r * 0.6) {
+      drags.delete(e.pointerId);
+      insert(sh, hole);
+    }
+  });
+
+  function endPointer(e) {
+    if (exitHold && exitHold.id === e.pointerId) exitHold = null;
+    const d = drags.get(e.pointerId);
+    if (!d) return;
+    drags.delete(e.pointerId);
+    const sh = d.sh;
+    if (sh.state !== "drag") return;
+    if (!d.moved && performance.now() - d.t0 < 400) {
+      // A tap: say the shape's name
+      sh.state = "idle";
+      sh.x = sh.homeX; sh.y = sh.homeY;
+      sh.sv += 7; sh.rv += rand(-8, 8);
+      boing();
+      say(`${sh.color[0]} ${sh.type}!`);
+      return;
+    }
+    release(sh);
+  }
+  canvas.addEventListener("pointerup", endPointer);
+  canvas.addEventListener("pointercancel", endPointer);
+
+  const heldKeys = new Set();
+  window.addEventListener("keydown", e => {
+    if (!playing) return;
+    e.preventDefault();
+    if (e.repeat || heldKeys.has(e.code)) return;
+    heldKeys.add(e.code);
+    initAudio();
+    const idle = shapes.filter(sh => sh.state === "idle");
+    if (idle.length) { const sh = pick(idle); sh.sv += 4; pickUp(); autoSort(sh, 0.7); }
+    else burst(rand(0.2, 0.8) * W, rand(0.2, 0.5) * H, 10);
+  });
+  window.addEventListener("keyup", e => heldKeys.delete(e.code));
+  window.addEventListener("blur", () => heldKeys.clear());
+  window.addEventListener("contextmenu", e => e.preventDefault());
+  document.addEventListener("gesturestart", e => e.preventDefault()); // iOS pinch
+  window.addEventListener("beforeunload", e => { if (playing) { e.preventDefault(); e.returnValue = ""; } });
+
+  // ---------- Start / stop ----------
+  const startEl = document.getElementById("start");
+  let wakeLock = null;
+
+  document.getElementById("play").addEventListener("click", async () => {
+    saveOpts();
+    initAudio();
+    if ("speechSynthesis" in window) {
+      // iOS only allows speech after a first utterance inside a tap
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+    }
+    say("Let's sort the shapes!", true);
+    startEl.classList.add("hidden");
+    particles = []; drags.clear();
+    round = 0;
+    playing = true;
+    makeRound(false); // going full screen fires a resize, which redoes the layout
+    const el = document.documentElement;
+    try { await (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch (e) {}
+    try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+  });
+  for (const k in opt) opt[k].addEventListener("change", saveOpts);
+
+  function stop() {
+    playing = false;
+    exitHold = null;
+    drags.clear();
+    startEl.classList.remove("hidden");
+    try { if (document.fullscreenElement) document.exitFullscreen(); else if (document.webkitFullscreenElement) document.webkitExitFullscreen(); } catch (e) {}
+    try { wakeLock && wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
+  }
+  document.addEventListener("visibilitychange", async () => {
+    if (playing && document.visibilityState === "visible" && !wakeLock) {
+      try { wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+    } else if (document.visibilityState === "hidden") wakeLock = null;
+  });
+
+  // ---------- Drawing ----------
+  function drawBackground() {
+    const th = theme();
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, th.wall[0]); g.addColorStop(1, th.wall[1]);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    if (holes.length) {
+      const fy = box.y + box.h * 0.55;
+      ctx.fillStyle = th.floor;
+      ctx.fillRect(0, fy, W, H - fy);
+      ctx.fillStyle = th.floorLine;
+      ctx.fillRect(0, fy, W, 4);
+    }
+  }
+
+  function drawFace(sh, r, mood) {
+    const [fy, fs] = FACE[sh.type];
+    ctx.save();
+    ctx.translate(0, fy * r);
+    ctx.scale(fs, fs);
+    const ink = "#2b2d42";
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = ink;
+      if (sh.blink < 0.12) { ctx.fillRect(sx * r * 0.3 - r * 0.1, -r * 0.13, r * 0.2, r * 0.05); continue; }
+      ctx.beginPath(); ctx.arc(sx * r * 0.3, -r * 0.12, r * 0.1, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(sx * r * 0.3 + r * 0.035, -r * 0.155, r * 0.035, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = "rgba(255, 110, 140, .35)";
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * r * 0.5, r * 0.08, r * 0.1, r * 0.07, 0, 0, TAU); ctx.fill(); }
+    ctx.strokeStyle = ink; ctx.fillStyle = ink;
+    ctx.lineWidth = r * 0.07; ctx.lineCap = "round";
+    ctx.beginPath();
+    if (mood === "o") { ctx.ellipse(0, r * 0.2, r * 0.09, r * 0.12, 0, 0, TAU); ctx.fill(); }
+    else { ctx.arc(0, r * 0.04, r * 0.2, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  function drawShape(sh, x, y, scale, rot, mood) {
+    const col = sh.color[opt.night.checked ? 2 : 1], r = sh.r;
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot); ctx.scale(scale, scale);
+    shapePath(ctx, sh.type, r);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = "rgba(255, 255, 255, .3)";
+    ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.5, r * 0.5, r * 0.26, -0.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(0, 0, 0, .08)";
+    ctx.beginPath(); ctx.ellipse(r * 0.2, r * 1.1, r * 1.3, r * 0.5, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    shapePath(ctx, sh.type, r);
+    ctx.lineWidth = r * 0.09; ctx.lineJoin = "round"; ctx.strokeStyle = shade(col.slice(0, 7), 0.72);
+    ctx.stroke();
+    drawFace(sh, r, mood);
+    ctx.restore();
+  }
+
+  function drawShadow(x, y, r, lift) {
+    ctx.fillStyle = `rgba(60, 30, 10, ${0.16 - lift * 0.06})`;
+    ctx.beginPath(); ctx.ellipse(x + lift * r * 0.15, y + r * (0.95 + lift * 0.35), r * (0.85 - lift * 0.1), r * 0.22, 0, 0, TAU); ctx.fill();
+  }
+
+  function drawBox(dt) {
+    const th = theme();
+    box.shake = Math.max(0, box.shake - dt);
+    const sx = Math.sin(box.shake * 40) * box.shake * 10 * UNIT;
+    const { x, y, w, h, front } = box, rad = Math.min(w, h) * 0.08;
+    ctx.save();
+    ctx.translate(sx, 0);
+    ctx.fillStyle = "rgba(60, 30, 10, .18)";
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + front, w * 0.54, front * 0.6 + 6, 0, 0, TAU); ctx.fill();
+    // Front face, then the top face with the holes
+    ctx.fillStyle = th.woodFront;
+    ctx.beginPath(); roundPoly(ctx, rectPts(x, y + h * 0.5, w, h * 0.5 + front), rad); ctx.fill();
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, th.woodTop[0]); g.addColorStop(1, th.woodTop[1]);
+    ctx.fillStyle = g;
+    ctx.beginPath(); roundPoly(ctx, rectPts(x, y, w, h), rad); ctx.fill();
+    // Wood grain
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = th.grain; ctx.lineWidth = 2;
+    for (let i = 1; i < 7; i++) {
+      const gy = y + (h * i) / 7;
+      ctx.beginPath();
+      for (let gx = x; gx <= x + w; gx += 20) ctx.lineTo(gx, gy + Math.sin(gx * 0.02 + i * 1.7) * 4);
+      ctx.stroke();
+    }
+    ctx.restore();
+    for (const hole of holes) drawHole(hole, dt);
+    ctx.restore();
+    return sx;
+  }
+
+  function drawHole(h, dt) {
+    const th = theme(), r = h.r * 1.1;
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    if (h.glow > 0) {
+      h.glow -= dt;
+      const a = (0.5 + 0.5 * Math.sin(h.glow * 9)) * Math.min(1, h.glow);
+      shapePath(ctx, h.type, r * 1.22);
+      ctx.fillStyle = `rgba(${th.glow}, ${0.75 * a})`; ctx.fill();
+    }
+    shapePath(ctx, h.type, r * 1.06);
+    ctx.fillStyle = th.rim; ctx.fill();
+    shapePath(ctx, h.type, r);
+    ctx.fillStyle = th.hole; ctx.fill();
+    ctx.save();
+    ctx.clip();
+    ctx.translate(0, r * 0.28);
+    shapePath(ctx, h.type, r);
+    ctx.fillStyle = th.holeDeep; ctx.fill();
+    // A finished shape peeks up from inside its hole
+    if (h.filled && h.filled.state === "done") {
+      ctx.globalAlpha = 0.55;
+      shapePath(ctx, h.type, r * 0.8);
+      ctx.fillStyle = h.filled.color[opt.night.checked ? 2 : 1]; ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  function updateShape(sh, dt) {
+    // Springy squish and wobble
+    sh.sv += (1 - sh.s) * 120 * dt - sh.sv * 9 * dt;
+    sh.s += sh.sv * dt;
+    sh.rv += -sh.rot * 60 * dt - sh.rv * 6 * dt;
+    sh.rot += sh.rv * dt;
+    sh.bob += dt * 2;
+    sh.blink -= dt;
+    if (sh.blink < 0) sh.blink = rand(2, 6);
+
+    if (sh.state === "fly") {
+      const f = sh.fly;
+      f.t += dt;
+      if (f.t < 0) return;
+      const k = Math.min(1, f.t / f.dur), e = easeOut(k);
+      sh.x = lerp(f.fx, f.tx, e);
+      sh.y = lerp(f.fy, f.ty, e) - Math.sin(Math.PI * k) * f.arc;
+      if (f.grow) sh.s = lerp(0.4, 1, e);
+      if (k >= 1) {
+        sh.state = "idle";
+        if (f.grow) { sh.homeX = sh.x; sh.homeY = sh.y; sh.sv -= 5; }
+        if (f.then) f.then();
+      }
+    } else if (sh.state === "sink") {
+      sh.t += dt;
+      const k = Math.min(1, sh.t / 0.22), e = easeOut(k);
+      sh.x = lerp(sh.from.x, sh.hole.x, e);
+      sh.y = lerp(sh.from.y, sh.hole.y, e);
+      sh.rot = lerp(sh.from.rot, 0, e); sh.rv = 0;
+      if (sh.t >= 0.6) {
+        sh.state = "done";
+        sh.hole.pop = 1;
+        burst(sh.hole.x, sh.hole.y, 10, sh.color[opt.night.checked ? 2 : 1]);
+        if (!celebrating && holes.every(h => h.filled && h.filled.state === "done")) celebrate();
+      }
+    }
+  }
+
+  function drawShapes(dt, boxShift) {
+    // Shapes falling into holes are drawn inside the hole's outline
+    for (const sh of shapes) {
+      if (sh.state !== "sink" || sh.t < 0.22) continue;
+      const k = Math.min(1, (sh.t - 0.22) / 0.38);
+      ctx.save();
+      ctx.translate(sh.hole.x + boxShift, sh.hole.y);
+      shapePath(ctx, sh.type, sh.hole.r * 1.1);
+      ctx.clip();
+      drawShape(sh, 0, k * sh.r * 0.6, 1 - k * 0.35, 0, "o");
+      ctx.fillStyle = `rgba(20, 10, 0, ${k * 0.7})`;
+      ctx.fillRect(-sh.r * 2, -sh.r * 2, sh.r * 4, sh.r * 4);
+      ctx.restore();
+    }
+    for (const sh of shapes) {
+      if (sh.state === "done" || (sh.state === "sink" && sh.t >= 0.22)) continue;
+      if (sh.state === "fly" && sh.fly.t < 0) continue;
+      const lifted = sh.state === "drag" || sh.state === "fly" || sh.state === "sink";
+      const bob = sh.state === "idle" ? Math.sin(sh.bob) * 4 * UNIT : 0;
+      const scale = Math.max(0, sh.s) * (sh.state === "drag" ? 1.12 : 1);
+      if (sh.state !== "sink") drawShadow(sh.x, sh.y + (lifted ? sh.r * 0.3 : 0), sh.r * scale, lifted ? 1 : 0);
+      drawShape(sh, sh.x, sh.y + bob, scale, sh.rot + (sh.state === "idle" ? Math.sin(sh.bob * 0.7) * 0.05 : 0), lifted ? "o" : "smile");
+    }
+  }
+
+  function drawParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      p.vy += 600 * UNIT * dt; p.vx *= 1 - 1.5 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.rv * dt;
+      ctx.globalAlpha = 1 - p.age / p.life;
+      ctx.fillStyle = p.color;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+      shapePath(ctx, p.type, p.size); ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Nudge a stuck toddler: wiggle a shape and make its hole glow
+  function hint(dt) {
+    if (celebrating || drags.size) { hintTimer = 0; return; }
+    hintTimer += dt;
+    if (hintTimer < 8) return;
+    hintTimer = 0;
+    const idle = shapes.filter(sh => sh.state === "idle");
+    if (!idle.length) return;
+    const sh = pick(idle), hole = holeFor(sh);
+    if (!hole) return;
+    sh.rv += 10; sh.sv += 5;
+    hole.glow = 2.2;
+    tone(SCALE[5], { type: "sine", vol: 0.08, dur: 0.5 });
+    tone(SCALE[7], { type: "sine", vol: 0.08, dur: 0.5, delay: 0.12 });
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame); // first, so one bad frame can't stop the game
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    drawBackground();
+    if (playing && holes.length) {
+      for (const sh of shapes) updateShape(sh, dt);
+      const shift = drawBox(dt);
+      drawShapes(dt, shift);
+      hint(dt);
+    }
+    drawParticles(dt);
+
+    // Grown-up exit: hold top-right corner
+    if (playing) {
+      const cx = W - 34, cy = 34;
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = opt.night.checked ? "#fff" : "#2b2d42";
+      ctx.beginPath(); ctx.arc(cx, cy, 14, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (exitHold) {
+        exitHold.t += dt;
+        ctx.strokeStyle = "#4dabf7"; ctx.lineWidth = 6; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (exitHold.t / EXIT_HOLD) * TAU);
+        ctx.stroke();
+        if (exitHold.t >= EXIT_HOLD) stop();
+      }
+    }
+  }
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
