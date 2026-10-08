@@ -6,3 +6,6 @@ tools/voices/.venv/
 tools/voices/.models/
 tools/voices/samples/
 tools/voices/__pycache__/
+
+# TasteTier worker local state
+TasteTier/worker/.wrangler/
