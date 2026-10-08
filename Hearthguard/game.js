@@ -471,7 +471,8 @@ const SCREENS = {
   },
 };
 
-const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === 1 ? 'original speed' : `enemies ${t}× slower`}`;
+// Described relative to Normal (the default pace).
+const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === DEFAULT_TEMPO ? 'standard speed' : `enemies at ${Math.round(DEFAULT_TEMPO / t * 100)}% speed`}`;
 function paceHTML() {
   const cur = S.tempo ?? DEFAULT_TEMPO;
   const name = PACES.find(p => p.v === cur)?.name;

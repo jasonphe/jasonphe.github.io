@@ -5,11 +5,11 @@
 // together, so changing it changes the pace without changing the difficulty much.
 // The host picks it in the lobby; everyone applies it with setTempo.
 export const PACES = [
-  { v: 1, name: 'Brisk' },
-  { v: 1.5, name: 'Steady' },
-  { v: 2, name: 'Slow' },
-  { v: 2.5, name: 'Slower' },
-  { v: 3, name: 'Slowest' },
+  { v: 1, name: 'Frantic' },
+  { v: 1.5, name: 'Fast' },
+  { v: 2, name: 'Normal' },
+  { v: 2.5, name: 'Relaxed' },
+  { v: 3, name: 'Leisurely' },
 ];
 export const DEFAULT_TEMPO = 2;
 export let TEMPO = DEFAULT_TEMPO;
