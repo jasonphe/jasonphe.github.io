@@ -567,17 +567,19 @@ function buildCombat() {
   $('handEl').addEventListener('pointerleave', () => { hoverU = null; });
   $('enemiesEl').addEventListener('click', e => {
     const en = e.target.closest('.enemy');
-    if (en && sel != null) playSel(en.dataset.id);
+    if (en && selDef()?.tgt === 'enemy') playSel(en.dataset.id);
   });
   $('heroesEl').addEventListener('click', e => {
     const h = e.target.closest('.hero');
-    if (h && sel != null) playSel(h.dataset.id);
+    if (h && selDef()?.tgt === 'ally') playSel(h.dataset.id);
   });
   sel = null;
 }
 
 const myHero = () => C?.heroes?.[selfId];
 const handCard = u => myHero()?.hand.find(c => c?.u === u);
+const touch = matchMedia('(pointer: coarse)');
+const selDef = () => { const i = sel != null && handCard(sel); return i ? cardDef(i.id, i.up) : null; };
 const slotU = i => myHero()?.hand[i]?.u ?? null;
 const aliveEnemies = () => (C?.enemies || []).filter(e => e.hp > 0);
 
@@ -594,12 +596,24 @@ function chooseCard(u) {
   const inst = handCard(u), h = myHero();
   if (!inst || !h) return;
   const c = cardDef(inst.id, inst.up);
+  // Touch screens have no hover, so the first tap shows the card and the second plays it.
+  if (touch.matches && sel !== u) { sel = u; return; }
   if (c.unplayable) { toast('Hex is unplayable. Discard it with ↻ or X.'); return; }
   if (h.ch) { toast('You are still casting'); return; }
   if (sel === u) { playSel(autoTarget(c)); return; }
   const needsPick = (c.tgt === 'enemy' && aliveEnemies().length > 1) || (c.tgt === 'ally' && Object.keys(C.heroes).length > 1);
   if (!needsPick) { sel = u; playSel(autoTarget(c)); return; }
   sel = u;
+}
+
+function selHint(c) {
+  if (touch.matches) {
+    if (c.unplayable) return 'Tap ↻ to discard it.';
+    if (c.tgt === 'enemy') return 'Tap an enemy, or tap the card again to hit the most urgent one.';
+    if (c.tgt === 'ally') return 'Tap an ally, or tap the card again to target yourself.';
+    return 'Tap the card again to play it.';
+  }
+  return `${c.tgt === 'ally' ? 'Click an ally' : 'Click an enemy'}, or press its key again to auto-target. Esc cancels.`;
 }
 
 function autoTarget(c) {
@@ -666,11 +680,13 @@ function enemyEl(e) {
   el.innerHTML = `
     <div class="intent"><div class="iline"><span class="iicon"></span><span class="iname"></span><span class="idmg"></span></div>
       <div class="itgt"></div><div class="wind"><i></i></div><div class="poise"></div></div>
-    <div class="art">${d.icon}</div>
+    <div class="art"><img src="assets/enemies/${e.type}.webp" alt="" draggable="false"></div>
     <div class="ename">${esc(d.name)}</div>
     <div class="bar"><i class="hp"></i><i class="blk"></i><span></span></div>
     <div class="status"></div>
     <div class="taunt-tag"></div>`;
+  // Fall back to the emoji if there's no painting for this enemy.
+  el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(d.icon); };
   if (d.boss) el.classList.add('boss');
   if (d.elite) el.classList.add('elite');
   $('enemiesEl').append(el);
@@ -845,9 +861,10 @@ function frame() {
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
   const info = $('cardInfo');
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `⏱${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${c.tgt === 'ally' ? 'Tap an ally' : 'Tap an enemy'}, or press its key again to auto-target. Esc cancels.</span>` : ''}`; })()
+  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `⏱${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down. You'll be back in ${Math.ceil(h.down - t)}s.</span>`
-      : `<span class="hint">Tap a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
+      : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ↻ discards it and draws another for 1⚡.</span>`
+        : `<span class="hint">Click a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
   if (info.dataset.v !== want) { info.innerHTML = want; info.dataset.v = want; }
 }
 
