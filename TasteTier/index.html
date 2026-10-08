@@ -140,6 +140,13 @@ textarea.input{resize:vertical;min-height:70px}
 .open-link{font-size:13px;color:var(--accent);text-decoration:none;font-weight:600}
 .open-link:hover{text-decoration:underline}
 
+.banner-actions{display:flex;gap:8px;flex-wrap:wrap}
+.view-banner{background:color-mix(in srgb,var(--accent) 14%,var(--surface))}
+.viewing #quick-add,.viewing #add-tier,.viewing .tier-tools,.viewing .owner-only,.viewing #list-select,.viewing #new-list,.viewing #backup,.viewing #share,.viewing #example-banner,.viewing .foot{display:none!important}
+.viewing .card{cursor:default}
+.viewing .tier-label input{pointer-events:none}
+.viewing .zone:empty::after{content:""}
+.viewing .tray.is-empty{display:none}
 .foot{color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:12px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:500;font-size:14px;box-shadow:var(--shadow);max-width:calc(100vw - 32px);text-align:center}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -152,6 +159,7 @@ textarea.input{resize:vertical;min-height:70px}
     <label class="label" for="list-select" style="position:absolute;left:-9999px">Current list</label>
     <select id="list-select" class="btn"></select>
     <button id="new-list" class="btn">New list</button>
+    <button id="share" class="btn primary">Share</button>
     <button id="copy-text" class="btn">Copy as text</button>
     <button id="backup" class="btn">Backup</button>
   </header>
@@ -160,6 +168,14 @@ textarea.input{resize:vertical;min-height:70px}
     <input id="list-title" aria-label="List title" maxlength="80">
     <p class="sub">Drag cards between tiers. Click a card to edit it or add a photo.</p>
   </section>
+
+  <div id="view-banner" class="banner view-banner" hidden>
+    <span id="view-text">Shared list</span>
+    <span class="banner-actions">
+      <button id="view-save" class="btn primary">Save a copy</button>
+      <button id="view-exit" class="btn">Go to my lists</button>
+    </span>
+  </div>
 
   <div id="example-banner" class="banner" hidden>
     <span>This is an example list so you can see how it works.</span>
@@ -190,7 +206,7 @@ textarea.input{resize:vertical;min-height:70px}
     <div id="pool" class="zone" data-zone="pool"></div>
   </section>
 
-  <div class="bar" style="gap:8px">
+  <div class="bar owner-only" style="gap:8px">
     <button id="delete-list" class="btn danger">Delete this list</button>
   </div>
   <p class="foot">Lists are saved in this browser only. Use Backup to copy them somewhere safe or move them to another device.</p>
@@ -254,16 +270,30 @@ textarea.input{resize:vertical;min-height:70px}
   </div>
 </dialog>
 
+<dialog id="share-dlg">
+  <div class="dlg">
+    <h3>Share this list</h3>
+    <p class="sub" style="font-size:14px">Anyone with the link sees the list as it is right now, photos included. Changes you make later won’t appear; share again to get a new link.</p>
+    <input id="share-url" class="input" readonly aria-label="Share link">
+    <div class="dlg-foot">
+      <a id="share-open" class="btn spacer" target="_blank" rel="noopener" style="text-decoration:none">Open link</a>
+      <button type="button" id="share-close" class="btn">Close</button>
+      <button type="button" id="share-native" class="btn" hidden>Share…</button>
+      <button type="button" id="share-copy" class="btn primary">Copy link</button>
+    </div>
+  </div>
+</dialog>
+
 <div id="toast" class="toast" hidden role="status"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <script>
 (() => {
 const KEY = 'tastetier.v1', OLD_KEY = 'tiertable.v1';
-// Link preview service (TasteTier/worker). Set this to your deployed worker URL; leave it empty to turn previews off.
-const DEPLOYED_PREVIEW_API = 'https://tastetier-preview.jasonhe111.workers.dev';
+// TasteTier worker (TasteTier/worker): link previews and shared lists. Leave empty to turn both off.
+const DEPLOYED_API = 'https://tastetier-preview.jasonhe111.workers.dev';
 const IS_LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-const PREVIEW_API = (new URLSearchParams(location.search).get('api') || (IS_LOCAL ? 'http://localhost:8787' : DEPLOYED_PREVIEW_API)).replace(/\/$/, '');
+const API_BASE = (new URLSearchParams(location.search).get('api') || (IS_LOCAL ? 'http://localhost:8787' : DEPLOYED_API)).replace(/\/$/, '');
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2, 10);
 const TIER_LABELS = ['S','A','B','C','D','F'];
@@ -350,7 +380,8 @@ function save(){
   catch (e) { toast(e && e.name === 'QuotaExceededError' ? 'Browser storage is full. Remove some photos to keep saving.' : 'Could not save in this browser.') }
 }
 state = load();
-const cur = () => state.lists.find(l => l.id === state.current) || state.lists[0];
+let viewing = null; // a shared snapshot being viewed: {id, createdAt, list, loading}
+const cur = () => viewing ? viewing.list : (state.lists.find(l => l.id === state.current) || state.lists[0]);
 
 /* ---------- toast + two-step buttons ---------- */
 let toastT;
@@ -365,8 +396,8 @@ function armed(btn, confirmText, fn){
 let sortables = [];
 function cardEl(item){
   const el = document.createElement('div');
-  el.className = 'card' + (loadingIds.has(item.id) ? ' loading' : ''); el.dataset.id = item.id; el.tabIndex = 0; el.setAttribute('role','button');
-  el.setAttribute('aria-label', 'Edit ' + item.name);
+  el.className = 'card' + (loadingIds.has(item.id) ? ' loading' : ''); el.dataset.id = item.id;
+  if (!viewing){ el.tabIndex = 0; el.setAttribute('role','button'); el.setAttribute('aria-label', 'Edit ' + item.name) }
   const th = document.createElement('div'); th.className = 'thumb'; th.style.setProperty('--h', hueOf(item.name));
   if (item.img){ const img = document.createElement('img'); img.src = item.img; img.alt = ''; th.append(img) }
   else th.textContent = initials(item.name);
@@ -382,8 +413,10 @@ function cardEl(item){
   const metaText = [item.price, item.note].filter(Boolean).join(' · ');
   if (metaText){ const m = document.createElement('div'); m.className = 'card-meta'; m.textContent = metaText; m.title = metaText; body.append(m) }
   el.append(th, body);
-  el.addEventListener('click', () => openEdit(item.id));
-  el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEdit(item.id) } });
+  if (!viewing){
+    el.addEventListener('click', () => openEdit(item.id));
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openEdit(item.id) } });
+  }
   return el;
 }
 
@@ -394,12 +427,24 @@ function render(){
   sel.value = L.id;
   if (document.activeElement !== $('#list-title')) $('#list-title').value = L.title;
   $('#example-banner').hidden = !L.example;
+  document.body.classList.toggle('viewing', !!viewing);
+  $('#list-title').readOnly = !!viewing;
+  $('#view-banner').hidden = !viewing;
+  document.title = viewing && !viewing.loading ? L.title + ' · TasteTier' : 'TasteTier';
+  $('.head .sub').textContent = viewing ? 'A tier list shared from TasteTier. Save a copy to change it or rank it yourself.' : 'Drag cards between tiers. Click a card to edit it or add a photo.';
+  if (viewing){
+    const when = viewing.createdAt ? new Date(viewing.createdAt).toLocaleDateString(undefined, {year:'numeric', month:'short', day:'numeric'}) : '';
+    $('#view-text').textContent = viewing.loading ? 'Loading shared list…' : 'Shared list' + (when ? ', as of ' + when : '');
+    const mine = state.lists.find(l => l.fromShare === viewing.id);
+    $('#view-save').textContent = mine ? 'Open my copy' : 'Save a copy';
+    $('#view-save').disabled = !!viewing.loading;
+  }
 
   const board = $('#board'); board.innerHTML = '';
   L.tiers.forEach((t, i) => {
     const row = document.createElement('div'); row.className = 'tier'; row.style.setProperty('--tc', `var(--t${t.color % 6})`);
     const lab = document.createElement('div'); lab.className = 'tier-label';
-    const inp = document.createElement('input'); inp.id = 'tier-' + t.id; inp.value = t.label; inp.maxLength = 12; inp.setAttribute('aria-label', 'Tier name');
+    const inp = document.createElement('input'); inp.id = 'tier-' + t.id; inp.value = t.label; inp.maxLength = 12; inp.setAttribute('aria-label', 'Tier name'); inp.readOnly = !!viewing;
     inp.addEventListener('input', () => { t.label = inp.value; save() });
     const cnt = document.createElement('span'); cnt.className = 'tier-count'; cnt.textContent = t.items.length ? t.items.length + (t.items.length === 1 ? ' item' : ' items') : '';
     const tools = document.createElement('div'); tools.className = 'tier-tools';
@@ -419,10 +464,11 @@ function render(){
   const pool = $('#pool'); pool.innerHTML = '';
   L.pool.forEach(id => L.items[id] && pool.append(cardEl(L.items[id])));
   $('#pool-count').textContent = L.pool.length ? L.pool.length + ' waiting' : '';
+  $('.tray').classList.toggle('is-empty', !L.pool.length);
 
   sortables.forEach(s => s.destroy());
   sortables = [...document.querySelectorAll('.zone')].map(z => Sortable.create(z, {
-    group:'tiers', animation:150, ghostClass:'ghost-card', chosenClass:'chosen',
+    group:'tiers', animation:150, ghostClass:'ghost-card', chosenClass:'chosen', disabled:!!viewing,
     delay:180, delayOnTouchOnly:true, filter:'.card-link', preventOnFilter:false, emptyInsertThreshold:24,
     onEnd: syncFromDom
   }));
@@ -432,14 +478,14 @@ function commit(){ save(); render() }
 /* ---------- link previews ---------- */
 const loadingIds = new Set();
 async function getPreview(url){
-  if (!PREVIEW_API || !parseUrl(url)) return null;
-  const res = await fetch(PREVIEW_API + '/preview?url=' + encodeURIComponent(url));
+  if (!API_BASE || !parseUrl(url)) return null;
+  const res = await fetch(API_BASE + '/preview?url=' + encodeURIComponent(url));
   if (!res.ok) return null;
   const data = await res.json();
   let img = '';
   if (data.image){
     try {
-      const r = await fetch(PREVIEW_API + '/image?url=' + encodeURIComponent(data.image));
+      const r = await fetch(API_BASE + '/image?url=' + encodeURIComponent(data.image));
       if (r.ok) img = await toThumb(await r.blob());
     } catch {}
   }
@@ -448,7 +494,7 @@ async function getPreview(url){
 // Fills in a card's name (if it came from the link, not the user) and photo (if it has none).
 async function enrichItem(listId, id){
   const list = state.lists.find(l => l.id === listId), it = list && list.items[id];
-  if (!it || !it.url || !PREVIEW_API) return;
+  if (!it || !it.url || !API_BASE) return;
   loadingIds.add(id); if (list === cur()) render();
   let p = null;
   try { p = await getPreview(it.url) } catch {}
@@ -501,7 +547,7 @@ function updateHint(){
   const url = $('#qa-url').value.trim(), hint = $('#qa-hint');
   const u = parseUrl(url);
   if (url && !u) hint.textContent = 'That doesn’t look like a full link. It should start with https://';
-  else if (u && /goo\.gl$/.test(u.hostname) && !$('#qa-name').value) hint.textContent = PREVIEW_API ? 'Maps share link. The name will be looked up when you add it.' : 'Short Maps share links don’t include the place name, so type it in.';
+  else if (u && /goo\.gl$/.test(u.hostname) && !$('#qa-name').value) hint.textContent = API_BASE ? 'Maps share link. The name will be looked up when you add it.' : 'Short Maps share links don’t include the place name, so type it in.';
   else if (u){ const k = linkKind(url); hint.textContent = k ? k.label + ' link' + (autoName && $('#qa-name').value === autoName ? '. Name filled in from the link; edit it if it’s off.' : '') : '' }
   else hint.textContent = '';
 }
@@ -517,15 +563,15 @@ $('#quick-add').addEventListener('submit', e => {
   if (!url && parseUrl(name)){ url = name; name = guessName(url) }
   if (url && !parseUrl(url)){ $('#qa-url').focus(); return updateHint() }
   const nameAuto = !!url && (!name || name === autoName);
-  if (!name && url && PREVIEW_API) name = 'Looking up…';
+  if (!name && url && API_BASE) name = 'Looking up…';
   if (!name){ $('#qa-hint').textContent = 'Add a name first.'; $('#qa-name').focus(); return }
   const L = cur(), id = uid();
   L.items[id] = {id, name, url, note:'', price:'', img:'', nameAuto};
   L.pool.push(id); delete L.example; commit();
   $('#qa-name').value = ''; $('#qa-url').value = ''; autoName = '';
   const done = 'Added to Not ranked. Drag it into a tier.', hint = $('#qa-hint');
-  hint.textContent = url && PREVIEW_API ? 'Added to Not ranked. Fetching a photo from the link…' : done;
-  if (url && PREVIEW_API) enrichItem(L.id, id).then(() => { if (hint.textContent.includes('Fetching')) hint.textContent = done });
+  hint.textContent = url && API_BASE ? 'Added to Not ranked. Fetching a photo from the link…' : done;
+  if (url && API_BASE) enrichItem(L.id, id).then(() => { if (hint.textContent.includes('Fetching')) hint.textContent = done });
   const card = document.querySelector(`#pool .card[data-id="${id}"]`);
   if (card){ card.classList.add('flash'); card.scrollIntoView({block:'nearest', behavior:'smooth'}) }
   $('#qa-name').focus();
@@ -539,7 +585,7 @@ function paintThumb(){
   th.innerHTML = ''; th.style.setProperty('--h', hueOf(name));
   if (pendingImg){ const i = document.createElement('img'); i.src = pendingImg; i.alt = ''; th.append(i) } else th.textContent = initials(name);
   $('#ed-remove-img').hidden = !pendingImg;
-  $('#ed-fetch').hidden = !PREVIEW_API || !parseUrl($('#ed-url').value);
+  $('#ed-fetch').hidden = !API_BASE || !parseUrl($('#ed-url').value);
   $('#ed-fetch').textContent = pendingImg ? 'Replace with photo from link' : 'Get photo from link';
   const cr = $('#ed-credit'); cr.hidden = !(pendingImg && pendingCredit); cr.textContent = 'Photo: ' + pendingCredit + ' via Google';
 }
@@ -641,7 +687,87 @@ $('#text-restore').addEventListener('click', e => {
   });
 });
 
+/* ---------- sharing ---------- */
+const sdlg = $('#share-dlg');
+const shareLink = id => location.origin + location.pathname + '#s/' + id;
+function snapshotOf(L){
+  const {title, tiers, pool, items} = L;
+  return {title, tiers: tiers.map(({id, label, color, items}) => ({id, label, color, items})), pool,
+    items: Object.fromEntries(Object.values(items).map(({id, name, url, note, price, img, imgCredit}) => [id, {id, name, url, note, price, img, imgCredit}]))};
+}
+async function digest(text){
+  try { const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2,'0')).join('') }
+  catch { return '' }
+}
+function showShare(id){
+  const url = shareLink(id);
+  $('#share-url').value = url; $('#share-open').href = url;
+  $('#share-native').hidden = !navigator.share;
+  sdlg.showModal(); $('#share-url').select();
+}
+$('#share').addEventListener('click', async e => {
+  if (!API_BASE) return toast('Sharing isn\u2019t set up for this copy of TasteTier.');
+  const L = cur(), btn = e.currentTarget;
+  const body = JSON.stringify({list: snapshotOf(L)}), hash = await digest(body);
+  if (hash && L.share && L.share.hash === hash) return showShare(L.share.id); // unchanged since the last share
+  btn.disabled = true; btn.textContent = 'Sharing…';
+  try {
+    const res = await fetch(API_BASE + '/share', {method:'POST', headers:{'Content-Type':'application/json'}, body});
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.id) throw new Error(data.error || 'The share service didn\u2019t answer. Try again in a moment.');
+    L.share = {id: data.id, hash}; save();
+    showShare(data.id);
+  } catch (err) { toast(err.message || 'Couldn\u2019t create a share link.') }
+  finally { btn.disabled = false; btn.textContent = 'Share' }
+});
+$('#share-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#share-url').value); toast('Link copied') }
+  catch { $('#share-url').select(); toast('Press Ctrl+C (or Cmd+C) to copy') }
+});
+$('#share-native').addEventListener('click', () => navigator.share({title: cur().title, url: $('#share-url').value}).catch(() => {}));
+$('#share-close').addEventListener('click', () => sdlg.close());
+
+function leaveView(){
+  viewing = null;
+  history.replaceState(null, '', location.pathname + location.search);
+  render();
+}
+async function openShared(id){
+  viewing = {id, loading:true, list:{title:'Shared list', tiers:[], pool:[], items:{}}};
+  render();
+  try {
+    if (!API_BASE) throw new Error('Sharing isn\u2019t set up for this copy of TasteTier.');
+    const res = await fetch(API_BASE + '/share/' + encodeURIComponent(id));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.list) throw new Error(data.error || 'Couldn\u2019t load that shared list.');
+    if (!viewing || viewing.id !== id) return;
+    viewing = {id, createdAt:data.createdAt, list:data.list};
+    render();
+  } catch (err) {
+    if (viewing && viewing.id === id){ leaveView(); toast(err.message) }
+  }
+}
+function route(){
+  const m = location.hash.match(/^#s\/([A-Za-z0-9]{8})$/);
+  if (m){ if (!viewing || viewing.id !== m[1]) openShared(m[1]) }
+  else if (viewing){ viewing = null; render() }
+}
+window.addEventListener('hashchange', route);
+$('#view-exit').addEventListener('click', leaveView);
+$('#view-save').addEventListener('click', () => {
+  if (!viewing || viewing.loading) return;
+  let mine = state.lists.find(l => l.fromShare === viewing.id);
+  if (!mine){
+    if (state.lists.every(l => l.example)) state.lists = []; // first visit: skip the untouched example lists
+    mine = {...JSON.parse(JSON.stringify(viewing.list)), id:uid(), fromShare:viewing.id};
+    state.lists.push(mine);
+    toast('Saved to your lists. You can edit it now.');
+  }
+  state.current = mine.id; save(); leaveView();
+});
+
 render();
+route();
 })();
 </script>
 </body>

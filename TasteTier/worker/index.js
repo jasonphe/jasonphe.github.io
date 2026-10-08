@@ -2,6 +2,8 @@
 //
 //   GET /preview?url=<link>  -> { url, title, siteName, image, source }
 //   GET /image?url=<image>   -> the image bytes, with CORS headers so the app can resize it
+//   POST /share              -> stores a tier list snapshot, returns { id }
+//   GET /share/<id>          -> the stored snapshot
 //
 // Restaurant websites are read from their Open Graph tags. Google Maps pages don't expose
 // the place name or a photo that way, so Maps links get their name from the expanded URL and,
@@ -15,6 +17,8 @@ const UA = 'Mozilla/5.0 (compatible; TasteTierPreview/1.0; +https://jasonphe.git
 const MAX_HTML_BYTES = 768 * 1024;
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
 const PREVIEW_TTL = 60 * 60 * 24; // 1 day
+const MAX_SHARE_BYTES = 4 * 1024 * 1024;
+const SHARE_ID = /^[A-Za-z0-9]{8}$/;
 
 // Site names that belong to the platform, not the restaurant.
 const PLATFORM_NAMES = /^(google( maps)?|yelp|tripadvisor|opentable|resy|tock|exploretock|sevenrooms|instagram|facebook|tiktok|doordash|uber ?eats|grubhub|postmates|seamless|toast|toasttab|square|squarespace|wix|weebly|linktree|bentobox|popmenu|menufy|chownow|slice)$/i;
@@ -24,10 +28,14 @@ export default {
     const origin = req.headers.get('Origin') || '';
     const cors = corsHeaders(origin);
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-    if (req.method !== 'GET') return json({ error: 'Only GET is supported' }, 405, cors);
     if (!isAllowedOrigin(origin)) return json({ error: 'Origin not allowed' }, 403, cors);
 
     const reqUrl = new URL(req.url);
+    if (reqUrl.pathname === '/share' && req.method === 'POST') return createShare(req, env, cors);
+    const shareMatch = reqUrl.pathname.match(/^\/share\/([^/]+)$/);
+    if (shareMatch && req.method === 'GET') return readShare(shareMatch[1], env, cors);
+    if (req.method !== 'GET') return json({ error: 'Method not supported' }, 405, cors);
+
     const target = safeTarget(reqUrl.searchParams.get('url'));
     if (!target) return json({ error: 'Pass a full http(s) link as ?url=' }, 400, cors);
 
@@ -50,7 +58,8 @@ function isAllowedOrigin(origin) {
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
   };
@@ -267,5 +276,59 @@ async function proxyImage(target, cors) {
   if (len > MAX_IMAGE_BYTES) return json({ error: 'Image is too large' }, 413, cors);
   return new Response(res.body, {
     headers: { ...cors, 'Content-Type': type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' },
+  });
+}
+
+/* ---------- /share ---------- */
+
+function newShareId() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return [...bytes].map(b => abc[b % abc.length]).join('');
+}
+
+// Keeps only the fields the app renders, so a share can't smuggle in anything else.
+export function cleanList(list) {
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const items = {};
+  for (const [id, it] of Object.entries(list.items || {}).slice(0, 2000)) {
+    if (!it || typeof it !== 'object') continue;
+    const img = str(it.img, 600000);
+    items[str(id, 40)] = {
+      id: str(id, 40), name: str(it.name, 120) || 'Untitled', url: /^https?:\/\//.test(it.url) ? str(it.url, 2000) : '',
+      note: str(it.note, 200), price: str(it.price, 4), img: img.startsWith('data:image/') ? img : '', imgCredit: str(it.imgCredit, 200),
+    };
+  }
+  const ids = arr => (Array.isArray(arr) ? arr.map(x => str(x, 40)).filter(x => x in items) : []);
+  const tiers = (Array.isArray(list.tiers) ? list.tiers : []).slice(0, 30).map(t => ({
+    id: str(t.id, 40), label: str(t.label, 12), color: Number.isInteger(t.color) ? Math.abs(t.color) % 6 : 0, items: ids(t.items),
+  }));
+  return { title: str(list.title, 80) || 'Untitled list', tiers, pool: ids(list.pool), items };
+}
+
+async function createShare(req, env, cors) {
+  if (!env.SHARES) return json({ error: 'Sharing is not set up on this server' }, 501, cors);
+  const len = +req.headers.get('Content-Length') || 0;
+  if (len > MAX_SHARE_BYTES) return json({ error: 'This list is too large to share. Remove some photos and try again.' }, 413, cors);
+  const text = await req.text();
+  if (text.length > MAX_SHARE_BYTES) return json({ error: 'This list is too large to share. Remove some photos and try again.' }, 413, cors);
+  let body;
+  try { body = JSON.parse(text) } catch { return json({ error: 'Expected a JSON list' }, 400, cors) }
+  if (!body || typeof body.list !== 'object') return json({ error: 'Expected a JSON list' }, 400, cors);
+
+  const snapshot = { v: 1, createdAt: new Date().toISOString(), list: cleanList(body.list) };
+  let id = newShareId();
+  if (await env.SHARES.get(id)) id = newShareId();
+  await env.SHARES.put(id, JSON.stringify(snapshot));
+  return json({ id }, 201, cors);
+}
+
+async function readShare(id, env, cors) {
+  if (!env.SHARES) return json({ error: 'Sharing is not set up on this server' }, 501, cors);
+  if (!SHARE_ID.test(id)) return json({ error: 'That share link is not valid' }, 404, cors);
+  const raw = await env.SHARES.get(id);
+  if (!raw) return json({ error: "That shared list doesn't exist. Check that the link is complete." }, 404, cors);
+  return new Response(raw, {
+    headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=31536000, immutable' },
   });
 }

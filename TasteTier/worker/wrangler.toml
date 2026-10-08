@@ -4,3 +4,8 @@ compatibility_date = "2026-09-01"
 
 # Optional: a Google Places API key gives Google Maps links a real place photo.
 # Set it as a secret (never commit it):  npx wrangler secret put GOOGLE_PLACES_KEY
+
+# Shared list snapshots (POST /share, GET /share/<id>)
+[[kv_namespaces]]
+binding = "SHARES"
+id = "f99b4865a4b5458db86e9b9852075dfd"

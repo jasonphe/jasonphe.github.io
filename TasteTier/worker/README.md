@@ -1,9 +1,13 @@
-# TasteTier link previews
+# TasteTier worker
 
-A Cloudflare Worker that turns a pasted link into a name and photo for a TasteTier card.
+A Cloudflare Worker that turns a pasted link into a name and photo for a TasteTier card, and stores shared lists.
 
 - `GET /preview?url=<link>` returns `{ title, image, siteName, url, source }`.
 - `GET /image?url=<image>` returns the image with CORS headers so the app can shrink it into a thumbnail.
+- `POST /share` with `{ list }` stores a snapshot in the `SHARES` KV namespace and returns `{ id }`. The app links to it as `TasteTier/#s/<id>`.
+- `GET /share/<id>` returns `{ v, createdAt, list }`.
+
+Snapshots never change or expire. To remove one: `npx wrangler kv key delete --binding SHARES <id> --remote`. Cloudflare's free plan allows about 1,000 new shares a day.
 
 Only pages served from `https://jasonphe.github.io` or `localhost` may call it (see `ALLOWED_ORIGINS` in `index.js`).
 
