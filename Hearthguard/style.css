@@ -57,7 +57,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chip:hover { border-color: var(--gold); }
 
 /* ---------- Join ---------- */
-#join { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+#join {
+  min-height: 100vh; display: grid; place-items: center; padding: 16px;
+  background: linear-gradient(180deg, #120e0c55, #120e0c99 70%, #120e0cee), url(assets/bg/splash.webp) center 30% / cover, var(--bg);
+}
+#join .join-panel { background: linear-gradient(180deg, #231b17e6, #1c1613f2); backdrop-filter: blur(6px); }
+/* On wide screens, keep the Hearth and the King in view. */
+@media (min-width: 980px) {
+  #join { justify-items: end; padding-right: 6vw; background-position: 35% 30%, 35% 30%; }
+}
+body[data-phase="lobby"] { background: linear-gradient(#120e0cd9, #120e0cf2), url(assets/bg/splash.webp) center 30% / cover fixed, var(--bg); }
 .panel { background: linear-gradient(180deg, var(--panel), var(--bg2)); border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: 0 10px 40px #0008; }
 .join-panel { width: min(440px, 100%); text-align: center; }
 .crest { font-size: 3.4rem; filter: drop-shadow(0 0 18px #ff7a3d); animation: flicker 2.4s infinite; }
