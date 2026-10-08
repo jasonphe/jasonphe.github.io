@@ -13,8 +13,8 @@ Math.random = () => idChars < idPrefix.length ? (Number(idPrefix[idChars++]) + 0
 const { joinRoom, selfId } = await import('https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm');
 Math.random = realRandom;
 
-import { CLASSES, CARDS, cardDef, cardText, ENEMIES, RELICS, EVENTS } from './data.js';
-import { Sim, newLobby, MAX_PLAYERS, HAND, REMOVE_PRICE, ROWS } from './sim.js';
+import { CLASSES, CARDS, cardDef, cardText, ENEMIES, RELICS, EVENTS, PACES, DEFAULT_TEMPO, TEMPO, setTempo } from './data.js';
+import { Sim, newLobby, MAX_PLAYERS, HAND, REMOVE_PRICE, ROWS, baseRegen } from './sim.js';
 
 // ---------- Settings ----------
 const APP_ID = 'jasonphe-hearthguard';
@@ -160,6 +160,9 @@ function electHost() {
     for (const p of [...S.players]) if (p.on && !peers.has(p.id)) sim.leave(p.id);
     for (const [id, p] of peers) sim.join(id, p.name);
     if (was !== selfId && S.phase !== 'lobby') toast('You are now hosting the run');
+    // A brand-new room starts at the pace this browser last picked.
+    const saved = Number(store.get('hearthguard-pace'));
+    if (S.phase === 'lobby' && S.players.length <= 1 && PACES.some(p => p.v === saved)) S.tempo = saved;
   }
 }
 
@@ -226,6 +229,7 @@ function onState(prevPhase) {
 }
 
 function render() {
+  setTempo(S.tempo ?? DEFAULT_TEMPO);
   renderRunbar();
   const main = $('main');
   document.body.dataset.phase = S.phase;
@@ -308,6 +312,7 @@ const SCREENS = {
         <button class="class-card ${m.cls === k ? 'on' : ''}" data-cls="${k}" style="--cc:${c.color}">
           <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>❤️ ${c.hp} HP</small><span>${c.blurb}</span>
         </button>`).join('')}</div>` : `<p class="note">The party is full, so you're watching this one.</p>`}
+      ${paceHTML()}
       <div class="lobby-go">
         ${isHost() ? `<button class="btn big" data-start ${ready ? '' : 'disabled'}>${ready ? 'Begin the descent' : 'Everyone needs a class'}</button>`
         : `<p class="sub">Waiting for ${esc(pName(hostId))} to start…</p>`}
@@ -466,6 +471,16 @@ const SCREENS = {
   },
 };
 
+const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === 1 ? 'original speed' : `enemies ${t}× slower`}`;
+function paceHTML() {
+  const cur = S.tempo ?? DEFAULT_TEMPO;
+  const name = PACES.find(p => p.v === cur)?.name;
+  if (!isHost()) return `<p class="pace-note">Pace: <b>${name}</b> <span>(${paceInfo(cur)})</span></p>`;
+  return `<h3>Pace</h3>
+    <div class="paces">${PACES.map(p => `<button class="pace ${p.v === cur ? 'on' : ''}" data-tempo="${p.v}">
+      <b>${p.name}</b><small>${paceInfo(p.v)}</small></button>`).join('')}</div>`;
+}
+
 function reachableClient() {
   if (!S.pos) return S.map[0].map((_, i) => `0,${i}`);
   if (S.pos.r >= ROWS - 1) return ['boss'];
@@ -485,6 +500,7 @@ document.addEventListener('click', e => {
   if ('copy' in d) copyInvite();
   else if (d.cls) act({ k: 'cls', c: d.cls });
   else if ('start' in d) act({ k: 'start' });
+  else if (d.tempo) { act({ k: 'tempo', v: Number(d.tempo) }); store.set('hearthguard-pace', d.tempo); }
   else if ('lobby' in d) act({ k: 'lobby' });
   else if (d.node && S.phase === 'map' && t.classList.contains('can')) act({ k: 'vote', n: d.node });
   else if (d.reward) act({ k: 'reward', c: d.reward });
@@ -664,7 +680,7 @@ document.addEventListener('keydown', e => {
 const ahead = () => Math.min(0.3, (performance.now() - cbAt) / 1000);
 function regenRate(h, t) {
   const quick = S.relics?.includes('quick') ? 0.12 : 0;
-  return (1 / 1.5) * (1 + h.pw.regen / 100 + quick) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
+  return baseRegen() * (1 + h.pw.regen / 100 + quick) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
 }
 function curEnergy(h) {
   if (h.down) return h.e;
@@ -753,7 +769,7 @@ function frame() {
   // Hearth
   const hEl = $('hearthEl');
   const hp = Math.max(0, S.hearth), max = S.hearthMax;
-  const sh = Math.max(0, C.shield - (S.relics?.includes('anchor') ? 0 : (0.4 + C.shield * 0.05) * x));
+  const sh = Math.max(0, C.shield - (S.relics?.includes('anchor') ? 0 : (0.4 + C.shield * 0.05) * x / TEMPO));
   hEl.querySelector('.hp').style.width = `${clamp01(hp / max) * 100}%`;
   hEl.querySelector('.sh').style.width = `${clamp01(sh / max) * 100}%`;
   hEl.querySelector('.hnum').textContent = `${Math.ceil(hp)} / ${max}`;

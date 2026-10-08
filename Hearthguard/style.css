@@ -395,3 +395,12 @@ dialog::backdrop { background: #000b; }
   .epips.big i { width: 22px; height: 14px; }
   .cardface { width: 140px; }
 }
+
+/* ---------- Lobby pace picker ---------- */
+.paces { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.pace { display: grid; gap: 2px; text-align: left; background: var(--panel2); border: 2px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.pace:hover { border-color: var(--gold); }
+.pace.on { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.pace small { color: var(--muted); font-size: .8rem; }
+.pace-note { color: var(--muted); text-align: center; margin-top: 16px; }
+.pace-note b { color: var(--text); }

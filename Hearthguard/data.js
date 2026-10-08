@@ -1,4 +1,25 @@
 // All game content: classes, cards, enemies, encounters, relics and events.
+
+// How slow combat runs compared with the original design (1). Energy regen, enemy
+// wind-ups and every duration in seconds (taunts, stuns, Shield fade...) scale with it
+// together, so changing it changes the pace without changing the difficulty much.
+// The host picks it in the lobby; everyone applies it with setTempo.
+export const PACES = [
+  { v: 1, name: 'Brisk' },
+  { v: 1.5, name: 'Steady' },
+  { v: 2, name: 'Slow' },
+  { v: 2.5, name: 'Slower' },
+  { v: 3, name: 'Slowest' },
+];
+export const DEFAULT_TEMPO = 2;
+export let TEMPO = DEFAULT_TEMPO;
+export let WARD_EVERY = 4 * TEMPO;
+export function setTempo(t) {
+  if (t === TEMPO || !PACES.some(p => p.v === t)) return;
+  TEMPO = t;
+  WARD_EVERY = 4 * t;
+  cardCache.clear();
+}
 // Card effects (fx) are applied in key order; see sim.js applyCard for what each key does.
 
 export const CLASSES = {
@@ -146,6 +167,9 @@ export function cardDef(id, up) {
     c.name += '+';
     c.upgraded = true;
   }
+  const slow = fx => { for (const k of UPG_TIME) if (k in fx) fx[k] *= TEMPO; return fx; };
+  slow(c.fx);
+  if (c.combo) c.combo = slow({ ...c.combo });
   cardCache.set(key, c);
   return c;
 }
@@ -181,7 +205,7 @@ const say = (fx, k, tgt, all) => {
     case 'cycleFree': return `Your next ${v} discard${v > 1 ? 's are' : ' is'} free.`;
     case 'gold': return `Gain ${v} gold.`;
     case 'selfDmg': return `Lose ${v} of your HP.`;
-    case 'ward': return `<b>Power:</b> the Hearth gains ${v} Shield every 4s.`;
+    case 'ward': return `<b>Power:</b> the Hearth gains ${v} Shield every ${WARD_EVERY}s.`;
     case 'fury': return `<b>Power:</b> your attacks deal +${v}.`;
     case 'focus': return `<b>Power:</b> you cast ${v}% faster.`;
     case 'regen': return `<b>Power:</b> +${v}% ⚡ regen.`;
@@ -240,15 +264,15 @@ export const RELICS = {
   banner: { name: 'Iron Banner', icon: '🚩', text: 'Start each fight with 12 Shield.' },
   quick: { name: 'Quicksilver', icon: '⚗️', text: 'Everyone regenerates ⚡ 12% faster.' },
   whet: { name: 'Whetstone', icon: '🪨', text: 'All attacks deal +1 damage.' },
-  bell: { name: 'Tower Bell', icon: '🔔', text: 'Interrupts also stun for 1.5s.' },
-  lode: { name: 'Lodestone', icon: '🧲', text: 'Taunts last 2s longer.' },
+  bell: { name: 'Tower Bell', icon: '🔔', get text() { return `Interrupts also stun for ${1.5 * TEMPO}s.`; } },
+  lode: { name: 'Lodestone', icon: '🧲', get text() { return `Taunts last ${2 * TEMPO}s longer.`; } },
   choir: { name: 'Choir Stone', icon: '🎶', text: 'Combo bonuses are doubled.' },
   tooth: { name: 'Gold Tooth', icon: '🦷', text: 'Everyone gets +10 gold after fights.' },
   pouch: { name: 'Spare Pouch', icon: '👝', text: 'Everyone has +1 max ⚡.' },
   collar: { name: 'Thorned Collar', icon: '⛓️', text: 'Taunting grants 5 Guard.' },
   phoenix: { name: 'Phoenix Feather', icon: '🪶', text: 'Once: if the Hearth would fall, it returns at 30%.' },
   glass: { name: 'Hourglass', icon: '⏳', text: 'Enemies wind up 10% slower.' },
-  lantern: { name: 'Watch Lantern', icon: '🏮', text: 'Enemies start each fight 3s later.' },
+  lantern: { name: 'Watch Lantern', icon: '🏮', get text() { return `Enemies start each fight ${3 * TEMPO}s later.`; } },
   tome: { name: 'Grim Tome', icon: '📕', text: 'Burn deals +1 damage per tick.' },
   anchor: { name: 'Anchor', icon: '⚓', text: 'The Hearth\'s Shield no longer decays.' },
   candle: { name: 'Vigil Candle', icon: '🕯️', text: 'Everyone starts fights with full ⚡.' },

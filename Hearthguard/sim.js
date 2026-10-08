@@ -2,11 +2,11 @@
 // S is the run (lobby, map, decks, shops...) and changes now and then.
 // C is the current fight and changes every tick. Times in C are fight-seconds (C.t),
 // so another player can pick up a saved copy and keep going if the host leaves.
-import { CLASSES, CARDS, STARTER, cardDef, ENEMIES, ENCOUNTERS, RELICS, EVENTS } from './data.js';
+import { CLASSES, CARDS, STARTER, cardDef, ENEMIES, ENCOUNTERS, RELICS, EVENTS, TEMPO, WARD_EVERY, PACES, DEFAULT_TEMPO, setTempo } from './data.js';
 
 export const MAX_PLAYERS = 4;
 export const HAND = 5;
-const BASE_REGEN = 1 / 1.5;      // ⚡ per second
+export const baseRegen = () => 1 / 1.5 / TEMPO;  // ⚡ per second
 const BASE_MAX_E = 5;
 const DOWN_TIME = 8;             // seconds a hero is knocked out
 const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero gets back up with
@@ -25,7 +25,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 
 export function newLobby() {
-  return { phase: 'lobby', players: [], uid: 1 };
+  return { phase: 'lobby', players: [], uid: 1, tempo: DEFAULT_TEMPO };
 }
 
 export class Sim {
@@ -86,6 +86,7 @@ export class Sim {
 
   // ---------- Actions from players ----------
   act(pid, a) {
+    setTempo(this.S.tempo ?? DEFAULT_TEMPO);
     const S = this.S, p = this.player(pid);
     if (!a || !p) return;
     const f = ACTIONS[a.k];
@@ -312,7 +313,7 @@ export class Sim {
     C.enemies.push({
       id: 'e' + C.eid++, type, hp, max: hp, block: 0, str: 0, vuln: 0, weak: 0, stun: 0, burn: 0,
       taunt: null, act: null, next: 0, last: -1,
-      rec: opening ? rand(1.5, 3) + (this.has('lantern') ? 3 : 0) : 1.5,
+      rec: (opening ? rand(1.5, 3) + (this.has('lantern') ? 3 : 0) : 1.5) * TEMPO,
     });
   }
 
@@ -412,8 +413,8 @@ export class Sim {
     if (e.act.poise <= 0) {
       this.ev.push({ k: 'txt', to: e.id, x: 'Interrupted!', c: 'int' });
       e.act = null;
-      e.rec = 1.5;
-      if (this.has('bell')) e.stun = Math.max(e.stun, this.C.t + 1.5);
+      e.rec = 1.5 * TEMPO;
+      if (this.has('bell')) e.stun = Math.max(e.stun, this.C.t + 1.5 * TEMPO);
     } else this.ev.push({ k: 'txt', to: e.id, x: `Poise ${e.act.poise}`, c: 'int' });
   }
 
@@ -447,7 +448,7 @@ export class Sim {
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
         case 'burn': for (const e of foes) e.burn += Math.round(v * mult); break;
         case 'taunt':
-          for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 : 0) };
+          for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
           if (foes.length && this.has('collar')) h.guard += 5;
           this.ev.push({ k: 'txt', to: pid, x: 'Taunt!' });
           break;
@@ -524,7 +525,7 @@ export class Sim {
         }
         break;
       case 'drain': for (const [id, h] of heroes) { h.e = Math.max(0, h.e - a.v); this.ev.push({ k: 'txt', to: id, x: `−${a.v}⚡`, c: 'bad' }); } break;
-      case 'slow': for (const [, h] of heroes) h.slow = Math.max(h.slow, C.t + a.v); break;
+      case 'slow': for (const [, h] of heroes) h.slow = Math.max(h.slow, C.t + a.v * TEMPO); break;
     }
   }
 
@@ -536,13 +537,14 @@ export class Sim {
     e.last = i;
     const a = d.acts[i];
     const poise = a.poise || 1;
-    e.act = { i, el: 0, dur: a.w * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
+    e.act = { i, el: 0, dur: a.w * TEMPO * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
   }
 
   // ---------- The clock ----------
   tick(dt) {
     const C = this.C, S = this.S;
     if (!C || S.phase !== 'combat') return;
+    setTempo(S.tempo ?? DEFAULT_TEMPO);
     C.t += dt;
     const t = C.t;
 
@@ -552,10 +554,10 @@ export class Sim {
     }
 
     // The Hearth's Shield fades unless anchored; Wards top it up.
-    if (!this.has('anchor')) C.shield = Math.max(0, C.shield - (0.4 + C.shield * 0.05) * dt);
+    if (!this.has('anchor')) C.shield = Math.max(0, C.shield - (0.4 + C.shield * 0.05) * dt / TEMPO);
     if (C.ward) {
       C.wardT += dt;
-      if (C.wardT >= 4) { C.wardT -= 4; C.shield += C.ward; this.ev.push({ k: 'heal', to: 'shield', v: C.ward }); }
+      if (C.wardT >= WARD_EVERY) { C.wardT -= WARD_EVERY; C.shield += C.ward; this.ev.push({ k: 'heal', to: 'shield', v: C.ward }); }
     }
 
     // Burn ticks once a second.
@@ -585,7 +587,7 @@ export class Sim {
           this.ev.push({ k: 'eact', by: e.id, x: name });
           this.enemyAct(e);
           e.act = null;
-          e.rec = 1;
+          e.rec = 1 * TEMPO;
           if (C.end) return;
         }
       }
@@ -597,7 +599,7 @@ export class Sim {
         continue;
       }
       if (!this.player(pid)?.on) continue;
-      const rate = BASE_REGEN * (1 + h.pw.regen / 100 + (this.has('quick') ? 0.12 : 0)) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
+      const rate = baseRegen() * (1 + h.pw.regen / 100 + (this.has('quick') ? 0.12 : 0)) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
       h.e = Math.min(h.emax, h.e + rate * dt);
       if (h.ch) {
         h.ch.el += dt * (1 + h.pw.focus / 100);
@@ -646,6 +648,7 @@ export class Sim {
 const ACTIONS = {
   cls(p, a) { if (this.S.phase === 'lobby' && CLASSES[a.c]) { p.cls = a.c; this.dirty = true; } },
   start(p) { if (p.id === this.hostId) this.startRun(); },
+  tempo(p, a) { if (p.id === this.hostId && this.S.phase === 'lobby' && PACES.some(x => x.v === a.v)) { this.S.tempo = a.v; this.dirty = true; } },
   lobby(p) { if (p.id === this.hostId && this.S.phase === 'over') this.backToLobby(); },
   vote(p, a) {
     const S = this.S;
