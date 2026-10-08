@@ -252,12 +252,19 @@ function renderRunbar() {
   if (S.phase === 'lobby' || !S.hearthMax) { $('runbar').innerHTML = ''; return; }
   const floor = S.pos ? Math.min(S.pos.r + 1, ROWS + 1) : 0;
   $('runbar').innerHTML = `
-    <span class="rb-hearth" title="The Hearth: your team's shared life">❤️‍🔥 <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
+    <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
     <span title="Floor">🪜 ${floor}/${ROWS + 1}</span>
     ${m ? `<span title="Your gold">🪙 ${m.gold}</span>` : ''}
-    <span class="rb-relics">${(S.relics || []).map(r => `<span class="relic" title="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${RELICS[r].icon}</span>`).join('')}</span>
+    <span class="rb-relics">${(S.relics || []).map(r => `<span class="relic" title="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</span>`).join('')}</span>
     ${m ? `<button class="chip" data-deck="view">🂠 Deck ${m.deck.length}</button>` : ''}`;
 }
+
+// A painted image, or the emoji if the image is missing.
+const pic = (src, emoji, cls = '') => `<img class="pic ${cls}" src="assets/${src}.webp" alt="${emoji}" draggable="false" onerror="this.replaceWith(this.alt)">`;
+const classPic = (cls, extra = '') => CLASSES[cls] ? pic(`classes/${cls}`, CLASSES[cls].icon, `portrait ${extra}`) : '❔';
+const relicPic = id => pic(`relics/${id}`, RELICS[id].icon, 'relic-pic');
+const hearthPic = cls => pic('icons/hearth', '❤️‍🔥', cls);
+const scene = (id, emoji) => `<div class="scene">${pic(`scenes/${id}`, emoji)}</div>`;
 
 function tgtLabel(c) {
   return { enemy: 'Enemy', all: 'All enemies', ally: 'Ally', self: 'Self', none: 'Team' }[c.tgt] || '';
@@ -287,7 +294,7 @@ const SCREENS = {
       if (!p) return `<div class="seat empty">Open seat</div>`;
       const c = CLASSES[p.cls];
       return `<div class="seat" style="--pc:${pColor(p.id)}">
-        <div class="seat-icon">${c ? c.icon : '❔'}</div>
+        <div class="seat-icon">${classPic(p.cls)}</div>
         <div><b>${esc(p.name)}</b>${p.id === hostId ? ' <span class="tag">host</span>' : ''}${p.id === selfId ? ' <span class="tag">you</span>' : ''}<br><small>${c ? c.name : 'choosing…'}</small></div>
       </div>`;
     }).join('');
@@ -299,7 +306,7 @@ const SCREENS = {
       ${m ? `<h3>Choose your class</h3>
       <div class="classes">${Object.entries(CLASSES).map(([k, c]) => `
         <button class="class-card ${m.cls === k ? 'on' : ''}" data-cls="${k}" style="--cc:${c.color}">
-          <span class="class-icon">${c.icon}</span><b>${c.name}</b><small>❤️ ${c.hp} HP</small><span>${c.blurb}</span>
+          <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>❤️ ${c.hp} HP</small><span>${c.blurb}</span>
         </button>`).join('')}</div>` : `<p class="note">The party is full, so you're watching this one.</p>`}
       <div class="lobby-go">
         ${isHost() ? `<button class="btn big" data-start ${ready ? '' : 'disabled'}>${ready ? 'Begin the descent' : 'Everyone needs a class'}</button>`
@@ -346,17 +353,17 @@ const SCREENS = {
       const here = S.pos && S.pos.r === r && S.pos.i === i;
       const cls = `node ${n.type} ${reach.has(key) ? 'can' : ''} ${path.has(key) ? 'been' : ''} ${here ? 'here' : ''} ${S.votes?.[selfId] === key ? 'mine' : ''}`;
       nodes += `<g class="${cls}" data-node="${key}" transform="translate(${x},${y})"><title>${NODE_NAMES[n.type]}</title>
-        <circle r="19"/><text y="7">${NODE_ICONS[n.type]}</text>${voteDots(key)}</g>`;
+        <circle r="19"/><text y="7" class="alt">${NODE_ICONS[n.type]}</text><image href="assets/icons/${n.type}.webp" x="-17" y="-17" width="34" height="34" onerror="this.previousElementSibling.classList.remove('alt')"/>${voteDots(key)}</g>`;
     }));
     const bossName = S.boss.map(id => ENEMIES[id].name).join(' & ');
     nodes += `<g class="node boss ${reach.has('boss') ? 'can' : ''} ${S.votes?.[selfId] === 'boss' ? 'mine' : ''}" data-node="boss" transform="translate(${bossXY[0]},${bossXY[1]})"><title>Boss: ${esc(bossName)}</title>
-      <circle r="27"/><text y="10" class="big">${ENEMIES[S.boss[0]].icon}</text>${voteDots('boss')}</g>`;
+      <circle r="27"/><text y="10" class="big alt">${ENEMIES[S.boss[0]].icon}</text><image href="assets/enemies/${S.boss[0]}.webp" x="-24" y="-26" width="48" height="48" clip-path="circle(24px)" onerror="this.previousElementSibling.classList.remove('alt')"/>${voteDots('boss')}</g>`;
     return `<div class="map-wrap">
       <aside class="panel map-side">
         <h2>The Descent</h2>
         <p class="sub">Vote on the next room. Majority wins, ties are random.</p>
         ${waitingFor(S.votes)}
-        <ul class="legend">${Object.entries(NODE_ICONS).map(([k, v]) => `<li>${v} ${NODE_NAMES[k]}</li>`).join('')}<li>${ENEMIES[S.boss[0]].icon} ${esc(bossName)}</li></ul>
+        <ul class="legend">${Object.entries(NODE_ICONS).map(([k, v]) => `<li>${pic(`icons/${k}`, v)} ${NODE_NAMES[k]}</li>`).join('')}<li>${pic('icons/boss', ENEMIES[S.boss[0]].icon)} ${esc(bossName)}</li></ul>
         <div class="party">${partyList()}</div>
       </aside>
       <div class="map-scroll"><svg viewBox="0 0 ${W} ${H}" class="map">${lines}${nodes}</svg></div>
@@ -369,7 +376,7 @@ const SCREENS = {
     const relic = S.rewardRelic && RELICS[S.rewardRelic];
     return `<div class="panel center">
       <h2>Victory</h2>
-      <p class="sub">Everyone gains <b>🪙 ${S.rewardGold}</b>.${relic ? ` The team found <b>${relic.icon} ${esc(relic.name)}</b>: ${esc(relic.text)}` : ''}</p>
+      <p class="sub">Everyone gains <b>🪙 ${S.rewardGold}</b>.${relic ? ` The team found <b>${relicPic(S.rewardRelic)} ${esc(relic.name)}</b>: ${esc(relic.text)}` : ''}</p>
       ${r && !done ? `<h3>Add a card to your deck</h3>
         <div class="card-grid">${r.cards.map(id => `<button class="card-btn" data-reward="${id}">${cardHTML(id, 0)}</button>`).join('')}</div>
         <button class="btn ghost" data-reward-skip>Skip</button>`
@@ -383,7 +390,7 @@ const SCREENS = {
     const done = S.done?.[selfId];
     const heal = Math.ceil(S.hearthMax * 0.3 / Math.max(1, S.players.filter(p => p.on).length));
     return `<div class="panel center">
-      <div class="big-icon">🔥</div>
+      ${scene('rest', '🔥')}
       <h2>Campfire</h2>
       <p class="sub">Each of you picks one: tend the Hearth, or sharpen a card.</p>
       ${m && done == null ? `<div class="choices">
@@ -399,7 +406,7 @@ const SCREENS = {
     const items = S.shop.items[selfId] || [];
     const done = S.done?.[selfId] != null;
     return `<div class="panel center wide">
-      <div class="big-icon">💰</div>
+      ${scene('shop', '💰')}
       <h2>Merchant</h2>
       <p class="sub">Cards go in your own deck. Relics help the whole team.</p>
       ${m && !done ? `
@@ -407,7 +414,7 @@ const SCREENS = {
       <div class="card-grid">${items.map((it, i) => `<button class="card-btn ${it.sold ? 'sold' : ''}" data-buy="${i}" ${it.sold || m.gold < it.price ? 'disabled' : ''}>${cardHTML(it.id, 0, `<span class="price">🪙 ${it.price}</span>`)}</button>`).join('')}</div>
       <h3>Relics</h3>
       <div class="relic-row">${S.shop.relics.map((r, i) => `<button class="relic-btn" data-buy-relic="${i}" ${r.sold || m.gold < r.price ? 'disabled' : ''}>
-        <span class="relic-icon">${RELICS[r.id].icon}</span><b>${esc(RELICS[r.id].name)}</b><small>${esc(RELICS[r.id].text)}</small><span class="price">${r.sold ? 'Sold' : `🪙 ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
+        <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${esc(RELICS[r.id].text)}</small><span class="price">${r.sold ? 'Sold' : `🪙 ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
       <div class="shop-foot">
         <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}>🗑️ Remove a card (🪙 ${REMOVE_PRICE})</button>
         <button class="btn" data-done>Leave shop</button>
@@ -420,7 +427,7 @@ const SCREENS = {
     const ev = S.event, d = EVENTS[ev.id];
     const voted = ev.votes[selfId];
     return `<div class="panel center">
-      <div class="big-icon">${d.icon}</div>
+      ${scene(ev.id, d.icon)}
       <h2>${esc(d.name)}</h2>
       <p class="story">${esc(d.text)}</p>
       ${ev.result ? `<p class="result"><b>${esc(d.opts[ev.choice].t)}:</b> ${esc(ev.result)}</p>
@@ -438,9 +445,9 @@ const SCREENS = {
   treasure() {
     const r = S.treasure && RELICS[S.treasure];
     return `<div class="panel center">
-      <div class="big-icon">🎁</div>
+      ${scene('treasure', '🎁')}
       <h2>Treasure</h2>
-      ${r ? `<p class="sub">The team found <b>${r.icon} ${esc(r.name)}</b>: ${esc(r.text)}</p>` : '<p class="sub">The chest is empty.</p>'}
+      ${r ? `<p class="sub">The team found <b>${relicPic(S.treasure)} ${esc(r.name)}</b>: ${esc(r.text)}</p>` : '<p class="sub">The chest is empty.</p>'}
       ${me() && S.done?.[selfId] == null ? '<button class="btn" data-done>Continue</button>' : ''}
       ${waitingFor(S.done)}
     </div>`;
@@ -449,7 +456,7 @@ const SCREENS = {
   over() {
     const o = S.over;
     return `<div class="panel center">
-      <div class="big-icon">${o.win ? '👑' : '🕯️'}</div>
+      ${o.win ? scene('victory', '👑') : scene('defeat', '🕯️')}
       <h2>${o.win ? 'The Hearth endures' : 'The Hearth has gone out'}</h2>
       <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : `The party fell on floor ${o.floor}.`}</p>
       <p class="note">${S.stats?.fights || 0} fights · ${S.stats?.cards || 0} cards played · ${(S.relics || []).length} relics</p>
@@ -467,7 +474,7 @@ function reachableClient() {
 
 function partyList() {
   return S.players.map(p => `<div class="pline ${p.on ? '' : 'off'}" style="--pc:${pColor(p.id)}">
-    <span>${CLASSES[p.cls]?.icon || '❔'}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ${p.deck.length} cards · 🪙 ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
+    <span class="pavatar">${classPic(p.cls)}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ${p.deck.length} cards · 🪙 ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
 }
 
 // ---------- Clicks outside combat ----------
@@ -526,7 +533,7 @@ function buildCombat() {
   const main = $('main');
   main.innerHTML = `<div id="combat">
     <div class="hearth" id="hearthEl">
-      <div class="hearth-icon">❤️‍🔥</div>
+      <div class="hearth-icon">${hearthPic()}</div>
       <div class="hearth-body">
         <div class="hearth-label"><b>Hearth</b><span class="hnum"></span><span class="snum"></span></div>
         <div class="bar big"><i class="hp"></i><i class="sh"></i></div>
@@ -703,7 +710,7 @@ function heroEl(pid) {
   el.dataset.id = pid;
   el.style.setProperty('--pc', pColor(pid));
   el.innerHTML = `
-    <div class="hname"><span>${CLASSES[p?.cls]?.icon || '❔'}</span><b>${esc(p?.name)}</b><span class="htaunt"></span></div>
+    <div class="hname"><span class="havatar">${classPic(p?.cls)}</span><b>${esc(p?.name)}</b><span class="htaunt"></span></div>
     <div class="bar"><i class="hp"></i><span></span></div>
     <div class="hrow"><div class="epips"></div><span class="guard"></span></div>
     <div class="hcast"><i></i><span></span></div>

@@ -9,3 +9,6 @@ tools/voices/__pycache__/
 
 # TasteTier worker local state
 TasteTier/worker/.wrangler/
+
+# Hearthguard source sprite sheets (the game uses the sliced .webp files)
+Hearthguard/assets/**/*.png
