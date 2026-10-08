@@ -254,7 +254,7 @@ function renderRunbar() {
   $('runbar').innerHTML = `
     <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
     <span title="Floor">🪜 ${floor}/${ROWS + 1}</span>
-    ${m ? `<span title="Your gold">🪙 ${m.gold}</span>` : ''}
+    ${m ? `<span title="Your HP">❤️ ${m.hp}/${m.maxHp}</span><span title="Your gold">🪙 ${m.gold}</span>` : ''}
     <span class="rb-relics">${(S.relics || []).map(r => `<span class="relic" title="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</span>`).join('')}</span>
     ${m ? `<button class="chip" data-deck="view">🂠 Deck ${m.deck.length}</button>` : ''}`;
 }
@@ -274,7 +274,7 @@ function cardHTML(id, up, extra = '') {
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
     <span class="cost">${c.unplayable ? '–' : c.cost}</span>
     ${c.cast ? `<span class="ct" title="Cast time">⏱${c.cast}s</span>` : ''}
-    <div class="cicon">${c.icon}</div>
+    <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
     <div class="ctext">${cardText(c)}</div>
     <div class="ctype">${c.power ? 'Power' : tgtLabel(c)}</div>
@@ -316,7 +316,7 @@ const SCREENS = {
         <summary>How to play</summary>
         <ul>
           <li><b>No turns.</b> ⚡ Energy refills over time. Play cards whenever you can afford them. Cards marked ⏱ take time to cast, and you can't play anything else while casting.</li>
-          <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life and carries over between fights. If it goes out, the run is over.</li>
+          <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
           <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and Guard. A hero who is knocked out gets back up after 8s.</li>
           <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. 🔒 moves can't be stopped. 🌊 waves ignore taunts.</li>
           <li><b>Shield</b> soaks hits for the Hearth but fades over time.</li>
@@ -394,7 +394,7 @@ const SCREENS = {
       <h2>Campfire</h2>
       <p class="sub">Each of you picks one: tend the Hearth, or sharpen a card.</p>
       ${m && done == null ? `<div class="choices">
-        <button class="choice" data-rest><b>🔥 Rest</b><span>Heal the Hearth ${heal}.</span></button>
+        <button class="choice" data-rest><b>🔥 Rest</b><span>Heal the Hearth ${heal} and restore your HP (${m.hp}/${m.maxHp}).</span></button>
         <button class="choice" data-deck="smith"><b>⚒️ Smith</b><span>Upgrade a card in your deck.</span></button>
       </div>` : `<p class="note">${m ? (done === 'rest' ? 'You rested.' : 'You upgraded a card.') : ''} Waiting for the others…</p>`}
       ${waitingFor(S.done)}
@@ -474,7 +474,7 @@ function reachableClient() {
 
 function partyList() {
   return S.players.map(p => `<div class="pline ${p.on ? '' : 'off'}" style="--pc:${pColor(p.id)}">
-    <span class="pavatar">${classPic(p.cls)}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ${p.deck.length} cards · 🪙 ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
+    <span class="pavatar">${classPic(p.cls)}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ❤️ ${p.hp ?? '?'}/${p.maxHp ?? '?'} · ${p.deck.length} cards · 🪙 ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
 }
 
 // ---------- Clicks outside combat ----------

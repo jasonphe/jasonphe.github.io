@@ -120,8 +120,8 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 .class-icon .pic { width: 100%; height: 150px; border-radius: 10px; object-position: center 15%; }
 .havatar .pic, .pavatar .pic { width: 28px; height: 28px; border: 2px solid var(--pc); }
 .legend .pic { width: 1.5em; height: 1.5em; }
-.scene { max-width: 520px; margin: 0 auto 10px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 30px #000a; font-size: 3rem; }
-.scene .pic { width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
+.scene { width: fit-content; max-width: 100%; margin: 0 auto 10px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 30px #000a; font-size: 3rem; }
+.scene .pic { width: auto; height: auto; max-width: 100%; max-height: min(42vh, 400px); display: block; }
 .map .alt { display: none; }
 
 /* ---------- Generic screens ---------- */
@@ -163,7 +163,7 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 .card-btn .price { display: block; margin-top: 4px; }
 .cardface {
   --cc: #8a7a6a;
-  position: relative; width: 150px; min-height: 196px; display: flex; flex-direction: column; align-items: center;
+  position: relative; width: 150px; min-height: 236px; display: flex; flex-direction: column; align-items: center;
   background: linear-gradient(180deg, color-mix(in srgb, var(--cc) 22%, #2a211b), #19130f 70%);
   border: 2px solid color-mix(in srgb, var(--cc) 70%, #000); border-radius: 12px; padding: 8px 8px 6px; text-align: center;
   box-shadow: 0 4px 14px #0007;
@@ -181,8 +181,12 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   display: grid; place-items: center; font-weight: 800; color: #2a1a05;
   background: radial-gradient(circle at 35% 30%, #fff3b0, var(--energy) 55%, #b88a00); border: 2px solid #2a1a05;
 }
-.ct { position: absolute; top: 4px; right: 6px; font-size: .75rem; color: var(--muted); }
-.cicon { font-size: 1.9rem; margin-top: 6px; }
+.ct { position: absolute; top: 6px; right: 6px; z-index: 1; font-size: .75rem; color: #e8dccb; background: #000b; border-radius: 6px; padding: 0 5px; }
+.cart {
+  align-self: stretch; height: 84px; margin: 2px 0 0; border-radius: 8px; overflow: hidden; display: grid; place-items: center;
+  font-size: 1.9rem; background: #0005; border: 1px solid color-mix(in srgb, var(--cc) 45%, #000);
+}
+.cart .pic { width: 100%; height: 100%; object-fit: cover; }
 .cname { font-family: 'Cinzel', serif; font-weight: 800; font-size: .9rem; line-height: 1.1; margin: 4px 0; }
 .ctext { font-size: .82rem; line-height: 1.25; flex: 1; }
 .ctext b { color: #fff; }
@@ -307,7 +311,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .info b { color: var(--gold); }
 .hand { display: flex; gap: 10px; justify-content: center; }
 .hand-card { position: relative; background: none; border: 0; padding: 0; transition: transform .12s, filter .12s; }
-.hand-card .cardface { width: 150px; min-height: 186px; }
+.hand-card .cardface { width: 150px; min-height: 226px; }
 .hand-card:hover .cardface { transform: translateY(-6px); }
 .hand-card.sel .cardface { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--gold), 0 10px 30px #e0b84a55; }
 .hand-card.poor .cardface { filter: brightness(.55) saturate(.6); }
@@ -375,7 +379,7 @@ dialog::backdrop { background: #000b; }
   .hand-card .cardface { width: 100%; min-height: 108px; padding: 6px 3px 4px; }
   .hand-card .ctext, .hand-card .ctype { display: none; }
   .hand-card .cname { font-size: .7rem; }
-  .hand-card .cicon { font-size: 1.5rem; }
+  .hand-card .cart { height: 48px; font-size: 1.5rem; margin-top: 4px; }
   .hand-card .ct { font-size: .62rem; top: 2px; right: 3px; }
   .hand-card .cost { width: 24px; height: 24px; top: -6px; left: -4px; font-size: .85rem; }
   .cyc { width: 24px; height: 24px; bottom: 4px; right: 50%; transform: translateX(50%); }

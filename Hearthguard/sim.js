@@ -9,6 +9,7 @@ export const HAND = 5;
 const BASE_REGEN = 1 / 1.5;      // ⚡ per second
 const BASE_MAX_E = 5;
 const DOWN_TIME = 8;             // seconds a hero is knocked out
+const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero gets back up with
 const ROWS = 13;                 // map rows before the boss
 const COLS = 5;
 const PRICES = { common: 45, uncommon: 70, rare: 110 };
@@ -97,6 +98,7 @@ export class Sim {
     if (S.phase !== 'lobby' || !S.players.length || S.players.some(p => !p.cls)) return;
     for (const p of S.players) {
       p.gold = 25;
+      p.maxHp = p.hp = CLASSES[p.cls].hp;
       p.deck = STARTER[p.cls].map(id => this.inst(id));
     }
     S.hearthMax = S.hearth = HEARTH[S.players.length];
@@ -245,7 +247,7 @@ export class Sim {
       case 'shrine0': this.hurtHearthOutside(10); res = `The Hearth loses 10. ${giveRelic()}`; break;
       case 'smith0': res = everyone.map(p => { const c = pick(p.deck.filter(c => !c.up)); if (!c) return `${p.name}: nothing to upgrade`; c.up = 1; return `${p.name}: ${CARDS[c.id].name}+`; }).join(', '); break;
       case 'smith1': everyone.forEach(p => p.gold += 25); res = 'Everyone gains 25 gold.'; break;
-      case 'fountain0': S.hearth = Math.min(S.hearthMax, S.hearth + 15); res = 'The Hearth heals 15.'; break;
+      case 'fountain0': S.hearth = Math.min(S.hearthMax, S.hearth + 15); everyone.forEach(p => p.hp = Math.min(p.maxHp, p.hp + 10)); res = 'The Hearth heals 15 and everyone restores 10 HP.'; break;
       case 'fountain1': S.hearthMax += 8; S.hearth += 8; res = 'The Hearth grows (+8 max).'; break;
       case 'dice0': {
         everyone.forEach(p => p.gold = Math.max(0, p.gold - 20));
@@ -292,7 +294,7 @@ export class Sim {
       const cls = CLASSES[p.cls];
       const emax = BASE_MAX_E + (this.has('pouch') ? 1 : 0);
       const h = C.heroes[p.id] = {
-        hp: cls.hp, max: cls.hp, guard: 0, e: this.has('candle') ? emax : 2, emax,
+        hp: Math.max(1, p.hp ?? cls.hp), max: p.maxHp ?? cls.hp, guard: 0, e: this.has('candle') ? emax : 2, emax,
         hand: [], draw: shuffle(p.deck.map(c => ({ ...c }))), disc: [], exh: [],
         ch: null, down: 0, haste: 0, slow: 0, empower: 0, cycleFree: 0, lastCh: -9,
         pw: { fury: 0, focus: 0, regen: 0, thorns: 0 },
@@ -591,7 +593,7 @@ export class Sim {
 
     for (const [pid, h] of Object.entries(C.heroes)) {
       if (h.down) {
-        if (t >= h.down) { h.down = 0; h.hp = Math.ceil(h.max / 2); this.ev.push({ k: 'txt', to: pid, x: 'Back up!' }); }
+        if (t >= h.down) { h.down = 0; h.hp = Math.ceil(h.max * REVIVE_HP); this.ev.push({ k: 'txt', to: pid, x: 'Back up!' }); }
         continue;
       }
       if (!this.player(pid)?.on) continue;
@@ -616,6 +618,11 @@ export class Sim {
   winCombat() {
     const S = this.S, C = this.C;
     if (C.kind === 'boss') { this.endRun(true); return; }
+    // Wounds carry over. Anyone knocked out at the end gets back up a little hurt.
+    for (const p of S.players) {
+      const h = C.heroes[p.id];
+      if (h) p.hp = h.down ? Math.ceil(h.max * REVIVE_HP) : Math.max(1, Math.round(h.hp));
+    }
     if (this.has('ember')) S.hearth = Math.min(S.hearthMax, S.hearth + 6);
     const elite = C.kind === 'elite';
     const gold = (elite ? randInt(30, 40) : randInt(14, 22)) + (this.has('tooth') ? 10 : 0) + (S.ambush ? 15 : 0);
@@ -669,6 +676,7 @@ const ACTIONS = {
     } else {
       const heal = Math.ceil(S.hearthMax * 0.3 / Math.max(1, this.active().length));
       S.hearth = Math.min(S.hearthMax, S.hearth + heal);
+      p.hp = p.maxHp;
       S.done[p.id] = 'rest';
     }
     this.dirty = true;

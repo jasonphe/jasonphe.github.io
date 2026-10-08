@@ -258,7 +258,7 @@ export const RELICS = {
 export const EVENTS = {
   shrine: { name: 'Bloodied Shrine', icon: '⛩️', text: 'A shrine slick with old blood hums with power. It wants a tithe.', opts: [{ t: 'Pray', d: 'Hearth loses 10. Gain a relic.' }, { t: 'Leave', d: 'Nothing happens.' }] },
   smith: { name: 'Wandering Smith', icon: '⚒️', text: 'A dwarf with a portable anvil offers a hand, or a coin purse.', opts: [{ t: 'Sharpen', d: 'Everyone upgrades a random card.' }, { t: 'Sell scrap', d: 'Everyone gains 25 gold.' }] },
-  fountain: { name: 'Moonlit Fountain', icon: '⛲', text: 'Silver water bubbles up from the stone.', opts: [{ t: 'Drink', d: 'Hearth heals 15.' }, { t: 'Fill flasks', d: 'Hearth max +8.' }] },
+  fountain: { name: 'Moonlit Fountain', icon: '⛲', text: 'Silver water bubbles up from the stone.', opts: [{ t: 'Drink', d: 'Hearth heals 15. Everyone restores 10 HP.' }, { t: 'Fill flasks', d: 'Hearth max +8.' }] },
   dice: { name: 'Bone Dice', icon: '🎲', text: 'A skeleton rattles a cup of dice. "Twenty each to play."', opts: [{ t: 'Roll', d: 'Everyone pays 20 gold. 50%: gain a relic.' }, { t: 'Leave', d: 'Nothing happens.' }] },
   library: { name: 'Forgotten Library', icon: '📚', text: 'Dusty tomes line the walls. Some still glow.', opts: [{ t: 'Study', d: 'Everyone gains a random uncommon card.' }, { t: 'Nap', d: 'Hearth heals 8.' }] },
   trader: { name: 'Ghostly Trader', icon: '👤', text: '"Your warmth, for my wares," it whispers.', opts: [{ t: 'Trade', d: 'Hearth max −12. Everyone gains a random rare card.' }, { t: 'Leave', d: 'Nothing happens.' }] },
