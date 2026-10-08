@@ -186,6 +186,7 @@ img { display: block; max-width: 100%; }
 .thumb-train { background: linear-gradient(180deg, #7cc8ff, #dff3ff 62%, #a6e3a0 63%); }
 .thumb-feed { background: linear-gradient(180deg, #c9f0ff, #effbe8 60%, #d79a5e 61%); }
 .thumb-balloon { background: linear-gradient(180deg, #8fd3ff, #e6f7ff 80%, #8fd694 81%); }
+.thumb-hearthguard { background: radial-gradient(circle at 50% 70%, #ffb46b, #7a2e17 55%, #2a1610); }
 .thumb-tastetier { background: linear-gradient(180deg, #ffd9d2 0 33%, #fff0c2 33% 66%, #dcefcf 66%); }
 .thumb-zoo span { animation: bob 3s ease-in-out infinite; }
 .thumb-zoo span:nth-child(2) { animation-delay: -1s; }

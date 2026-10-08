@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Hearthguard</title>
+  <meta name="description" content="A real-time co-op roguelike deckbuilder for 1 to 4 players. Share a room code, guard the Hearth together, and fight down a branching dungeon.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Alegreya+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ---------- Join screen ---------- -->
+  <section id="join">
+    <form class="panel join-panel" id="joinForm" autocomplete="off">
+      <div class="crest" aria-hidden="true">🔥</div>
+      <h1>Hearthguard</h1>
+      <p class="sub">A real-time co-op deckbuilder for 1 to 4 players. Cast cards as fast as your energy allows, interrupt enemy attacks, and keep the shared Hearth burning.</p>
+      <label class="field">Your name
+        <input id="nameInput" maxlength="16" placeholder="e.g. Aldric" required>
+      </label>
+      <div id="joinExisting" class="stack hidden">
+        <p class="sub">Joining room <b id="joinCodeLabel"></b></p>
+        <button class="btn" type="submit">Join room</button>
+        <button class="btn ghost" type="button" id="newInstead">Make a new room instead</button>
+      </div>
+      <div id="joinFresh" class="stack">
+        <button class="btn" type="button" id="createBtn">Create a room</button>
+        <div class="or"><span>or join with a code</span></div>
+        <div class="row">
+          <input id="codeInput" maxlength="6" placeholder="CODE" aria-label="Room code">
+          <button class="btn ghost" type="submit">Join</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- ---------- Game ---------- -->
+  <section id="game" class="hidden">
+    <header id="topbar">
+      <div class="brand">🔥 <span>Hearthguard</span></div>
+      <div id="runbar"></div>
+      <button class="chip" id="copyTop" title="Copy invite link">Room <b id="roomCode"></b> 🔗</button>
+    </header>
+    <main id="main"></main>
+  </section>
+
+  <dialog id="deckDialog">
+    <div class="dlg-head">
+      <h3 id="deckTitle">Your deck</h3>
+      <button class="btn ghost small" id="deckClose" type="button">Close</button>
+    </div>
+    <p id="deckHint" class="sub"></p>
+    <div id="deckGrid" class="card-grid"></div>
+  </dialog>
+
+  <div id="toasts" aria-live="polite"></div>
+  <div id="fxLayer" aria-hidden="true"></div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
