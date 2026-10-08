@@ -179,7 +179,6 @@ img { display: block; max-width: 100%; }
     font-size: clamp(40px, 7vw, 64px);
 }
 .thumb-scribble { background: linear-gradient(135deg, #efeaff, #ffe3ec 50%, #fff1c9); }
-.thumb-hearthguard { background: radial-gradient(circle at 50% 70%, #ffb46b, #7a2e17 55%, #2a1610); }
 .thumb-tastetier { background: linear-gradient(180deg, #ffd9d2 0 33%, #fff0c2 33% 66%, #dcefcf 66%); }
 .thumb-zoo span { animation: bob 3s ease-in-out infinite; }
 .thumb-zoo span:nth-child(2) { animation-delay: -1s; }
