@@ -263,11 +263,22 @@ export class Sim {
     const S = this.S, ev = S.event;
     const everyone = this.S.players;
     let res = '';
-    const giveRelic = () => { const r = this.randomRelic(); if (r) { S.relics.push(r); return `Gained ${RELICS[r].icon} ${RELICS[r].name}.`; } return 'The relic crumbles to dust.'; };
-    const giveCard = rarity => everyone.map(p => { const id = this.randomCard(p.cls, rarity); p.deck.push(this.inst(id)); return `${p.name}: ${CARDS[id].name}`; }).join(', ');
+    const gains = [];   // shown as pictures on the result screen
+    const giveRelic = () => { const r = this.randomRelic(); if (r) { S.relics.push(r); gains.push({ relic: r }); return 'The team gains a relic.'; } return 'The relic crumbles to dust.'; };
+    const giveCard = rarity => everyone.forEach(p => { const id = this.randomCard(p.cls, rarity); p.deck.push(this.inst(id)); gains.push({ pid: p.id, card: id, up: 0 }); });
     switch (ev.id + choice) {
       case 'shrine0': this.hurtHearthOutside(10); res = `The Hearth loses 10. ${giveRelic()}`; break;
-      case 'smith0': res = everyone.map(p => { const c = pick(p.deck.filter(c => !c.up)); if (!c) return `${p.name}: nothing to upgrade`; c.up = 1; return `${p.name}: ${CARDS[c.id].name}+`; }).join(', '); break;
+      case 'smith0': {
+        const none = [];
+        for (const p of everyone) {
+          const c = pick(p.deck.filter(c => !c.up));
+          if (!c) { none.push(p.name); continue; }
+          c.up = 1;
+          gains.push({ pid: p.id, card: c.id, up: 1 });
+        }
+        res = 'The smith sharpens a card for each of you.' + (none.length ? ` (${none.join(', ')} had nothing left to upgrade.)` : '');
+        break;
+      }
       case 'smith1': everyone.forEach(p => p.gold += 25); res = 'Everyone gains 25 gold.'; break;
       case 'fountain0': S.hearth = Math.min(S.hearthMax, S.hearth + 15); everyone.forEach(p => p.hp = Math.min(p.maxHp, p.hp + 10)); res = 'The Hearth heals 15 and everyone restores 10 HP.'; break;
       case 'fountain1': S.hearthMax += 8; S.hearth += 8; res = 'The Hearth grows (+8 max).'; break;
@@ -276,15 +287,16 @@ export class Sim {
         res = Math.random() < 0.5 ? `Snake eyes... for the skeleton. ${giveRelic()}` : 'The skeleton cackles and keeps your gold.';
         break;
       }
-      case 'library0': res = `Learned: ${giveCard('uncommon')}.`; break;
+      case 'library0': giveCard('uncommon'); res = 'Each of you learns a new card.'; break;
       case 'library1': S.hearth = Math.min(S.hearthMax, S.hearth + 8); res = 'The Hearth heals 8.'; break;
-      case 'trader0': S.hearthMax = Math.max(10, S.hearthMax - 12); S.hearth = Math.min(S.hearth, S.hearthMax); res = `The Hearth dims (−12 max). ${giveCard('rare')}.`; break;
+      case 'trader0': S.hearthMax = Math.max(10, S.hearthMax - 12); S.hearth = Math.min(S.hearth, S.hearthMax); giveCard('rare'); res = 'The Hearth dims (−12 max). Each of you gains a rare card.'; break;
       case 'ambush0': S.ambush = true; S.phase = 'map'; this.startCombat(pick(ENCOUNTERS.normal), 'fight'); return;
       case 'ambush1': this.hurtHearthOutside(9); res = 'You escape, but the Hearth loses 9.'; break;
       default: res = 'You move on.';
     }
     ev.choice = choice;
     ev.result = res;
+    ev.gains = gains;
     S.done = {};
     this.dirty = true;
   }
@@ -298,11 +310,11 @@ export class Sim {
     }
   }
 
-  endRun(win) {
+  endRun(win, quit = false) {
     const S = this.S;
     this.foldStats();
     S.phase = 'over';
-    S.over = { win, floor: S.pos ? S.pos.r + 1 : 0, boss: S.boss.map(id => ENEMIES[id].name).join(' & ') };
+    S.over = { win, quit, floor: S.pos ? S.pos.r + 1 : 0, boss: S.boss.map(id => ENEMIES[id].name).join(' & ') };
     this.C = null;
     this.dirty = true;
   }
@@ -695,6 +707,8 @@ const ACTIONS = {
   cls(p, a) { if (this.S.phase === 'lobby' && CLASSES[a.c]) { p.cls = a.c; this.dirty = true; } },
   start(p) { if (p.id === this.hostId) this.startRun(); },
   tempo(p, a) { if (p.id === this.hostId && this.S.phase === 'lobby' && PACES.some(x => x.v === a.v)) { this.S.tempo = a.v; this.dirty = true; } },
+  // The host can give up on the run; everyone still sees the end screen and stats.
+  abandon(p) { if (p.id === this.hostId && !['lobby', 'over'].includes(this.S.phase)) this.endRun(false, true); },
   lobby(p) { if (p.id === this.hostId && this.S.phase === 'over') this.backToLobby(); },
   vote(p, a) {
     const S = this.S;
@@ -738,11 +752,12 @@ const ACTIONS = {
       const r = shop.relics[a.relic];
       if (!r || r.sold || p.gold < r.price) return;
       p.gold -= r.price; r.sold = true; S.relics.push(r.id);
-      this.note(`${p.name} bought ${RELICS[r.id].icon} ${RELICS[r.id].name} for the team`);
+      this.ev.push({ k: 'gain', to: 'team', relic: r.id, by: p.id });
     } else {
       const it = shop.items[p.id]?.[a.i];
       if (!it || it.sold || p.gold < it.price) return;
       p.gold -= it.price; it.sold = true; p.deck.push(this.inst(it.id));
+      this.ev.push({ k: 'gain', to: p.id, card: it.id, up: 0 });
     }
     this.dirty = true;
   },

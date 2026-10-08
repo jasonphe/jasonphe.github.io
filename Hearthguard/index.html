@@ -42,6 +42,7 @@
     <header id="topbar">
       <div class="brand">🔥 <span>Hearthguard</span></div>
       <div id="runbar"></div>
+      <button class="chip danger hidden" id="endRunBtn" title="End the run for everyone">End run</button>
       <button class="chip" id="copyTop" title="Copy invite link">Room <b id="roomCode"></b> 🔗</button>
     </header>
     <main id="main"></main>
@@ -57,6 +58,8 @@
   </dialog>
 
   <div id="toasts" aria-live="polite"></div>
+  <div id="gainPops" aria-live="polite"></div>
+  <div id="relicTip" role="tooltip" hidden></div>
   <div id="fxLayer" aria-hidden="true"></div>
 
   <script type="module" src="game.js"></script>

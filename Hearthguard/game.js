@@ -104,6 +104,9 @@ async function copyInvite() {
   catch { prompt('Copy this link:', url); }
 }
 $('copyTop').onclick = copyInvite;
+$('endRunBtn').onclick = () => {
+  if (confirm('End this run for everyone? You will all go to the end screen with your stats so far.')) act({ k: 'abandon' });
+};
 
 function start(name, code) {
   roomCode = code;
@@ -231,6 +234,7 @@ function onState(prevPhase) {
 function render() {
   setTempo(S.tempo ?? DEFAULT_TEMPO);
   renderRunbar();
+  $('endRunBtn').classList.toggle('hidden', !isHost() || ['lobby', 'over'].includes(S.phase));
   const main = $('main');
   document.body.dataset.phase = S.phase;
   if (S.phase === 'combat') {
@@ -252,14 +256,18 @@ function render() {
 }
 
 function renderRunbar() {
+  const html = runbarHTML();
+  if ($('runbar').dataset.v !== html) { $('runbar').innerHTML = html; $('runbar').dataset.v = html; }
+}
+function runbarHTML() {
   const m = me();
-  if (S.phase === 'lobby' || !S.hearthMax) { $('runbar').innerHTML = ''; return; }
+  if (S.phase === 'lobby' || !S.hearthMax) return '';
   const floor = S.pos ? Math.min(S.pos.r + 1, ROWS + 1) : 0;
-  $('runbar').innerHTML = `
+  return `
     <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
     <span title="Floor">🪜 ${floor}/${ROWS + 1}</span>
     ${m ? `<span title="Your HP">❤️ ${m.hp}/${m.maxHp}</span><span title="Your gold">🪙 ${m.gold}</span>` : ''}
-    <span class="rb-relics">${(S.relics || []).map(r => `<span class="relic" title="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</span>`).join('')}</span>
+    <span class="rb-relics">${(S.relics || []).map(r => `<button class="relic" data-relic="${r}" aria-label="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</button>`).join('')}</span>
     ${m ? `<button class="chip" data-deck="view">🂠 Deck ${m.deck.length}</button>` : ''}`;
 }
 
@@ -436,6 +444,7 @@ const SCREENS = {
       <h2>${esc(d.name)}</h2>
       <p class="story">${esc(d.text)}</p>
       ${ev.result ? `<p class="result"><b>${esc(d.opts[ev.choice].t)}:</b> ${esc(ev.result)}</p>
+        ${gainsHTML(ev.gains)}
         ${me() && S.done?.[selfId] == null ? '<button class="btn" data-done>Continue</button>' : ''}
         ${waitingFor(S.done)}`
       : `<div class="choices">${d.opts.map((o, i) => `<button class="choice ${voted === i ? 'on' : ''}" data-evote="${i}" ${me() ? '' : 'disabled'}>
@@ -462,14 +471,73 @@ const SCREENS = {
     const o = S.over;
     return `<div class="panel center">
       ${o.win ? scene('victory', '👑') : scene('defeat', '🕯️')}
-      <h2>${o.win ? 'The Hearth endures' : 'The Hearth has gone out'}</h2>
-      <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : `The party fell on floor ${o.floor}.`}</p>
+      <h2>${o.win ? 'The Hearth endures' : o.quit ? 'The run was abandoned' : 'The Hearth has gone out'}</h2>
+      <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : o.quit ? `The party turned back on floor ${o.floor}.` : `The party fell on floor ${o.floor}.`}</p>
       <p class="note">${S.stats?.fights || 0} fights · ${S.stats?.cards || 0} cards played · ${(S.relics || []).length} relics</p>
       ${statsBoard()}
       ${isHost() ? '<button class="btn big" data-lobby>Back to the lobby</button>' : `<p class="sub">Waiting for ${esc(pName(hostId))}…</p>`}
     </div>`;
   },
 };
+
+// ---------- Gains ----------
+// A relic as a small tile with its picture and effect.
+const relicTile = id => `<div class="relic-tile">${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${esc(RELICS[id].text)}</span></div></div>`;
+
+// What an event gave out: relics for the team, cards for each player (yours first).
+function gainsHTML(gains) {
+  if (!gains?.length) return '';
+  const relics = gains.filter(g => g.relic);
+  const cards = gains.filter(g => g.card).sort((a, b) => (b.pid === selfId) - (a.pid === selfId));
+  return `<div class="gains">
+    ${relics.map(g => relicTile(g.relic)).join('')}
+    ${cards.length ? `<div class="card-grid">${cards.map(g => `<div class="gain-card ${g.pid === selfId ? 'mine' : ''}">
+      ${cardHTML(g.card, g.up)}<span class="owner" style="--pc:${pColor(g.pid)}">${g.pid === selfId ? 'You' : esc(pName(g.pid))}${g.up ? ' · upgraded' : ''}</span></div>`).join('')}</div>` : ''}
+  </div>`;
+}
+
+// A popup for something just bought.
+function showGain(ev) {
+  const el = document.createElement('div');
+  el.className = 'gain-pop';
+  const head = ev.relic
+    ? (ev.by === selfId ? 'You bought a relic for the team' : `${esc(pName(ev.by))} bought a relic for the team`)
+    : 'Added to your deck';
+  el.innerHTML = `<small>${head}</small>${ev.relic ? relicTile(ev.relic) : cardHTML(ev.card, ev.up)}`;
+  el.onclick = () => el.remove();
+  $('gainPops').append(el);
+  setTimeout(() => el.classList.add('out'), 3200);
+  setTimeout(() => el.remove(), 3700);
+}
+
+// ---------- Relic details in the top bar ----------
+let tipFor = null;
+function showRelicTip(btn) {
+  const id = btn.dataset.relic;
+  const tip = $('relicTip');
+  tip.innerHTML = `${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${esc(RELICS[id].text)}</span><small>Team relic · helps everyone</small></div>`;
+  tip.hidden = false;
+  const r = btn.getBoundingClientRect(), w = tip.offsetWidth;
+  tip.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
+  tip.style.top = `${r.bottom + 8}px`;
+  tipFor = id;
+}
+function hideRelicTip() { $('relicTip').hidden = true; tipFor = null; }
+document.addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const b = e.target.closest('[data-relic]');
+  if (b) showRelicTip(b);
+  else if (tipFor) hideRelicTip();
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-relic]');
+  if (b) { tipFor === b.dataset.relic && e.pointerType !== 'mouse' ? hideRelicTip() : showRelicTip(b); return; }
+  if (tipFor && !e.target.closest('#relicTip')) hideRelicTip();
+});
+document.addEventListener('focusin', e => { const b = e.target.closest('[data-relic]'); if (b) showRelicTip(b); });
+document.addEventListener('focusout', e => { if (e.target.closest('[data-relic]')) hideRelicTip(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && tipFor) hideRelicTip(); });
+addEventListener('scroll', () => tipFor && hideRelicTip(), { passive: true });
 
 // ---------- End-of-run stats ----------
 const STAT_ROWS = [
@@ -974,6 +1042,7 @@ function handleEvents(list) {
   for (const ev of list) {
     switch (ev.k) {
       case 'note': toast(ev.x); break;
+      case 'gain': if (ev.to === selfId || ev.to === 'team') showGain(ev); break;
       case 'dmg':
         if (ev.v > 0) { floatText(ev.to, `−${ev.v}`, ev.to === 'hearth' ? 'hearth-dmg' : 'dmg'); flash(ev.to, 'hit'); }
         else if (ev.b > 0) floatText(ev.to, `🛡️${ev.b}`, 'blocked');
