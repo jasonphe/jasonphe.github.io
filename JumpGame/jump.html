@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 	<title>Pengu's Bizarre Adventure</title>
 	<link rel="stylesheet" type="text/css" href="style.css">
 </head>
@@ -9,6 +10,14 @@
 	<a class="home-link" href="../">&larr; Home</a>
 	<div id="background"></div>
 	<canvas id="game" width="1024" height="576"></canvas>
+	<div id="touch-controls">
+		<div class="dpad">
+			<button type="button" data-key="37" aria-label="Move left">&#9664;</button>
+			<button type="button" data-key="39" aria-label="Move right">&#9654;</button>
+		</div>
+		<button type="button" class="jump-button" data-key="32" aria-label="Jump (hold to charge)">JUMP</button>
+	</div>
+	<div id="rotate-hint">Rotate your phone to landscape to play</div>
 	<script type="text/javascript" src="gam.js"></script>
 </body>
 </html>

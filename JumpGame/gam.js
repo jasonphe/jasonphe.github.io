@@ -10,6 +10,7 @@ var fps = 60;
 var fpsInterval = 1000/fps;
 var then = Date.now();
 var keys = [];
+const isTouch = window.matchMedia("(pointer: coarse)").matches;
 var charger;
 var startTime;
 var timerInterval;
@@ -140,7 +141,7 @@ function SetProperties()
 						type: "sign",
 						x: 150,
 						y: 478,
-						text: ["Use the left and right arrow keys to move."],
+						text: [isTouch ? "Use the arrow buttons to move." : "Use the left and right arrow keys to move."],
 					},
 					{
 						type: "torch",
@@ -367,7 +368,7 @@ function SetProperties()
 						type: "sign",
 						x: 600,
 						y: 480,
-						text: ["Hold down the space bar to charge up a", "jump! The top left bar shows your jump power."],
+						text: [isTouch ? "Hold down the jump button to charge up a" : "Hold down the space bar to charge up a", "jump! The top left bar shows your jump power."],
 					},
 					{
 						type: "sign",
@@ -927,8 +928,53 @@ document.body.addEventListener("keyup", function(event)
 	keys[event.keyCode] = false;
 	if (event.keyCode == 32)
 	{
-		stopCharging();
-		performJump = true;
+		releaseJump();
+	}
+});
+
+function releaseJump()
+{
+	stopCharging();
+	performJump = true;
+}
+
+// On-screen controls for touch devices: feed the same keys array as the keyboard
+document.querySelectorAll("#touch-controls [data-key]").forEach(function(button)
+{
+	let keyCode = Number(button.dataset.key);
+	let press = function(event)
+	{
+		event.preventDefault();
+		button.setPointerCapture(event.pointerId);
+		button.classList.add("pressed");
+		keys[keyCode] = true;
+	};
+	let release = function(event)
+	{
+		if (!keys[keyCode])
+		{
+			return;
+		}
+		button.classList.remove("pressed");
+		keys[keyCode] = false;
+		if (keyCode == 32)
+		{
+			releaseJump();
+		}
+	};
+	button.addEventListener("pointerdown", press);
+	button.addEventListener("pointerup", release);
+	button.addEventListener("pointercancel", release);
+	button.addEventListener("contextmenu", function(event) { event.preventDefault(); });
+});
+
+// Tap anywhere to dismiss the item popup
+document.addEventListener("pointerdown", function(event)
+{
+	if (paused && event.pointerType != "mouse" && !event.target.closest(".home-link"))
+	{
+		keys[13] = true;
+		setTimeout(function() { keys[13] = false; }, 100);
 	}
 });
 
@@ -1447,7 +1493,7 @@ function itemPickup(item)
 	let text1 = "";
 	let text2 = "";
 	let itemImg = imgDict[item];
-	let continueText = "Press Enter to continue...";
+	let continueText = isTouch ? "Tap to continue..." : "Press Enter to continue...";
 	switch (item)
 	{
 		case "ibis":

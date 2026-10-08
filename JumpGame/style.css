@@ -28,3 +28,91 @@ body
     text-decoration: none;
 }
 .home-link:hover { background: rgba(0, 0, 0, .8); }
+
+/* Touch devices: fit the canvas to the screen and show on-screen controls */
+#touch-controls,
+#rotate-hint {
+    display: none;
+}
+
+@media (pointer: coarse) {
+    html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    canvas {
+        width: min(100vw, 100dvh * 16 / 9);
+        height: auto;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    #touch-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0 max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+        pointer-events: none;
+        z-index: 5;
+    }
+
+    #touch-controls .dpad {
+        display: flex;
+        gap: 14px;
+    }
+
+    #touch-controls button {
+        pointer-events: auto;
+        touch-action: none;
+        width: 72px;
+        height: 72px;
+        border: 2px solid rgba(255, 255, 255, .55);
+        border-radius: 50%;
+        background: rgba(0, 0, 0, .35);
+        color: rgba(255, 255, 255, .9);
+        font: 700 26px/1 system-ui, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #touch-controls .jump-button {
+        width: 96px;
+        height: 96px;
+        font-size: 18px;
+        letter-spacing: 1px;
+    }
+
+    #touch-controls button.pressed {
+        background: rgba(255, 255, 255, .35);
+    }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+    #rotate-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        inset: 0;
+        z-index: 9;
+        padding: 24px;
+        background: rgba(0, 0, 0, .85);
+        text-align: center;
+        font: 600 20px/1.4 system-ui, sans-serif;
+    }
+
+    #touch-controls {
+        display: none;
+    }
+}
