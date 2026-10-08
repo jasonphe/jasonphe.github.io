@@ -404,3 +404,17 @@ dialog::backdrop { background: #000b; }
 .pace small { color: var(--muted); font-size: .8rem; }
 .pace-note { color: var(--muted); text-align: center; margin-top: 16px; }
 .pace-note b { color: var(--text); }
+
+/* ---------- End-of-run stats ---------- */
+.statboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 18px 0; text-align: left; }
+.statcard { background: var(--panel2); border: 1px solid var(--line); border-top: 4px solid var(--pc); border-radius: 12px; padding: 12px; }
+.statcard-head { display: flex; gap: 10px; align-items: center; }
+.statcard-head .pic { width: 40px; height: 40px; }
+.statcard-head small { display: block; color: var(--muted); }
+.titles { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 2px; }
+.titles span { font-size: .75rem; font-weight: 800; color: #2a1a05; background: var(--gold); border-radius: 999px; padding: 1px 8px; }
+.statcard dl { margin: 8px 0 0; display: grid; gap: 2px; }
+.statcard dl div { display: flex; justify-content: space-between; gap: 8px; font-size: .9rem; padding: 2px 0; border-bottom: 1px solid #ffffff0d; }
+.statcard dt { color: var(--muted); }
+.statcard dd { margin: 0; font-weight: 800; font-variant-numeric: tabular-nums; }
+.statcard .zero { opacity: .4; }

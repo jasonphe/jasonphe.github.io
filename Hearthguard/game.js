@@ -465,11 +465,65 @@ const SCREENS = {
       <h2>${o.win ? 'The Hearth endures' : 'The Hearth has gone out'}</h2>
       <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : `The party fell on floor ${o.floor}.`}</p>
       <p class="note">${S.stats?.fights || 0} fights · ${S.stats?.cards || 0} cards played · ${(S.relics || []).length} relics</p>
-      <div class="party">${partyList()}</div>
+      ${statsBoard()}
       ${isHost() ? '<button class="btn big" data-lobby>Back to the lobby</button>' : `<p class="sub">Waiting for ${esc(pName(hostId))}…</p>`}
     </div>`;
   },
 };
+
+// ---------- End-of-run stats ----------
+const STAT_ROWS = [
+  ['dmg', '⚔️', 'Damage dealt'],
+  ['burn', '🔥', 'Burn damage'],
+  ['kills', '💀', 'Kills'],
+  ['tanked', '🛡️', 'Damage tanked'],
+  ['healed', '💚', 'Healing'],
+  ['shield', '🔷', 'Shield given'],
+  ['guard', '🪖', 'Guard given'],
+  ['interrupts', '✋', 'Interrupts'],
+  ['energyGiven', '⚡', 'Energy given'],
+  ['revives', '🕊️', 'Revives'],
+  ['cards', '🃏', 'Cards played'],
+  ['combos', '✨', 'Combos'],
+  ['downs', '😵', 'Times knocked out'],
+];
+// The top player in each of these earns the title.
+const MAX_TITLES = 2;
+const TITLES = [
+  ['dmg', 'Slayer'], ['burn', 'Pyromaniac'], ['kills', 'Executioner'], ['tanked', 'Bulwark'],
+  ['healed', 'Lifeline'], ['shield', 'Warden'], ['interrupts', 'Silencer'], ['energyGiven', 'Battery'],
+  ['combos', 'Conductor'], ['downs', 'Floor Inspector'],
+];
+function statsBoard() {
+  const players = S.players.filter(p => p.stats);
+  if (!players.length) return '';
+  const val = (p, k) => Math.round(p.stats[k] || 0);
+  // Each leader earns that stat's title. A player keeps at most MAX_TITLES, picking the
+  // stats they lead by the widest margin over the runner-up.
+  const won = {};
+  if (players.length > 1) {
+    for (const [k, title] of TITLES) {
+      const vals = players.map(p => val(p, k)).sort((x, y) => y - x);
+      const [best, second] = vals;
+      if (best <= 0) continue;
+      const margin = (best - second) / best;
+      for (const p of players) if (val(p, k) === best) (won[p.id] ??= []).push({ title, margin });
+    }
+  }
+  const titles = {};
+  for (const [id, list] of Object.entries(won)) {
+    titles[id] = list.sort((x, y) => y.margin - x.margin).slice(0, MAX_TITLES).map(t => t.title);
+  }
+  return `<div class="statboard">${players.map(p => `
+    <div class="statcard" style="--pc:${pColor(p.id)}">
+      <div class="statcard-head">
+        <span class="pavatar">${classPic(p.cls)}</span>
+        <div><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''}</small></div>
+      </div>
+      ${titles[p.id] ? `<div class="titles">${titles[p.id].map(t => `<span>${t}</span>`).join('')}</div>` : ''}
+      <dl>${STAT_ROWS.map(([k, icon, label]) => `<div class="${val(p, k) ? '' : 'zero'}"><dt>${icon} ${label}</dt><dd>${val(p, k).toLocaleString()}</dd></div>`).join('')}</dl>
+    </div>`).join('')}</div>`;
+}
 
 // Described relative to Normal (the default pace).
 const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === DEFAULT_TEMPO ? 'standard speed' : `enemies at ${Math.round(DEFAULT_TEMPO / t * 100)}% speed`}`;

@@ -47,6 +47,23 @@ export class Sim {
   hpMult() { return HP_SCALE[this.S.players.length] || 1; }
   dmgMult() { return (DMG_SCALE[this.S.players.length] || 1) * (1 + 0.03 * (this.S.pos?.r || 0)); }
 
+  // Per-player stats for the current fight; folded into each player's run totals when it ends.
+  stat(pid, key, v = 1) {
+    if (!pid || !this.C || !v) return;
+    const s = (this.C.st[pid] ??= {});
+    s[key] = (s[key] || 0) + v;
+  }
+  foldStats() {
+    if (!this.C?.st) return;
+    for (const p of this.S.players) {
+      const fight = this.C.st[p.id];
+      if (!fight) continue;
+      p.stats ??= {};
+      for (const [k, v] of Object.entries(fight)) p.stats[k] = (p.stats[k] || 0) + v;
+    }
+    this.C.st = {};
+  }
+
   // ---------- Lobby ----------
   join(id, name) {
     const S = this.S;
@@ -58,6 +75,9 @@ export class Sim {
       const old = p.id;
       p.id = id; p.on = true;
       if (this.C?.heroes[old]) { this.C.heroes[id] = this.C.heroes[old]; delete this.C.heroes[old]; }
+      if (this.C?.st?.[old]) { this.C.st[id] = this.C.st[old]; delete this.C.st[old]; }
+      for (const e of this.C?.enemies || []) if (e.burnBy?.[old]) { e.burnBy[id] = e.burnBy[old]; delete e.burnBy[old]; }
+      if (this.C?.wardBy?.[old]) { this.C.wardBy[id] = this.C.wardBy[old]; delete this.C.wardBy[old]; }
       for (const e of this.C?.enemies || []) if (e.taunt?.pid === old) e.taunt.pid = id;
       for (const m of [S.votes, S.done, S.reward, S.shop?.items, S.shop?.removed, S.event?.votes]) {
         if (m && old in m) { m[id] = m[old]; delete m[old]; }
@@ -100,6 +120,7 @@ export class Sim {
     for (const p of S.players) {
       p.gold = 25;
       p.maxHp = p.hp = CLASSES[p.cls].hp;
+      p.stats = {};
       p.deck = STARTER[p.cls].map(id => this.inst(id));
     }
     S.hearthMax = S.hearth = HEARTH[S.players.length];
@@ -279,6 +300,7 @@ export class Sim {
 
   endRun(win) {
     const S = this.S;
+    this.foldStats();
     S.phase = 'over';
     S.over = { win, floor: S.pos ? S.pos.r + 1 : 0, boss: S.boss.map(id => ENEMIES[id].name).join(' & ') };
     this.C = null;
@@ -289,7 +311,7 @@ export class Sim {
   startCombat(group, kind) {
     const S = this.S;
     const hpM = this.hpMult() * (kind === 'boss' ? 1 : 1 + 0.04 * (S.pos?.r || 0));
-    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult() };
+    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult(), st: {}, wardBy: {} };
     for (const type of group) this.spawn(type, hpM, true);
     for (const p of S.players) {
       const cls = CLASSES[p.cls];
@@ -311,7 +333,7 @@ export class Sim {
     const C = this.C, d = ENEMIES[type];
     const hp = Math.round(d.hp * (hpM ?? this.hpMult()));
     C.enemies.push({
-      id: 'e' + C.eid++, type, hp, max: hp, block: 0, str: 0, vuln: 0, weak: 0, stun: 0, burn: 0,
+      id: 'e' + C.eid++, type, hp, max: hp, block: 0, str: 0, vuln: 0, weak: 0, stun: 0, burn: 0, burnBy: {},
       taunt: null, act: null, next: 0, last: -1,
       rec: (opening ? rand(1.5, 3) + (this.has('lantern') ? 3 : 0) : 1.5) * TEMPO,
     });
@@ -336,6 +358,7 @@ export class Sim {
     h.e -= c.cost;
     h.hand[slot] = this.drawCard(h);
     this.S.stats.cards++;
+    this.stat(pid, 'cards');
     if (c.cast > 0) h.ch = { inst, tgt, el: 0, dur: c.cast };
     else this.resolve(pid, inst, tgt, 0);
   }
@@ -361,16 +384,20 @@ export class Sim {
   }
 
   // ---------- Damage ----------
-  hitEnemy(e, amt) {
-    if (e.hp <= 0) return;
+  // Returns the HP damage done. `by` (a player id) gets credit for the damage and the kill.
+  hitEnemy(e, amt, by) {
+    if (e.hp <= 0) return 0;
     amt = Math.round(amt * (e.vuln > this.C.t ? 1.5 : 1));
-    if (amt <= 0) return;
+    if (amt <= 0) return 0;
     const blocked = Math.min(e.block, amt);
     e.block -= blocked;
     const dmg = amt - blocked;
     e.hp -= dmg;
-    this.ev.push({ k: 'dmg', to: e.id, v: dmg, b: blocked });
-    if (e.hp <= 0) { e.hp = 0; e.act = null; e.taunt = null; this.ev.push({ k: 'die', to: e.id }); }
+    const real = dmg + Math.min(0, e.hp);   // don't count overkill
+    this.ev.push({ k: 'dmg', to: e.id, v: real, b: blocked });
+    this.stat(by, 'dmg', real);
+    if (e.hp <= 0) { e.hp = 0; e.act = null; e.taunt = null; this.ev.push({ k: 'die', to: e.id }); this.stat(by, 'kills'); }
+    return real;
   }
 
   hitHearth(amt) {
@@ -395,9 +422,11 @@ export class Sim {
     const dmg = amt - blocked;
     h.hp -= dmg;
     this.ev.push({ k: 'dmg', to: pid, v: dmg, b: blocked });
-    if (h.pw.thorns && from) this.hitEnemy(from, h.pw.thorns);
+    this.stat(pid, 'tanked', blocked + dmg + Math.min(0, h.hp));
+    if (h.pw.thorns && from) this.hitEnemy(from, h.pw.thorns, pid);
     if (h.hp <= 0) {
       h.hp = 0;
+      this.stat(pid, 'downs');
       h.down = C.t + DOWN_TIME;
       h.guard = 0;
       if (h.ch) { h.disc.push(h.ch.inst); h.ch = null; }
@@ -406,12 +435,13 @@ export class Sim {
     }
   }
 
-  interrupt(e, n) {
+  interrupt(e, n, by) {
     if (!e.act) return;
     if (e.act.poise >= 99) { this.ev.push({ k: 'txt', to: e.id, x: 'Unstoppable' }); return; }
     e.act.poise -= n;
     if (e.act.poise <= 0) {
       this.ev.push({ k: 'txt', to: e.id, x: 'Interrupted!', c: 'int' });
+      this.stat(by, 'interrupts');
       e.act = null;
       e.rec = 1.5 * TEMPO;
       if (this.has('bell')) e.stun = Math.max(e.stun, this.C.t + 1.5 * TEMPO);
@@ -436,47 +466,50 @@ export class Sim {
         case 'dmg':
           for (const e of foes) for (let i = 0; i < (fx.hits || 1); i++) {
             const ex = fx.exec && e.hp < e.max * 0.4 ? fx.exec : 0;
-            this.hitEnemy(e, (v + bonus + ex) * mult);
+            this.hitEnemy(e, (v + bonus + ex) * mult, pid);
           }
           break;
-        case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult); break;
-        case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult); break;
-        case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; this.hitEnemy(e, b * v + bonus); } break;
-        case 'interrupt': for (const e of foes) this.interrupt(e, v); break;
+        case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); break;
+        case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
+        case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; e.burnBy = {}; this.hitEnemy(e, b * v + bonus, pid); } break;
+        case 'interrupt': for (const e of foes) this.interrupt(e, v, pid); break;
         case 'stun': for (const e of foes) { e.stun = Math.max(e.stun, C.t + v); this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' }); } break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
-        case 'burn': for (const e of foes) e.burn += Math.round(v * mult); break;
+        case 'burn': for (const e of foes) { const n = Math.round(v * mult); e.burn += n; e.burnBy[pid] = (e.burnBy[pid] || 0) + n; } break;
         case 'taunt':
           for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
-          if (foes.length && this.has('collar')) h.guard += 5;
+          if (foes.length && this.has('collar')) { h.guard += 5; this.stat(pid, 'guard', 5); }
           this.ev.push({ k: 'txt', to: pid, x: 'Taunt!' });
           break;
-        case 'shield': C.shield += Math.round(v * mult); this.ev.push({ k: 'heal', to: 'shield', v: Math.round(v * mult) }); break;
-        case 'guard': ally.guard += Math.round(v * mult); break;
-        case 'heal': this.healHearth(Math.round(v * mult)); break;
-        case 'mend': if (!ally.down) { ally.hp = Math.min(ally.max, ally.hp + v); } break;
-        case 'energy': ally.e = Math.min(ally.emax, ally.e + v); break;
-        case 'teamEnergy': for (const x of Object.values(C.heroes)) if (!x.down) x.e = Math.min(x.emax, x.e + v); break;
+        case 'shield': C.shield += Math.round(v * mult); this.stat(pid, 'shield', Math.round(v * mult)); this.ev.push({ k: 'heal', to: 'shield', v: Math.round(v * mult) }); break;
+        case 'guard': ally.guard += Math.round(v * mult); this.stat(pid, 'guard', Math.round(v * mult)); break;
+        case 'heal': this.stat(pid, 'healed', this.healHearth(Math.round(v * mult))); break;
+        case 'mend': if (!ally.down) { const was = ally.hp; ally.hp = Math.min(ally.max, ally.hp + v); this.stat(pid, 'healed', ally.hp - was); } break;
+        case 'energy': { const was = ally.e; ally.e = Math.min(ally.emax, ally.e + v); if (ally !== h) this.stat(pid, 'energyGiven', ally.e - was); break; }
+        case 'teamEnergy':
+          for (const x of Object.values(C.heroes)) if (!x.down) { const was = x.e; x.e = Math.min(x.emax, x.e + v); if (x !== h) this.stat(pid, 'energyGiven', x.e - was); }
+          break;
         case 'haste': ally.haste = Math.max(ally.haste, C.t + v); break;
         case 'teamHaste': for (const x of Object.values(C.heroes)) x.haste = Math.max(x.haste, C.t + v); break;
         case 'empower': h.empower += v; break;
         case 'teamEmpower': for (const x of Object.values(C.heroes)) x.empower += v; break;
         case 'hurry': for (const x of Object.values(C.heroes)) if (x !== h && x.ch) x.ch.el += v; break;
         case 'revive':
-          for (const [id, x] of Object.entries(C.heroes)) if (x.down) { x.down = 0; x.hp = Math.ceil(x.max / 2); this.ev.push({ k: 'txt', to: id, x: 'Revived!' }); }
+          for (const [id, x] of Object.entries(C.heroes)) if (x.down) { x.down = 0; x.hp = Math.ceil(x.max / 2); this.stat(pid, 'revives'); this.ev.push({ k: 'txt', to: id, x: 'Revived!' }); }
           break;
         case 'cleanse':
           for (const x of Object.values(C.heroes)) x.hand = x.hand.map(card => { if (card?.id !== 'hex') return card; x.exh.push(card); return this.drawCard(x); });
           break;
         case 'cycleFree': h.cycleFree += v; break;
         case 'gold': if (p) { p.gold += v; this.dirty = true; } break;
-        case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = C.t + DOWN_TIME; this.ev.push({ k: 'down', to: pid }); } break;
-        case 'ward': C.ward += v; break;
+        case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = C.t + DOWN_TIME; this.stat(pid, 'downs'); this.ev.push({ k: 'down', to: pid }); } break;
+        case 'ward': C.ward += v; C.wardBy[pid] = (C.wardBy[pid] || 0) + v; break;
         case 'fury': case 'focus': case 'regen': case 'thorns': h.pw[k] += v; break;
       }
     }
     (c.ex ? h.exh : h.disc).push(inst);
+    if (combo) this.stat(pid, 'combos');
     this.ev.push({ k: 'cast', by: pid, card: c.name, combo });
   }
 
@@ -486,6 +519,7 @@ export class Sim {
     S.hearth = Math.min(S.hearthMax, S.hearth + n);
     if (S.hearth > before) this.ev.push({ k: 'heal', to: 'hearth', v: S.hearth - before });
     this.dirty = true;
+    return S.hearth - before;
   }
 
   // ---------- Enemy actions ----------
@@ -557,7 +591,12 @@ export class Sim {
     if (!this.has('anchor')) C.shield = Math.max(0, C.shield - (0.4 + C.shield * 0.05) * dt / TEMPO);
     if (C.ward) {
       C.wardT += dt;
-      if (C.wardT >= WARD_EVERY) { C.wardT -= WARD_EVERY; C.shield += C.ward; this.ev.push({ k: 'heal', to: 'shield', v: C.ward }); }
+      if (C.wardT >= WARD_EVERY) {
+        C.wardT -= WARD_EVERY;
+        C.shield += C.ward;
+        for (const [id, v] of Object.entries(C.wardBy || {})) this.stat(id, 'shield', v);
+        this.ev.push({ k: 'heal', to: 'shield', v: C.ward });
+      }
     }
 
     // Burn ticks once a second.
@@ -571,8 +610,14 @@ export class Sim {
         const b = e.burn + (this.has('tome') ? 1 : 0);
         e.burn--;
         const blk = e.block; e.block = 0;           // Burn ignores block
-        this.hitEnemy(e, b);
+        const owners = Object.entries(e.burnBy || {});
+        const total = owners.reduce((sum, [, n]) => sum + n, 0) || 1;
+        const dealt = this.hitEnemy(e, b);
         e.block = blk;
+        for (const [id, n] of owners) this.stat(id, 'burn', dealt * n / total);
+        if (e.hp <= 0 && owners.length) this.stat(owners.reduce((a, c) => (c[1] > a[1] ? c : a))[0], 'kills');
+        // The stack drops by one; shrink everyone's share to match.
+        for (const [id, n] of owners) e.burnBy[id] = e.burn ? n * e.burn / (e.burn + 1) : 0;
         if (e.hp <= 0) continue;
       }
       if (e.taunt && (t >= e.taunt.until || !C.heroes[e.taunt.pid] || C.heroes[e.taunt.pid].down)) e.taunt = null;
@@ -619,6 +664,7 @@ export class Sim {
 
   winCombat() {
     const S = this.S, C = this.C;
+    this.foldStats();
     if (C.kind === 'boss') { this.endRun(true); return; }
     // Wounds carry over. Anyone knocked out at the end gets back up a little hurt.
     for (const p of S.players) {
