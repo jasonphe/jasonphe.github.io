@@ -27,16 +27,16 @@ export const CLASSES = {
   cleric: { name: 'Cleric', icon: '🕯️', hp: 32, color: '#f2a1c7', blurb: 'Heals the Hearth, raises Barriers and gives allies energy.' },
 };
 
-// r: starter | common | uncommon | rare. tgt: enemy | all | ally | self | none.
+// r: a rarity from RARITIES. tgt: enemy | all | random | ally | self | none.
 // cast is in seconds (0 = instant). ex = exhaust (gone for the rest of the fight).
 // up overrides fields when upgraded; otherwise numbers grow by about a third.
 export const CARDS = {
   // ---------- Knight ----------
-  k_strike: { name: 'Strike', cls: 'knight', r: 'starter', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 13 } },
-  k_guard: { name: 'Steel Yourself', cls: 'knight', r: 'starter', cost: 1, tgt: 'self', icon: '🛡️', fx: { guard: 8 } },
-  k_provoke: { name: 'Provoke', cls: 'knight', r: 'starter', cost: 2, tgt: 'enemy', icon: '😤', fx: { taunt: 8, guard: 8 } },
-  k_bash: { name: 'Shield Bash', cls: 'knight', r: 'starter', cost: 1, tgt: 'enemy', icon: '💥', fx: { dmg: 4, interrupt: 1 } },
-  k_brace: { name: 'Brace', cls: 'knight', r: 'starter', cost: 3, tgt: 'none', icon: '🧱', fx: { shield: 20 } },
+  k_strike: { name: 'Strike', cls: 'knight', r: 'common', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 13 } },
+  k_guard: { name: 'Steel Yourself', cls: 'knight', r: 'common', cost: 1, tgt: 'self', icon: '🛡️', fx: { guard: 8 } },
+  k_provoke: { name: 'Provoke', cls: 'knight', r: 'common', cost: 2, tgt: 'enemy', icon: '😤', fx: { taunt: 8, guard: 8 } },
+  k_bash: { name: 'Shield Bash', cls: 'knight', r: 'common', cost: 1, tgt: 'enemy', icon: '💥', fx: { dmg: 4, interrupt: 1 } },
+  k_brace: { name: 'Brace', cls: 'knight', r: 'common', cost: 3, tgt: 'none', icon: '🧱', fx: { shield: 20 } },
   k_cleave: { name: 'Cleave', cls: 'knight', r: 'common', cost: 3, tgt: 'all', icon: '🪓', fx: { dmg: 16 } },
   k_wall: { name: 'Shield Wall', cls: 'knight', r: 'common', cost: 4, tgt: 'none', icon: '🏰', fx: { shield: 30 } },
   k_challenge: { name: 'Challenge', cls: 'knight', r: 'common', cost: 1, tgt: 'all', icon: '📯', fx: { taunt: 5, guard: 6 } },
@@ -47,21 +47,25 @@ export const CARDS = {
   k_warcry: { name: 'War Cry', cls: 'knight', r: 'uncommon', cost: 1, tgt: 'none', icon: '📣', fx: { teamEmpower: 4 } },
   k_thorns: { name: 'Thorned Armor', cls: 'knight', r: 'uncommon', cost: 1, tgt: 'self', icon: '🌵', ex: 1, power: 1, fx: { thorns: 3 } },
   k_sunder: { name: 'Sunder', cls: 'knight', r: 'uncommon', cost: 4, tgt: 'enemy', icon: '🪨', fx: { dmg: 28, vuln: 7 } },
-  k_hold: { name: 'Hold the Line', cls: 'knight', r: 'uncommon', cost: 4, tgt: 'all', icon: '🚧', fx: { taunt: 6, shield: 22 } },
+  k_hold: { name: 'Hold the Line', cls: 'knight', r: 'rare', cost: 4, tgt: 'all', icon: '🚧', fx: { taunt: 6, shield: 22 } },
   k_laststand: { name: 'Last Stand', cls: 'knight', r: 'uncommon', cost: 2, tgt: 'self', icon: '🩹', fx: { mend: 28, guard: 10 } },
   k_bulwark: { name: 'Bulwark', cls: 'knight', r: 'uncommon', cost: 3, tgt: 'enemy', icon: '🛡️', fx: { shieldDmg: 1 }, up: { cost: 2 } },
   k_unbreak: { name: 'Unbreakable', cls: 'knight', r: 'rare', cost: 4, tgt: 'none', icon: '💠', ex: 1, power: 1, fx: { ward: 5 } },
   k_jugg: { name: 'Juggernaut', cls: 'knight', r: 'rare', cost: 3, tgt: 'self', icon: '🐂', ex: 1, power: 1, fx: { fury: 6 } },
-  k_quake: { name: 'Earthshaker', cls: 'knight', r: 'rare', cost: 5, cast: 2.5, tgt: 'all', icon: '🌋', fx: { dmg: 22, stun: 3 }, combo: { stun: 2 } },
-  k_fortress: { name: 'Fortress', cls: 'knight', r: 'rare', cost: 5, tgt: 'all', icon: '🏯', fx: { guard: 55, taunt: 9 } },
+  k_quake: { name: 'Earthshaker', cls: 'knight', r: 'epic', cost: 5, cast: 2.5, tgt: 'all', icon: '🌋', fx: { dmg: 22, stun: 3 }, combo: { stun: 2 } },
+  k_fortress: { name: 'Fortress', cls: 'knight', r: 'epic', cost: 5, tgt: 'all', icon: '🏯', fx: { guard: 55, taunt: 9 } },
   k_wind: { name: 'Second Wind', cls: 'knight', r: 'rare', cost: 0, tgt: 'self', icon: '🌬️', ex: 1, fx: { energy: 3, mend: 10 } },
 
+  k_charge: { name: 'Crushing Charge', cls: 'knight', r: 'epic', cost: 4, tgt: 'all', icon: '🐎', fx: { dmg: 18, interrupt: 1 } },
+  k_aegis: { name: 'Aegis', cls: 'knight', r: 'legendary', cost: 3, tgt: 'self', icon: '🔰', ex: 1, power: 1, fx: { aegis: 1, guard: 12 } },
+  k_titan: { name: "Titan's Wrath", cls: 'knight', r: 'legendary', cost: 4, tgt: 'all', icon: '🗿', fx: { guardBlast: 2 } },
+  k_undying: { name: 'Undying Vow', cls: 'knight', r: 'mythic', cost: 3, tgt: 'self', icon: '♾️', ex: 1, power: 1, fx: { undying: 1, guard: 20 } },
   // ---------- Mage ----------
-  m_bolt: { name: 'Firebolt', cls: 'mage', r: 'starter', cost: 2, cast: 1.5, tgt: 'enemy', icon: '🔥', fx: { dmg: 17 } },
-  m_ward: { name: 'Frost Ward', cls: 'mage', r: 'starter', cost: 1, cast: 0.5, tgt: 'none', icon: '❄️', fx: { shield: 6 } },
-  m_fireball: { name: 'Fireball', cls: 'mage', r: 'starter', cost: 4, cast: 3, tgt: 'enemy', icon: '☄️', fx: { dmg: 44, burn: 5 }, combo: { burn: 6 } },
-  m_counter: { name: 'Counterspell', cls: 'mage', r: 'starter', cost: 1, tgt: 'enemy', icon: '🚫', fx: { interrupt: 1 } },
-  m_spark: { name: 'Arcane Spark', cls: 'mage', r: 'starter', cost: 1, tgt: 'enemy', icon: '✨', fx: { dmg: 6 } },
+  m_bolt: { name: 'Firebolt', cls: 'mage', r: 'common', cost: 2, cast: 1.5, tgt: 'enemy', icon: '🔥', fx: { dmg: 17 } },
+  m_ward: { name: 'Frost Ward', cls: 'mage', r: 'common', cost: 1, cast: 0.5, tgt: 'none', icon: '❄️', fx: { shield: 6 } },
+  m_fireball: { name: 'Fireball', cls: 'mage', r: 'common', cost: 4, cast: 3, tgt: 'enemy', icon: '☄️', fx: { dmg: 44, burn: 5 }, combo: { burn: 6 } },
+  m_counter: { name: 'Counterspell', cls: 'mage', r: 'common', cost: 1, tgt: 'enemy', icon: '🚫', fx: { interrupt: 1 } },
+  m_spark: { name: 'Arcane Spark', cls: 'mage', r: 'common', cost: 1, tgt: 'enemy', icon: '✨', fx: { dmg: 6 } },
   m_lance: { name: 'Ice Lance', cls: 'mage', r: 'common', cost: 2, cast: 0.5, tgt: 'enemy', icon: '🧊', fx: { dmg: 15, weak: 5 } },
   m_wave: { name: 'Flame Wave', cls: 'mage', r: 'common', cost: 4, cast: 2, tgt: 'all', icon: '🌊', fx: { dmg: 20 } },
   m_ignite: { name: 'Ignite', cls: 'mage', r: 'common', cost: 2, tgt: 'enemy', icon: '🕯️', fx: { burn: 9 } },
@@ -71,22 +75,26 @@ export const CARDS = {
   m_chain: { name: 'Chain Lightning', cls: 'mage', r: 'uncommon', cost: 3, cast: 1, tgt: 'all', icon: '⚡', fx: { dmg: 8, hits: 2 } },
   m_haste: { name: 'Haste', cls: 'mage', r: 'uncommon', cost: 3, tgt: 'none', icon: '⏩', fx: { teamHaste: 6 } },
   m_silence: { name: 'Silence', cls: 'mage', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '🤫', fx: { interrupt: 2 } },
-  m_nova: { name: 'Frost Nova', cls: 'mage', r: 'uncommon', cost: 4, cast: 1, tgt: 'all', icon: '💠', fx: { stun: 3, weak: 7 } },
+  m_nova: { name: 'Frost Nova', cls: 'mage', r: 'rare', cost: 4, cast: 1, tgt: 'all', icon: '💠', fx: { stun: 3, weak: 7 } },
   m_detonate: { name: 'Detonate', cls: 'mage', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '💣', fx: { detonate: 4 } },
   m_focus: { name: 'Arcane Focus', cls: 'mage', r: 'uncommon', cost: 1, tgt: 'self', icon: '🧿', ex: 1, power: 1, fx: { focus: 30 } },
   m_inferno: { name: 'Inferno', cls: 'mage', r: 'uncommon', cost: 3, cast: 1, tgt: 'all', icon: '🔥', fx: { burn: 7 } },
-  m_mirror: { name: 'Mirror Barrier', cls: 'mage', r: 'uncommon', cost: 4, cast: 1, tgt: 'none', icon: '🪞', fx: { shield: 38 }, combo: { shield: 17 } },
-  m_meteor: { name: 'Meteor', cls: 'mage', r: 'rare', cost: 5, cast: 3.5, tgt: 'all', icon: '🌠', fx: { dmg: 40 } },
-  m_pyro: { name: 'Pyroblast', cls: 'mage', r: 'rare', cost: 5, cast: 4, tgt: 'enemy', icon: '🌞', fx: { dmg: 76, burn: 8 }, combo: { dmg: 27 } },
+  m_mirror: { name: 'Mirror Barrier', cls: 'mage', r: 'rare', cost: 4, cast: 1, tgt: 'none', icon: '🪞', fx: { shield: 38 }, combo: { shield: 17 } },
+  m_meteor: { name: 'Meteor', cls: 'mage', r: 'epic', cost: 5, cast: 3.5, tgt: 'all', icon: '🌠', fx: { dmg: 40 } },
+  m_pyro: { name: 'Pyroblast', cls: 'mage', r: 'epic', cost: 5, cast: 4, tgt: 'enemy', icon: '🌞', fx: { dmg: 76, burn: 8 }, combo: { dmg: 27 } },
   m_font: { name: 'Mana Font', cls: 'mage', r: 'rare', cost: 3, tgt: 'self', icon: '⛲', ex: 1, power: 1, fx: { regen: 30 } },
   m_overload: { name: 'Overload', cls: 'mage', r: 'rare', cost: 0, tgt: 'self', icon: '🔋', ex: 1, fx: { energy: 4 } },
 
+  m_torrent: { name: 'Arcane Torrent', cls: 'mage', r: 'epic', cost: 4, cast: 1, tgt: 'random', icon: '💫', fx: { zap: 7, hits: 8 } },
+  m_rewind: { name: 'Time Warp', cls: 'mage', r: 'legendary', cost: 4, tgt: 'all', icon: '⏳', fx: { rewind: 1, stun: 2 } },
+  m_living: { name: 'Living Flame', cls: 'mage', r: 'legendary', cost: 3, tgt: 'self', icon: '🪔', ex: 1, power: 1, fx: { pyro: 50 } },
+  m_arch: { name: 'Archmage Ascendant', cls: 'mage', r: 'mythic', cost: 5, tgt: 'self', icon: '🌌', ex: 1, power: 1, fx: { discount: 1, focus: 30 } },
   // ---------- Rogue ----------
-  r_stab: { name: 'Stab', cls: 'rogue', r: 'starter', cost: 1, tgt: 'enemy', icon: '🗡️', fx: { dmg: 6 } },
-  r_kick: { name: 'Kick', cls: 'rogue', r: 'starter', cost: 1, tgt: 'enemy', icon: '🦶', fx: { dmg: 2, interrupt: 1 } },
-  r_smoke: { name: 'Smokescreen', cls: 'rogue', r: 'starter', cost: 2, tgt: 'none', icon: '💨', fx: { shield: 11 } },
-  r_hamstring: { name: 'Hamstring', cls: 'rogue', r: 'starter', cost: 2, tgt: 'enemy', icon: '🦵', fx: { dmg: 6, weak: 5 } },
-  r_twin: { name: 'Twin Blades', cls: 'rogue', r: 'starter', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 6, hits: 2 } },
+  r_stab: { name: 'Stab', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🗡️', fx: { dmg: 6 } },
+  r_kick: { name: 'Kick', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🦶', fx: { dmg: 2, interrupt: 1 } },
+  r_smoke: { name: 'Smokescreen', cls: 'rogue', r: 'common', cost: 2, tgt: 'none', icon: '💨', fx: { shield: 11 } },
+  r_hamstring: { name: 'Hamstring', cls: 'rogue', r: 'common', cost: 2, tgt: 'enemy', icon: '🦵', fx: { dmg: 6, weak: 5 } },
+  r_twin: { name: 'Twin Blades', cls: 'rogue', r: 'common', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 6, hits: 2 } },
   r_quick: { name: 'Quick Slash', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🔪', fx: { dmg: 7 } },
   r_venom: { name: 'Envenom', cls: 'rogue', r: 'common', cost: 3, tgt: 'enemy', icon: '🧪', fx: { dmg: 7, burn: 9 } },
   r_expose: { name: 'Expose', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🎯', fx: { vuln: 6 } },
@@ -97,22 +105,26 @@ export const CARDS = {
   r_evade: { name: 'Evasion', cls: 'rogue', r: 'common', cost: 3, tgt: 'self', icon: '🤸', fx: { guard: 42 } },
   r_backstab: { name: 'Backstab', cls: 'rogue', r: 'uncommon', cost: 3, tgt: 'enemy', icon: '🔪', fx: { dmg: 30, exec: 30 } },
   r_bomb: { name: 'Smoke Bomb', cls: 'rogue', r: 'uncommon', cost: 3, tgt: 'all', icon: '💣', fx: { weak: 6, shield: 16 } },
-  r_adren: { name: 'Adrenaline', cls: 'rogue', r: 'uncommon', cost: 0, tgt: 'self', icon: '💉', fx: { energy: 2, haste: 4 } },
+  r_adren: { name: 'Adrenaline', cls: 'rogue', r: 'rare', cost: 0, tgt: 'self', icon: '💉', fx: { energy: 2, haste: 4 } },
   r_garrote: { name: 'Garrote', cls: 'rogue', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '🪢', fx: { interrupt: 1, stun: 3 } },
-  r_dance: { name: 'Dance of Blades', cls: 'rogue', r: 'uncommon', cost: 4, tgt: 'enemy', icon: '💃', fx: { dmg: 9, hits: 5 } },
+  r_dance: { name: 'Dance of Blades', cls: 'rogue', r: 'rare', cost: 4, tgt: 'enemy', icon: '💃', fx: { dmg: 9, hits: 5 } },
   r_toxin: { name: 'Toxin Vial', cls: 'rogue', r: 'uncommon', cost: 4, tgt: 'enemy', icon: '⚗️', fx: { burn: 21 } },
   r_cheap: { name: 'Cheap Shot', cls: 'rogue', r: 'uncommon', cost: 1, tgt: 'enemy', icon: '👊', fx: { stun: 1, weak: 5 } },
   r_pick: { name: 'Pickpocket', cls: 'rogue', r: 'uncommon', cost: 1, tgt: 'enemy', icon: '👛', fx: { dmg: 6, gold: 4 } },
-  r_assassin: { name: 'Assassinate', cls: 'rogue', r: 'rare', cost: 5, cast: 1.5, tgt: 'enemy', icon: '☠️', fx: { dmg: 55, exec: 36 }, combo: { dmg: 18 } },
+  r_assassin: { name: 'Assassinate', cls: 'rogue', r: 'epic', cost: 5, cast: 1.5, tgt: 'enemy', icon: '☠️', fx: { dmg: 55, exec: 36 }, combo: { dmg: 18 } },
   r_prep: { name: 'Preparation', cls: 'rogue', r: 'rare', cost: 0, tgt: 'self', icon: '🎒', ex: 1, fx: { energy: 3, cycleFree: 4 } },
-  r_shadow: { name: 'Shadow Dance', cls: 'rogue', r: 'rare', cost: 3, tgt: 'self', icon: '🌑', ex: 1, power: 1, fx: { fury: 4, regen: 15 } },
+  r_shadow: { name: 'Shadow Dance', cls: 'rogue', r: 'epic', cost: 3, tgt: 'self', icon: '🌑', ex: 1, power: 1, fx: { fury: 4, regen: 15 } },
 
+  r_crimson: { name: 'Crimson Fan', cls: 'rogue', r: 'epic', cost: 3, tgt: 'all', icon: '🩸', fx: { dmg: 14, burn: 6 } },
+  r_vanish: { name: 'Vanish', cls: 'rogue', r: 'legendary', cost: 2, tgt: 'self', icon: '👤', fx: { vanish: 4, empower: 25 } },
+  r_clone: { name: 'Shadow Clone', cls: 'rogue', r: 'legendary', cost: 4, tgt: 'self', icon: '👥', ex: 1, power: 1, fx: { echo: 50 } },
+  r_cuts: { name: 'Thousand Cuts', cls: 'rogue', r: 'mythic', cost: 4, tgt: 'self', icon: '✴️', ex: 1, power: 1, fx: { cuts: 4 } },
   // ---------- Cleric ----------
-  c_smite: { name: 'Smite', cls: 'cleric', r: 'starter', cost: 2, tgt: 'enemy', icon: '✝️', fx: { dmg: 13 } },
-  c_prayer: { name: 'Prayer', cls: 'cleric', r: 'starter', cost: 3, cast: 2, tgt: 'none', icon: '🙏', fx: { heal: 8 }, combo: { heal: 5 } },
-  c_sanct: { name: 'Sanctuary', cls: 'cleric', r: 'starter', cost: 2, cast: 1, tgt: 'none', icon: '⛪', fx: { shield: 17 } },
-  c_rebuke: { name: 'Rebuke', cls: 'cleric', r: 'starter', cost: 1, tgt: 'enemy', icon: '✋', fx: { dmg: 3, interrupt: 1 } },
-  c_bless: { name: 'Blessing', cls: 'cleric', r: 'starter', cost: 1, tgt: 'ally', icon: '🌟', fx: { energy: 3 } },
+  c_smite: { name: 'Smite', cls: 'cleric', r: 'common', cost: 2, tgt: 'enemy', icon: '✝️', fx: { dmg: 13 } },
+  c_prayer: { name: 'Prayer', cls: 'cleric', r: 'common', cost: 3, cast: 2, tgt: 'none', icon: '🙏', fx: { heal: 8 }, combo: { heal: 5 } },
+  c_sanct: { name: 'Sanctuary', cls: 'cleric', r: 'common', cost: 2, cast: 1, tgt: 'none', icon: '⛪', fx: { shield: 17 } },
+  c_rebuke: { name: 'Rebuke', cls: 'cleric', r: 'common', cost: 1, tgt: 'enemy', icon: '✋', fx: { dmg: 3, interrupt: 1 } },
+  c_bless: { name: 'Blessing', cls: 'cleric', r: 'common', cost: 1, tgt: 'ally', icon: '🌟', fx: { energy: 3 } },
   c_light: { name: 'Holy Light', cls: 'cleric', r: 'common', cost: 4, cast: 2.5, tgt: 'none', icon: '☀️', fx: { heal: 18 } },
   c_divine: { name: 'Divine Barrier', cls: 'cleric', r: 'common', cost: 4, cast: 1, tgt: 'none', icon: '🔆', fx: { shield: 35 } },
   c_purify: { name: 'Purify', cls: 'cleric', r: 'common', cost: 1, tgt: 'none', icon: '💧', fx: { cleanse: 1, shield: 5 } },
@@ -120,31 +132,68 @@ export const CARDS = {
   c_mend: { name: 'Mend Wounds', cls: 'cleric', r: 'common', cost: 2, tgt: 'ally', icon: '🩹', fx: { mend: 25, guard: 10 } },
   c_hush: { name: 'Hush', cls: 'cleric', r: 'common', cost: 1, tgt: 'enemy', icon: '🤐', fx: { interrupt: 1, weak: 4 } },
   c_holyfire: { name: 'Holy Fire', cls: 'cleric', r: 'common', cost: 2, cast: 1, tgt: 'enemy', icon: '🔥', fx: { dmg: 6, burn: 10 } },
-  c_res: { name: 'Resurrection', cls: 'cleric', r: 'uncommon', cost: 3, cast: 2, tgt: 'none', icon: '🕊️', fx: { revive: 1, heal: 5 } },
-  c_hymn: { name: 'Hymn', cls: 'cleric', r: 'uncommon', cost: 3, cast: 1.5, tgt: 'none', icon: '🎶', fx: { teamEnergy: 2, teamHaste: 4 }, combo: { teamEnergy: 1 } },
+  c_res: { name: 'Resurrection', cls: 'cleric', r: 'rare', cost: 3, cast: 2, tgt: 'none', icon: '🕊️', fx: { revive: 1, heal: 5 } },
+  c_hymn: { name: 'Hymn', cls: 'cleric', r: 'rare', cost: 3, cast: 1.5, tgt: 'none', icon: '🎶', fx: { teamEnergy: 2, teamHaste: 4 }, combo: { teamEnergy: 1 } },
   c_consecrate: { name: 'Consecrate', cls: 'cleric', r: 'uncommon', cost: 4, cast: 1, tgt: 'all', icon: '🌅', fx: { dmg: 13, burn: 5 } },
   c_angel: { name: 'Guardian Angel', cls: 'cleric', r: 'uncommon', cost: 2, tgt: 'ally', icon: '👼', fx: { guard: 32 } },
   c_bene: { name: 'Benediction', cls: 'cleric', r: 'uncommon', cost: 1, tgt: 'none', icon: '🙌', fx: { teamEmpower: 3, shield: 6 } },
   c_smiteevil: { name: 'Smite Evil', cls: 'cleric', r: 'uncommon', cost: 5, cast: 1.5, tgt: 'enemy', icon: '⚡', fx: { dmg: 55 } },
   c_quicken: { name: 'Quickening', cls: 'cleric', r: 'uncommon', cost: 1, tgt: 'none', icon: '⏱️', fx: { hurry: 2, shield: 5 } },
   c_ground: { name: 'Hallowed Ground', cls: 'cleric', r: 'rare', cost: 4, tgt: 'none', icon: '🌄', ex: 1, power: 1, fx: { ward: 4 } },
-  c_circle: { name: 'Prayer Circle', cls: 'cleric', r: 'rare', cost: 5, cast: 3, tgt: 'none', icon: '⭕', fx: { heal: 22, shield: 22 }, combo: { heal: 11 } },
+  c_circle: { name: 'Prayer Circle', cls: 'cleric', r: 'epic', cost: 5, cast: 3, tgt: 'none', icon: '⭕', fx: { heal: 22, shield: 22 }, combo: { heal: 11 } },
   c_martyr: { name: 'Martyrdom', cls: 'cleric', r: 'rare', cost: 2, tgt: 'none', icon: '🩸', ex: 1, fx: { selfDmg: 12, heal: 20 } },
-  c_grace: { name: 'Grace', cls: 'cleric', r: 'rare', cost: 2, tgt: 'none', icon: '🪽', fx: { teamEnergy: 3 }, ex: 1 },
+  c_grace: { name: 'Grace', cls: 'cleric', r: 'epic', cost: 2, tgt: 'none', icon: '🪽', fx: { teamEnergy: 3 }, ex: 1 },
 
+  c_miracle: { name: 'Miracle', cls: 'cleric', r: 'epic', cost: 4, cast: 2, tgt: 'none', icon: '🌈', fx: { revive: 1, heal: 12, teamMend: 15 } },
+  c_divint: { name: 'Divine Intervention', cls: 'cleric', r: 'legendary', cost: 5, tgt: 'none', icon: '🛐', ex: 1, fx: { invuln: 4 } },
+  c_beacon: { name: 'Beacon of Light', cls: 'cleric', r: 'legendary', cost: 4, tgt: 'none', icon: '🗼', ex: 1, power: 1, fx: { beacon: 5 } },
+  c_ascend: { name: 'Ascendance', cls: 'cleric', r: 'mythic', cost: 4, tgt: 'none', icon: '😇', ex: 1, power: 1, fx: { teamRegen: 40 } },
   // ---------- Curses ----------
   hex: { name: 'Hex', cls: 'curse', r: 'curse', cost: 0, tgt: 'none', icon: '🧿', fx: {}, unplayable: 1 },
 };
 
-export const STARTER = {
-  knight: ['k_strike', 'k_strike', 'k_strike', 'k_guard', 'k_guard', 'k_provoke', 'k_bash', 'k_brace'],
-  mage: ['m_bolt', 'm_bolt', 'm_bolt', 'm_ward', 'm_ward', 'm_fireball', 'm_counter', 'm_spark'],
-  rogue: ['r_stab', 'r_stab', 'r_stab', 'r_kick', 'r_smoke', 'r_smoke', 'r_hamstring', 'r_twin'],
-  cleric: ['c_smite', 'c_smite', 'c_smite', 'c_prayer', 'c_sanct', 'c_sanct', 'c_rebuke', 'c_bless'],
+// Every player starts with these until they build their own deck in the lobby.
+export const DEFAULT_DECK = {
+  knight: ['k_strike', 'k_strike', 'k_strike', 'k_guard', 'k_guard', 'k_provoke', 'k_bash', 'k_brace', 'k_pommel', 'k_iron'],
+  mage: ['m_bolt', 'm_bolt', 'm_bolt', 'm_ward', 'm_ward', 'm_fireball', 'm_counter', 'm_spark', 'm_lance', 'm_ignite'],
+  rogue: ['r_stab', 'r_stab', 'r_stab', 'r_kick', 'r_smoke', 'r_smoke', 'r_hamstring', 'r_twin', 'r_quick', 'r_feint'],
+  cleric: ['c_smite', 'c_smite', 'c_smite', 'c_prayer', 'c_sanct', 'c_sanct', 'c_rebuke', 'c_bless', 'c_hush', 'c_mend'],
 };
 
-const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'thorns', 'ward', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen'];
-const UPG_TIME = ['taunt', 'stun', 'vuln', 'weak', 'haste', 'teamHaste'];
+// ---------- Rarities, decks and difficulty ----------
+export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+export const RARITY_NAMES = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary', mythic: 'Mythic' };
+export const DECK_SIZE = 10;
+export const COPY_LIMIT = { common: 3, uncommon: 2, rare: 1, epic: 1, legendary: 1, mythic: 1 };
+
+// A starting deck the lobby accepts: the right size, the player's class, within copy limits.
+// Whether the player has unlocked the cards is up to their own browser.
+export function deckProblem(cls, ids) {
+  if (!Array.isArray(ids) || ids.length !== DECK_SIZE) return `A deck needs exactly ${DECK_SIZE} cards.`;
+  const count = {};
+  for (const id of ids) {
+    const c = CARDS[id];
+    if (!c || c.cls !== cls) return 'That card belongs to another class.';
+    count[id] = (count[id] || 0) + 1;
+    if (count[id] > COPY_LIMIT[c.r]) return `Only ${COPY_LIMIT[c.r]} ${c.name} allowed.`;
+  }
+  return null;
+}
+
+// Harder levels toughen enemies. Winning one unlocks cards up to its `cap` rarity,
+// and lets the winner host the next level up.
+export const DIFFICULTIES = [
+  { name: 'Normal', hp: 1, dmg: 1, cap: 'rare', blurb: 'The standard descent.' },
+  { name: 'Hard', hp: 1.2, dmg: 1.15, cap: 'epic', blurb: 'Enemies +20% HP, +15% damage.' },
+  { name: 'Brutal', hp: 1.4, dmg: 1.3, cap: 'legendary', blurb: 'Enemies +40% HP, +30% damage.' },
+  { name: 'Nightmare', hp: 1.65, dmg: 1.5, cap: 'mythic', blurb: 'Enemies +65% HP, +50% damage.' },
+];
+
+// What a card costs to play right now, after powers like Archmage Ascendant.
+export const costFor = (c, h) => Math.max(0, c.cost - (h?.pw?.discount || 0));
+
+const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'thorns', 'ward', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen', 'zap', 'pyro', 'echo', 'cuts', 'teamMend', 'beacon', 'teamRegen'];
+const UPG_TIME = ['taunt', 'stun', 'vuln', 'weak', 'haste', 'teamHaste', 'vanish', 'invuln'];
 
 // The card definition as it plays, with the upgrade applied.
 const cardCache = new Map();
@@ -208,6 +257,20 @@ const say = (fx, k, tgt, all) => {
     case 'focus': return `<b>Power:</b> you cast ${v}% faster.`;
     case 'regen': return `<b>Power:</b> +${v}% ⚡ regen.`;
     case 'thorns': return `<b>Power:</b> when you're hit, deal ${v} back.`;
+    case 'guardBlast': return `Deal <b>${v}×</b> your Armor to ALL enemies, then lose all Armor.`;
+    case 'aegis': return '<b>Power:</b> hits on the Hearth strike your Armor first.';
+    case 'undying': return "<b>Power:</b> the first time you'd be knocked out, heal to full and gain 40 Armor instead.";
+    case 'zap': return `Deal <b>${v}</b> damage to a random enemy ${fx.hits} times.`;
+    case 'rewind': return `Reset ALL enemies' wind-ups.`;
+    case 'pyro': return `<b>Power:</b> your Burn is ${v}% stronger, and your attacks also apply 3 Burn.`;
+    case 'discount': return `<b>Power:</b> your cards cost ${v} less.`;
+    case 'vanish': return `Enemies can't hurt you for ${v}s.`;
+    case 'echo': return `<b>Power:</b> your attacks strike again for ${v}% damage.`;
+    case 'cuts': return `<b>Power:</b> every card you play deals ${v} damage to ALL enemies.`;
+    case 'teamMend': return `Restore <b>${v}</b> HP to every hero.`;
+    case 'invuln': return `The Hearth takes no damage for ${v}s.`;
+    case 'beacon': return `<b>Power:</b> the Hearth heals ${v} every ${WARD_EVERY}s.`;
+    case 'teamRegen': return `<b>Power:</b> everyone regenerates ⚡ ${v}% faster.`;
     default: return '';
   }
 };

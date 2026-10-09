@@ -182,13 +182,21 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 .cardface.cls-rogue { --cc: #4fd18b; }
 .cardface.cls-cleric { --cc: #f2a1c7; }
 .cardface.cls-curse { --cc: #8b3bbf; background: repeating-linear-gradient(45deg, #2b1236, #2b1236 8px, #1e0c26 8px, #1e0c26 16px); }
-/* Rarity: a gem on the top edge, and a colored outline for uncommon and rare. */
-.gem { position: absolute; top: -9px; left: 50%; z-index: 1; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg); border: 2px solid #120e0c; border-radius: 2px; }
-.r-common .gem { background: linear-gradient(135deg, #f2eee8, #9a948c); }
-.r-uncommon .gem { background: linear-gradient(135deg, #bfe3ff, #3d8be0); }
-.r-rare .gem { background: linear-gradient(135deg, #fff2b8, #e0a520); box-shadow: 0 0 8px #ffd76a; }
-.cardface.r-uncommon { box-shadow: 0 0 0 2px #5aa6ffaa, 0 4px 14px #0007; }
-.cardface.r-rare { box-shadow: 0 0 0 2px #ffe08a, 0 0 20px 3px #ffcf4a88, 0 4px 14px #0007; }
+/* Rarity: a gem on the top edge in the rarity's color, and from Uncommon up a matching
+   outline that glows from Epic up. */
+.r-common { --rc: #d6d1c9; }
+.r-uncommon { --rc: #4cc96a; }
+.r-rare { --rc: #4a96ff; }
+.r-epic { --rc: #b06bff; }
+.r-legendary { --rc: #ff8f1f; }
+.r-mythic { --rc: #ff3b3b; }
+.gem { position: absolute; top: -9px; left: 50%; z-index: 1; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg); border: 2px solid #120e0c; border-radius: 2px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 35%, #fff), var(--rc)); }
+.r-epic .gem, .r-legendary .gem, .r-mythic .gem { box-shadow: 0 0 8px var(--rc); }
+.cardface.r-uncommon, .cardface.r-rare { box-shadow: 0 0 0 2px var(--rc), 0 4px 14px #0007; }
+.cardface.r-epic, .cardface.r-legendary { box-shadow: 0 0 0 2px var(--rc), 0 0 18px 2px color-mix(in srgb, var(--rc) 55%, transparent), 0 4px 14px #0007; }
+.cardface.r-mythic { box-shadow: 0 0 0 2px var(--rc), 0 0 26px 5px color-mix(in srgb, var(--rc) 65%, transparent), 0 4px 14px #0007; }
+.rt { color: var(--rc); font-weight: 800; }
 .cardface.up .cname { color: var(--good); }
 .cardface.empty { opacity: .2; border-style: dashed; background: none; }
 .cost {
@@ -456,3 +464,25 @@ dialog::backdrop { background: #000b; }
 .chip.danger { border-color: #7a2e22; color: #ffb4a6; }
 .chip.danger:hover { border-color: var(--danger); background: #3a0f0a; }
 .build { margin: 4px 0 0; text-align: center; font-size: 12px; }
+
+/* Lobby deck, deck builder and unlocks */
+.deck-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.dchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid color-mix(in srgb, var(--rc) 60%, var(--line)); color: var(--text); font-size: .85rem; }
+.dchip .gem { position: static; transform: rotate(45deg); width: 9px; height: 9px; border-width: 1px; flex: none; }
+button.dchip { cursor: pointer; }
+button.dchip:hover { border-color: var(--rc); }
+.deck-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+#buildDialog .row { display: flex; gap: 8px; }
+#buildDialog { overflow-x: hidden; padding-top: 0; }
+/* Keep Save/Cancel and the deck list in view while scrolling the collection. */
+#buildDialog .build-top { position: sticky; top: 0; z-index: 3; background: var(--panel); padding: 14px 0 6px; border-bottom: 1px solid var(--line); }
+#buildDialog .bad { color: #ff8a7a; }
+.card-btn { position: relative; }
+.owned { position: absolute; bottom: 6px; right: 8px; z-index: 2; background: var(--gold); color: #2a1a05; font-weight: 800; border-radius: 999px; padding: 0 7px; font-size: .8rem; }
+.card-btn.locked .cardface { filter: grayscale(.6) brightness(.75); }
+.lockmark { position: absolute; left: 2px; right: 2px; bottom: 26px; z-index: 2; padding: 3px 4px; background: #000c; border-radius: 6px; font-size: .72rem; font-weight: 800; color: #e8dccb; text-align: center; pointer-events: none; }
+.unlock { margin: 14px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 14px; background: #e0b84a14; }
+.unlock-note { color: var(--gold); }
+.pace:disabled { opacity: .5; cursor: not-allowed; }
+.cardface.back { justify-content: center; gap: 10px; background: repeating-linear-gradient(45deg, #241b16, #241b16 10px, #1b1410 10px, #1b1410 20px); border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
+.cback { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rc) 60%, #000); font: 800 2rem 'Cinzel', serif; color: color-mix(in srgb, var(--rc) 70%, #fff); background: #0006; }

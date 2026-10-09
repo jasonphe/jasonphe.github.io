@@ -58,6 +58,22 @@
     <div id="deckGrid" class="card-grid"></div>
   </dialog>
 
+  <dialog id="buildDialog">
+    <div class="build-top">
+      <div class="dlg-head">
+        <h3 id="buildTitle">Your deck</h3>
+        <div class="row">
+          <button class="btn ghost small" id="buildReset" type="button">Default</button>
+          <button class="btn ghost small" id="buildCancel" type="button">Cancel</button>
+          <button class="btn small" id="buildSave" type="button">Save</button>
+        </div>
+      </div>
+      <p id="buildHint" class="sub"></p>
+      <div id="buildDeck" class="deck-chips"></div>
+    </div>
+    <div id="buildGrid" class="card-grid"></div>
+  </dialog>
+
   <div id="toasts" aria-live="polite"></div>
   <div id="gainPops" aria-live="polite"></div>
   <div id="relicTip" role="tooltip" hidden></div>

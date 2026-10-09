@@ -2,7 +2,7 @@
 // S is the run (lobby, map, decks, shops...) and changes now and then.
 // C is the current fight and changes every tick. Times in C are fight-seconds (C.t),
 // so another player can pick up a saved copy and keep going if the host leaves.
-import { CLASSES, CARDS, STARTER, cardDef, ENEMIES, ENCOUNTERS, RELICS, EVENTS, TEMPO, WARD_EVERY, PACES, DEFAULT_TEMPO, setTempo } from './data.js';
+import { CLASSES, CARDS, DEFAULT_DECK, deckProblem, DIFFICULTIES, costFor, cardDef, ENEMIES, ENCOUNTERS, RELICS, EVENTS, TEMPO, WARD_EVERY, PACES, DEFAULT_TEMPO, setTempo } from './data.js';
 
 export const MAX_PLAYERS = 4;
 export const HAND = 5;
@@ -11,7 +11,9 @@ const BASE_MAX_E = 5;
 const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero has for the next fight
 const ROWS = 13;                 // map rows before the boss
 const COLS = 5;
-const PRICES = { common: 45, uncommon: 70, rare: 110 };
+const PRICES = { common: 45, uncommon: 70, rare: 110, epic: 160, legendary: 240, mythic: 320 };
+// Card reward odds, rarest first. Mythics only come from unlocks.
+const REWARD_ODDS = { fight: [['legendary', 0.01], ['epic', 0.04], ['rare', 0.13], ['uncommon', 0.30]], elite: [['legendary', 0.04], ['epic', 0.13], ['rare', 0.28], ['uncommon', 0.35]] };
 const REMOVE_PRICE = 60;
 // Indexed by party size.
 const HP_SCALE = [1, 0.85, 1.8, 2.8, 3.9];
@@ -24,7 +26,7 @@ const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 
 export function newLobby() {
-  return { phase: 'lobby', players: [], uid: 1, tempo: DEFAULT_TEMPO };
+  return { phase: 'lobby', players: [], uid: 1, tempo: DEFAULT_TEMPO, diff: 0 };
 }
 
 export class Sim {
@@ -43,8 +45,9 @@ export class Sim {
   note(text) { this.ev.push({ k: 'note', x: text }); }
   inst(id, up = 0) { return { u: this.S.uid++, id, up }; }
   allDone(done) { const a = this.active(); return a.length > 0 && a.every(p => done[p.id] != null); }
-  hpMult() { return HP_SCALE[this.S.players.length] || 1; }
-  dmgMult() { return (DMG_SCALE[this.S.players.length] || 1) * (1 + 0.03 * (this.S.pos?.r || 0)); }
+  diff() { return DIFFICULTIES[this.S.diff] || DIFFICULTIES[0]; }
+  hpMult() { return (HP_SCALE[this.S.players.length] || 1) * this.diff().hp; }
+  dmgMult() { return (DMG_SCALE[this.S.players.length] || 1) * this.diff().dmg * (1 + 0.03 * (this.S.pos?.r || 0)); }
 
   // Per-player stats for the current fight; folded into each player's run totals when it ends.
   stat(pid, key, v = 1) {
@@ -120,7 +123,8 @@ export class Sim {
       p.gold = 25;
       p.maxHp = p.hp = CLASSES[p.cls].hp;
       p.stats = {};
-      p.deck = STARTER[p.cls].map(id => this.inst(id));
+      const ids = deckProblem(p.cls, p.loadout) ? DEFAULT_DECK[p.cls] : p.loadout;
+      p.deck = ids.map(id => this.inst(id));
     }
     S.hearthMax = S.hearth = HEARTH[S.players.length];
     S.relics = [];
@@ -133,6 +137,7 @@ export class Sim {
     S.seenEvents = [];
     S.path = [];
     S.stats = { fights: 0, cards: 0 };
+    S.runId = Math.random().toString(36).slice(2, 10);
     S.phase = 'map';
     this.C = null;
     this.dirty = true;
@@ -223,9 +228,8 @@ export class Sim {
   }
 
   rollRarity(elite) {
-    const x = Math.random();
-    if (x < (elite ? 0.2 : 0.07)) return 'rare';
-    if (x < (elite ? 0.6 : 0.4)) return 'uncommon';
+    let x = Math.random();
+    for (const [r, odds] of REWARD_ODDS[elite ? 'elite' : 'fight']) { if (x < odds) return r; x -= odds; }
     return 'common';
   }
 
@@ -244,7 +248,7 @@ export class Sim {
     const items = {};
     for (const p of S.players) {
       const ids = new Set();
-      for (const r of ['common', 'common', 'uncommon', 'uncommon', 'rare']) {
+      for (const r of ['common', 'uncommon', 'uncommon', 'rare', Math.random() < 0.25 ? 'legendary' : 'epic']) {
         for (let k = 0; k < 10; k++) { const id = this.randomCard(p.cls, r); if (!ids.has(id)) { ids.add(id); break; } }
       }
       items[p.id] = [...ids].map(id => ({ id, price: Math.round(PRICES[CARDS[id].r] * rand(0.9, 1.1)), sold: false }));
@@ -362,12 +366,14 @@ export class Sim {
     const slot = h.hand.findIndex(c => c?.u === u);
     if (slot < 0) return;
     const inst = h.hand[slot], c = cardDef(inst.id, inst.up);
-    if (c.unplayable || h.e < c.cost - 1e-6) return;
+    const cost = costFor(c, h);
+    if (c.unplayable || h.e < cost - 1e-6) return;
     const alive = C.enemies.filter(e => e.hp > 0);
     if (c.tgt === 'enemy' && !alive.some(e => e.id === tgt)) tgt = alive[0]?.id;
     if (c.tgt === 'ally' && !C.heroes[tgt]) tgt = pid;
-    h.e -= c.cost;
+    h.e -= cost;
     h.hand[slot] = this.drawCard(h);
+    if (h.pw.cuts) for (const e of alive) this.hitEnemy(e, h.pw.cuts, pid);
     this.S.stats.cards++;
     this.stat(pid, 'cards');
     if (c.cast > 0) h.ch = { inst, tgt, el: 0, dur: c.cast };
@@ -413,6 +419,16 @@ export class Sim {
 
   hitHearth(amt) {
     const C = this.C, S = this.S;
+    if (C.invuln > C.t) { this.ev.push({ k: 'dmg', to: 'hearth', v: 0, b: Math.round(amt) }); return; }
+    for (const [id, h] of Object.entries(C.heroes)) {
+      if (!h.pw.aegis || h.down || h.guard <= 0 || amt <= 0) continue;
+      const soak = Math.min(h.guard, amt);
+      h.guard -= soak;
+      amt -= soak;
+      this.stat(id, 'tanked', soak);
+      this.ev.push({ k: 'dmg', to: id, v: 0, b: Math.round(soak) });
+    }
+    if (amt <= 0) return;
     const blocked = Math.min(C.shield, amt);
     C.shield -= blocked;
     const dmg = Math.round(amt - blocked);
@@ -428,6 +444,7 @@ export class Sim {
   hitHero(pid, amt, from) {
     const C = this.C, h = C.heroes[pid];
     if (!h || h.down) return this.hitHearth(amt);
+    if (h.vanish > C.t) { this.ev.push({ k: 'txt', to: pid, x: 'Dodged' }); return; }
     const blocked = Math.min(h.guard, amt);
     h.guard -= blocked;
     const dmg = amt - blocked;
@@ -435,6 +452,13 @@ export class Sim {
     this.ev.push({ k: 'dmg', to: pid, v: dmg, b: blocked });
     this.stat(pid, 'tanked', blocked + dmg + Math.min(0, h.hp));
     if (h.pw.thorns && from) this.hitEnemy(from, h.pw.thorns, pid);
+    if (h.hp <= 0 && h.pw.undying > 0) {
+      h.pw.undying--;
+      h.hp = h.max;
+      h.guard += 40;
+      this.ev.push({ k: 'txt', to: pid, x: 'Undying!' });
+      this.note(`${this.player(pid)?.name} refuses to fall!`);
+    }
     if (h.hp <= 0) {
       h.hp = 0;
       this.stat(pid, 'downs');
@@ -468,7 +492,7 @@ export class Sim {
     const mult = 1 + 0.25 * combo * (this.has('choir') ? 2 : 1);
     const foes = c.tgt === 'all' ? C.enemies.filter(e => e.hp > 0) : C.enemies.filter(e => e.id === tgt && e.hp > 0);
     const ally = c.tgt === 'ally' ? C.heroes[tgt] || h : h;
-    const isAttack = ['dmg', 'guardDmg', 'shieldDmg', 'detonate'].some(k => k in fx);
+    const isAttack = ['dmg', 'guardDmg', 'shieldDmg', 'detonate', 'guardBlast', 'zap'].some(k => k in fx);
     const bonus = isAttack ? h.pw.fury + h.empower + (this.has('whet') ? 2 : 0) : 0;
     if (isAttack) h.empower = 0;
 
@@ -479,7 +503,25 @@ export class Sim {
             const ex = fx.exec && e.hp < e.max * 0.4 ? fx.exec : 0;
             this.hitEnemy(e, (v + bonus + ex) * mult, pid);
           }
+          // Shadow Clone: one more strike at reduced damage.
+          if (h.pw.echo) for (const e of foes) this.hitEnemy(e, (v + bonus) * mult * h.pw.echo / 100, pid);
           break;
+        case 'zap':
+          for (let i = 0; i < (fx.hits || 1); i++) {
+            const alive = C.enemies.filter(e => e.hp > 0);
+            if (!alive.length) break;
+            this.hitEnemy(pick(alive), (v + bonus) * mult, pid);
+          }
+          break;
+        case 'guardBlast': for (const e of foes) this.hitEnemy(e, (h.guard * v + bonus) * mult, pid); h.guard = 0; break;
+        case 'rewind': for (const e of foes) if (e.act) e.act.el = 0; break;
+        case 'vanish': ally.vanish = Math.max(ally.vanish || 0, C.t + v); break;
+        case 'teamMend':
+          for (const x of Object.values(C.heroes)) if (!x.down) { const was = x.hp; x.hp = Math.min(x.max, x.hp + v); this.stat(pid, 'healed', x.hp - was); }
+          break;
+        case 'invuln': C.invuln = Math.max(C.invuln || 0, C.t + v); this.ev.push({ k: 'txt', to: 'hearth', x: 'Protected!' }); break;
+        case 'beacon': C.beacon = (C.beacon || 0) + v; break;
+        case 'teamRegen': C.teamRegen = (C.teamRegen || 0) + v; break;
         case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); break;
         case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
         case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; e.burnBy = {}; this.hitEnemy(e, b * v + bonus, pid); } break;
@@ -487,7 +529,7 @@ export class Sim {
         case 'stun': for (const e of foes) { e.stun = Math.max(e.stun, C.t + v); this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' }); } break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
-        case 'burn': for (const e of foes) { const n = Math.round(v * mult); e.burn += n; e.burnBy[pid] = (e.burnBy[pid] || 0) + n; } break;
+        case 'burn': for (const e of foes) { const n = Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)); e.burn += n; e.burnBy[pid] = (e.burnBy[pid] || 0) + n; } break;
         case 'taunt':
           for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
           if (foes.length && this.has('collar')) { h.guard += 5; this.stat(pid, 'guard', 5); }
@@ -516,9 +558,12 @@ export class Sim {
         case 'gold': if (p) { p.gold += v; this.dirty = true; } break;
         case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = true; this.stat(pid, 'downs'); this.ev.push({ k: 'down', to: pid }); } break;
         case 'ward': C.ward += v; C.wardBy[pid] = (C.wardBy[pid] || 0) + v; break;
-        case 'fury': case 'focus': case 'regen': case 'thorns': h.pw[k] += v; break;
+        case 'fury': case 'focus': case 'regen': case 'thorns':
+        case 'aegis': case 'undying': case 'pyro': case 'discount': case 'echo': case 'cuts': h.pw[k] = (h.pw[k] || 0) + v; break;
       }
     }
+    // Living Flame: attacks also set their targets alight.
+    if (isAttack && h.pw.pyro && !('burn' in fx)) for (const e of foes.filter(e => e.hp > 0)) { e.burn += 3; e.burnBy[pid] = (e.burnBy[pid] || 0) + 3; }
     (c.ex ? h.exh : h.disc).push(inst);
     if (combo) this.stat(pid, 'combos');
     this.ev.push({ k: 'cast', by: pid, card: c.name, combo });
@@ -610,6 +655,11 @@ export class Sim {
       }
     }
 
+    if (C.beacon) {
+      C.beaconT = (C.beaconT || 0) + dt;
+      if (C.beaconT >= WARD_EVERY) { C.beaconT -= WARD_EVERY; this.healHearth(C.beacon); }
+    }
+
     // Burn ticks once a second.
     C.burnT += dt;
     const burnTick = C.burnT >= 1;
@@ -652,7 +702,7 @@ export class Sim {
     for (const [pid, h] of Object.entries(C.heroes)) {
       if (h.down) continue;
       if (!this.player(pid)?.on) continue;
-      const rate = baseRegen() * (1 + h.pw.regen / 100 + (this.has('quick') ? 0.12 : 0)) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
+      const rate = baseRegen() * (1 + (h.pw.regen + (C.teamRegen || 0)) / 100 + (this.has('quick') ? 0.12 : 0)) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
       h.e = Math.min(h.emax, h.e + rate * dt);
       if (h.ch) {
         h.ch.el += dt * (1 + h.pw.focus / 100);
@@ -709,6 +759,8 @@ export class Sim {
 const ACTIONS = {
   cls(p, a) { if (this.S.phase === 'lobby' && CLASSES[a.c]) { p.cls = a.c; this.dirty = true; } },
   start(p) { if (p.id === this.hostId) this.startRun(); },
+  deck(p, a) { if (this.S.phase === 'lobby' && p.cls && !deckProblem(p.cls, a.ids)) { p.loadout = [...a.ids]; this.dirty = true; } },
+  diff(p, a) { if (p.id === this.hostId && this.S.phase === 'lobby' && DIFFICULTIES[a.v]) { this.S.diff = a.v; this.dirty = true; } },
   tempo(p, a) { if (p.id === this.hostId && this.S.phase === 'lobby' && PACES.some(x => x.v === a.v)) { this.S.tempo = a.v; this.dirty = true; } },
   // The host can give up on the run; everyone still sees the end screen and stats.
   abandon(p) { if (p.id === this.hostId && !['lobby', 'over'].includes(this.S.phase)) this.endRun(false, true); },

@@ -13,7 +13,7 @@ Math.random = () => idChars < idPrefix.length ? (Number(idPrefix[idChars++]) + 0
 const { joinRoom, selfId } = await import('https://cdn.jsdelivr.net/npm/trystero@0.25.4/+esm');
 Math.random = realRandom;
 
-import { CLASSES, CARDS, cardDef, cardText, ENEMIES, RELICS, EVENTS, PACES, DEFAULT_TEMPO, TEMPO, setTempo } from './data.js';
+import { CLASSES, CARDS, cardDef, cardText, ENEMIES, RELICS, EVENTS, PACES, DEFAULT_TEMPO, TEMPO, setTempo, RARITIES, RARITY_NAMES, DECK_SIZE, COPY_LIMIT, DEFAULT_DECK, DIFFICULTIES, deckProblem, costFor } from './data.js';
 import { Sim, newLobby, MAX_PLAYERS, HAND, REMOVE_PRICE, ROWS, baseRegen } from './sim.js';
 
 // ---------- Settings ----------
@@ -37,6 +37,43 @@ const store = {
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const cleanText = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const clamp01 = x => Math.max(0, Math.min(1, x));
+
+// ---------- Progress (this browser only) ----------
+// Cards unlocked by winning runs, cards seen during runs, the deck built for each
+// class, and the hardest difficulty won. There are no accounts, so all of it lives
+// in this browser.
+const PROGRESS_KEY = 'hearthguard-progress';
+const progress = (() => {
+  const p = (() => { try { return JSON.parse(store.get(PROGRESS_KEY) || '{}') || {}; } catch { return {}; } })();
+  return {
+    unlocked: Array.isArray(p.unlocked) ? p.unlocked.filter(id => CARDS[id]) : [],
+    seen: Array.isArray(p.seen) ? p.seen.filter(id => CARDS[id]) : [],
+    decks: p.decks && typeof p.decks === 'object' ? p.decks : {},
+    best: Number.isInteger(p.best) ? p.best : -1,
+    offer: p.offer || null,
+  };
+})();
+const saveProgress = () => store.set(PROGRESS_KEY, JSON.stringify(progress));
+const isUnlocked = id => CARDS[id]?.r === 'common' || progress.unlocked.includes(id);
+const rarityIdx = id => RARITIES.indexOf(CARDS[id]?.r);
+// Remember every card this player has come across in a run, so the deck builder can
+// show it (locked) instead of face down.
+function noteSeen() {
+  const m = me();
+  if (!m || S.phase === 'lobby') return;
+  const ids = [...(m.deck || []).map(c => c.id), ...(S.reward?.[m.id]?.cards || []), ...(S.shop?.items?.[m.id] || []).map(x => x.id),
+    ...(S.event?.gains || []).filter(g => g.pid === m.id && g.card).map(g => g.card)];
+  const fresh = ids.filter(id => CARDS[id] && CARDS[id].r !== 'common' && !progress.seen.includes(id));
+  if (!fresh.length) return;
+  progress.seen.push(...new Set(fresh));
+  saveProgress();
+}
+const countIds = ids => ids.reduce((n, id) => (n[id] = (n[id] || 0) + 1, n), {});
+// The deck this player starts with as `cls`: their saved build, or the default one.
+function myDeck(cls) {
+  const ids = progress.decks[cls];
+  return ids && !deckProblem(cls, ids) && ids.every(isUnlocked) ? ids : DEFAULT_DECK[cls];
+}
 
 function toast(text, kind = '') {
   const t = document.createElement('div');
@@ -245,8 +282,21 @@ function onState(prevPhase) {
   render();
 }
 
+let sentDeck = '';
+function syncDeck() {
+  const m = me();
+  if (S.phase !== 'lobby' || !m?.cls) return;
+  const ids = myDeck(m.cls);
+  const key = `${hostId}:${m.cls}:${ids.join()}`;
+  if ((m.loadout || []).join() === ids.join() || sentDeck === key) return;
+  sentDeck = key;
+  act({ k: 'deck', ids });
+}
+
 function render() {
   setTempo(S.tempo ?? DEFAULT_TEMPO);
+  syncDeck();
+  noteSeen();
   renderRunbar();
   $('endRunBtn').classList.toggle('hidden', !isHost() || ['lobby', 'over'].includes(S.phase));
   const main = $('main');
@@ -280,6 +330,7 @@ function runbarHTML() {
   return `
     <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
     <span title="Floor">🪜 ${floor}/${ROWS + 1}</span>
+    ${S.diff ? `<span title="Difficulty">💀 ${DIFFICULTIES[S.diff].name}</span>` : ''}
     ${m ? `<span title="Your HP">❤️ ${m.hp}/${m.maxHp}</span><span title="Your gold">🪙 ${m.gold}</span>` : ''}
     <span class="rb-relics">${(S.relics || []).map(r => `<button class="relic" data-relic="${r}" aria-label="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</button>`).join('')}</span>
     ${m ? `<button class="chip" data-deck="view">🂠 Deck ${m.deck.length}</button>` : ''}`;
@@ -293,14 +344,19 @@ const hearthPic = cls => pic('icons/hearth', '❤️‍🔥', cls);
 const scene = (id, emoji) => `<div class="scene">${pic(`scenes/${id}`, emoji)}</div>`;
 
 function tgtLabel(c) {
-  return { enemy: 'Enemy', all: 'All enemies', ally: 'Ally', self: 'Self', none: 'Team' }[c.tgt] || '';
+  return { enemy: 'Enemy', all: 'All enemies', random: 'Random enemies', ally: 'Ally', self: 'Self', none: 'Team' }[c.tgt] || '';
 }
-const RARITY = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare' };
+// A card not yet seen in any run: face down, showing only its rarity.
+function cardBackHTML(id) {
+  const c = CARDS[id];
+  return `<div class="cardface back r-${c.r}"><span class="gem" title="${RARITY_NAMES[c.r]}"></span>
+    <div class="cback">?</div><div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
+}
 function cardHTML(id, up, extra = '') {
   const c = cardDef(id, up);
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
     <span class="cost">${c.unplayable ? '–' : c.cost}</span>
-    ${RARITY[c.r] ? `<span class="gem" title="${RARITY[c.r]}"></span>` : ''}
+    ${RARITY_NAMES[c.r] ? `<span class="gem" title="${RARITY_NAMES[c.r]}"></span>` : ''}
     ${c.cast ? `<span class="ct" title="Cast time">⏱${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
@@ -335,7 +391,9 @@ const SCREENS = {
       <div class="classes">${Object.entries(CLASSES).map(([k, c]) => `
         <button class="class-card ${m.cls === k ? 'on' : ''}" data-cls="${k}" style="--cc:${c.color}">
           <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>❤️ ${c.hp} HP</small><span>${c.blurb}</span>
-        </button>`).join('')}</div>` : `<p class="note">The party is full, so you're watching this one.</p>`}
+        </button>`).join('')}</div>
+      ${deckBlockHTML(m)}` : `<p class="note">The party is full, so you're watching this one.</p>`}
+      ${diffHTML()}
       ${paceHTML()}
       <div class="lobby-go">
         ${isHost() ? `<button class="btn big" data-start ${ready ? '' : 'disabled'}>${ready ? 'Begin the descent' : 'Everyone needs a class'}</button>`
@@ -351,6 +409,7 @@ const SCREENS = {
           <li>🔷 <b>Barrier</b> soaks hits for the Hearth but fades over time. 🪖 <b>Armor</b> soaks hits for one hero.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
           <li>Stuck with a bad card? <b>↻ Discard</b> it to draw another for 1⚡.</li>
+          <li><b>Unlocks:</b> win a run to unlock a new card for the class you played, then add it to your deck here. Harder difficulties unlock rarer cards, and winning one opens the next.</li>
           <li>Keys: <kbd>1</kbd>–<kbd>5</kbd> pick a card (press again to auto-target), <kbd>X</kbd> discards it, <kbd>Esc</kbd> cancels.</li>
         </ul>
       </details>
@@ -488,8 +547,9 @@ const SCREENS = {
     return `<div class="panel center">
       ${o.win ? scene('victory', '👑') : scene('defeat', '🕯️')}
       <h2>${o.win ? 'The Hearth endures' : o.quit ? 'The run was abandoned' : o.wipe ? 'The party has fallen' : 'The Hearth has gone out'}</h2>
-      <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : o.quit ? `The party turned back on floor ${o.floor}.` : o.wipe ? `Every hero was knocked out on floor ${o.floor}.` : `The party fell on floor ${o.floor}.`}</p>
+      <p class="sub">${S.diff ? `${DIFFICULTIES[S.diff].name} · ` : ''}${o.win ? `You defeated ${esc(o.boss)}!` : o.quit ? `The party turned back on floor ${o.floor}.` : o.wipe ? `Every hero was knocked out on floor ${o.floor}.` : `The party fell on floor ${o.floor}.`}</p>
       <p class="note">${S.stats?.fights || 0} fights · ${S.stats?.cards || 0} cards played · ${(S.relics || []).length} relics</p>
+      ${unlockHTML()}
       ${statsBoard()}
       ${isHost() ? '<button class="btn big" data-lobby>Back to the lobby</button>' : `<p class="sub">Waiting for ${esc(pName(hostId))}…</p>`}
     </div>`;
@@ -609,6 +669,116 @@ function statsBoard() {
     </div>`).join('')}</div>`;
 }
 
+// ---------- Starting deck, difficulty, unlocks ----------
+const deckChip = (id, n, extra = '') => `<span class="gem"></span>${CARDS[id].icon} ${esc(CARDS[id].name)}${n > 1 ? ` ×${n}` : ''}${extra}`;
+function deckBlockHTML(m) {
+  if (!m?.cls) return '';
+  const counts = countIds(myDeck(m.cls));
+  const pool = Object.keys(CARDS).filter(id => CARDS[id].cls === m.cls);
+  return `<h3>Your starting deck</h3>
+    <div class="deck-chips">${Object.entries(counts).sort((a, b) => rarityIdx(b[0]) - rarityIdx(a[0])).map(([id, n]) => `<span class="dchip r-${CARDS[id].r}">${deckChip(id, n)}</span>`).join('')}</div>
+    <p class="sub deck-line">${pool.filter(isUnlocked).length}/${pool.length} ${CLASSES[m.cls].name} cards unlocked <button class="btn ghost small" data-build>Edit deck</button></p>`;
+}
+
+function diffHTML() {
+  const cur = S.diff ?? 0;
+  const d = DIFFICULTIES[cur];
+  if (!isHost()) return `<p class="pace-note">Difficulty: <b>${d.name}</b> <span>(${d.blurb})</span></p>`;
+  return `<h3>Difficulty</h3>
+    <div class="paces">${DIFFICULTIES.map((x, i) => {
+      const open = i <= progress.best + 1 || i === cur;
+      return `<button class="pace ${i === cur ? 'on' : ''}" data-diff="${i}" ${open ? '' : 'disabled'}>
+        <b>${open ? '' : '🔒 '}${x.name}</b><small>${x.blurb}</small>
+        <small>${open ? `Wins unlock up to <span class="rt r-${x.cap}">${RARITY_NAMES[x.cap]}</span>` : `Win on ${DIFFICULTIES[i - 1].name} to open`}</small></button>`;
+    }).join('')}</div>`;
+}
+
+// Three locked cards for the class this player won with, at most the difficulty's rarity,
+// always including one of the rarest still locked.
+function unlockChoices(cls, diff) {
+  const cap = RARITIES.indexOf(DIFFICULTIES[diff].cap);
+  const pool = Object.keys(CARDS).filter(id => CARDS[id].cls === cls && !isUnlocked(id) && rarityIdx(id) <= cap);
+  if (!pool.length) return [];
+  const top = Math.max(...pool.map(rarityIdx));
+  const tops = pool.filter(id => rarityIdx(id) === top);
+  const first = tops[Math.floor(Math.random() * tops.length)];
+  const rest = pool.filter(id => id !== first).sort(() => Math.random() - 0.5).slice(0, 2);
+  return [first, ...rest].sort((a, b) => rarityIdx(a) - rarityIdx(b));
+}
+
+function unlockHTML() {
+  const m = me();
+  if (!S.over?.win || !m?.cls || !S.runId) return '';
+  const diff = S.diff ?? 0;
+  let o = progress.offer;
+  if (o?.run !== S.runId) {
+    const opened = diff > progress.best && diff + 1 < DIFFICULTIES.length ? DIFFICULTIES[diff + 1].name : null;
+    progress.best = Math.max(progress.best, diff);
+    o = progress.offer = { run: S.runId, cls: m.cls, ids: unlockChoices(m.cls, diff), picked: null, opened };
+    for (const id of o.ids) if (!progress.seen.includes(id)) progress.seen.push(id);
+    saveProgress();
+  }
+  const opened = o.opened ? `<p class="unlock-note">🔓 <b>${o.opened}</b> difficulty is now open.</p>` : '';
+  if (o.picked) return `<div class="unlock">${opened}<h3>Unlocked for good</h3>
+    <div class="card-grid"><div class="card-btn static">${cardHTML(o.picked, 0)}</div></div>
+    <p class="sub">Add it to your ${CLASSES[o.cls].name} deck from the lobby.</p></div>`;
+  if (!o.ids.length) return `<div class="unlock">${opened}<p class="sub">You've unlocked every ${CLASSES[o.cls].name} card up to ${RARITY_NAMES[DIFFICULTIES[diff].cap]}. Win on a harder difficulty for rarer cards.</p></div>`;
+  return `<div class="unlock">${opened}<h3>Choose a card to unlock for good</h3>
+    <p class="sub">It joins your ${CLASSES[o.cls].name} collection, and you can put it in your starting deck.</p>
+    <div class="card-grid">${o.ids.map(id => `<button class="card-btn" data-unlock="${id}">${cardHTML(id, 0)}</button>`).join('')}</div></div>`;
+}
+
+function unlockCard(id) {
+  const o = progress.offer;
+  if (!o || o.picked || !o.ids.includes(id)) return;
+  if (!progress.unlocked.includes(id)) progress.unlocked.push(id);
+  o.picked = id;
+  saveProgress();
+  render();
+}
+
+// ---------- Deck builder ----------
+let draft = [], draftCls = null;
+function openBuilder() {
+  const m = me();
+  if (!m?.cls || S.phase !== 'lobby') return;
+  draftCls = m.cls;
+  draft = [...myDeck(m.cls)];
+  renderBuilder();
+  $('buildDialog').showModal();
+}
+function renderBuilder() {
+  const order = Object.keys(CARDS);
+  const counts = countIds(draft);
+  const problem = deckProblem(draftCls, draft);
+  $('buildTitle').textContent = `${CLASSES[draftCls].name} deck`;
+  $('buildHint').innerHTML = `<b>${draft.length}/${DECK_SIZE}</b> cards. Up to ${COPY_LIMIT.common} copies of a Common, ${COPY_LIMIT.uncommon} of an Uncommon, 1 of anything rarer.`
+    + (problem && draft.length === DECK_SIZE ? ` <span class="bad">${esc(problem)}</span>` : '');
+  $('buildSave').disabled = !!problem;
+  $('buildDeck').innerHTML = Object.keys(counts).sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .map(id => `<button class="dchip r-${CARDS[id].r}" data-bremove="${id}" title="Remove one">${deckChip(id, counts[id], ' <b>−</b>')}</button>`).join('')
+    || '<span class="note">Empty. Add cards below.</span>';
+  const pool = order.filter(id => CARDS[id].cls === draftCls).sort((a, b) => rarityIdx(a) - rarityIdx(b) || order.indexOf(a) - order.indexOf(b));
+  $('buildGrid').innerHTML = pool.map(id => {
+    const n = counts[id] || 0;
+    const badge = n ? `<span class="owned">×${n}</span>` : '';
+    if (!isUnlocked(id) && !progress.seen.includes(id)) return `<div class="card-btn static">${cardBackHTML(id)}</div>`;
+    if (!isUnlocked(id)) return `<div class="card-btn static locked">${cardHTML(id, 0)}<span class="lockmark">🔒 Win a run to unlock</span></div>`;
+    const full = n >= COPY_LIMIT[CARDS[id].r] || draft.length >= DECK_SIZE;
+    return `<button class="card-btn" data-badd="${id}" ${full ? 'disabled' : ''}>${cardHTML(id, 0, badge)}</button>`;
+  }).join('');
+}
+$('buildCancel').onclick = () => $('buildDialog').close();
+$('buildReset').onclick = () => { draft = [...DEFAULT_DECK[draftCls]]; renderBuilder(); };
+$('buildSave').onclick = () => {
+  if (deckProblem(draftCls, draft)) return;
+  progress.decks[draftCls] = [...draft];
+  saveProgress();
+  $('buildDialog').close();
+  screenKey = '';
+  render();
+};
+
 // Described relative to Normal (the default pace).
 const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === DEFAULT_TEMPO ? 'standard speed' : `enemies at ${Math.round(DEFAULT_TEMPO / t * 100)}% speed`}`;
 function paceHTML() {
@@ -640,6 +810,11 @@ document.addEventListener('click', e => {
   else if (d.cls) act({ k: 'cls', c: d.cls });
   else if ('start' in d) act({ k: 'start' });
   else if (d.tempo) { act({ k: 'tempo', v: Number(d.tempo) }); store.set('hearthguard-pace', d.tempo); }
+  else if (d.diff != null) act({ k: 'diff', v: Number(d.diff) });
+  else if ('build' in d) openBuilder();
+  else if (d.badd) { draft.push(d.badd); renderBuilder(); }
+  else if (d.bremove) { draft.splice(draft.lastIndexOf(d.bremove), 1); renderBuilder(); }
+  else if (d.unlock) unlockCard(d.unlock);
   else if ('lobby' in d) act({ k: 'lobby' });
   else if (d.node && S.phase === 'map' && t.classList.contains('can')) act({ k: 'vote', n: d.node });
   else if (d.reward) act({ k: 'reward', c: d.reward });
@@ -796,7 +971,7 @@ function playSel(tgt) {
   const c = cardDef(inst.id, inst.up);
   if (c.tgt === 'enemy' && !aliveEnemies().some(e => e.id === tgt)) { sel = u; return; }
   if (c.tgt === 'ally' && !C.heroes[tgt]) { sel = u; return; }
-  if (curEnergy(h) < c.cost - 0.02) { toast('Not enough ⚡'); return; }
+  if (curEnergy(h) < costFor(c, h) - 0.02) { toast('Not enough ⚡'); return; }
   pending.set(u, performance.now());
   act({ k: 'play', u, t: tgt });
 }
@@ -1026,11 +1201,12 @@ function frame(now) {
     }
     if (!inst) return;
     const c = cardDef(inst.id, inst.up);
-    tog(slot.el, 'poor', !c.unplayable && e < c.cost - 0.02);
+    const cost = costFor(c, h);
+    tog(slot.el, 'poor', !c.unplayable && e < cost - 0.02);
     tog(slot.el, 'busy', !!h.ch || !!h.down);
     tog(slot.el, 'sel', sel === u);
     tog(slot.el, 'pending', pending.has(u) && performance.now() - pending.get(u) < 700);
-    const fill = String(c.cost ? Math.round(clamp01(e / c.cost) * 100) / 100 : 1);
+    const fill = String(cost ? Math.round(clamp01(e / cost) * 100) / 100 : 1);
     if (slot.el.style.getPropertyValue('--fill') !== fill) slot.el.style.setProperty('--fill', fill);
   });
 
