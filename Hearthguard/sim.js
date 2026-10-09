@@ -469,7 +469,7 @@ export class Sim {
     const foes = c.tgt === 'all' ? C.enemies.filter(e => e.hp > 0) : C.enemies.filter(e => e.id === tgt && e.hp > 0);
     const ally = c.tgt === 'ally' ? C.heroes[tgt] || h : h;
     const isAttack = ['dmg', 'guardDmg', 'shieldDmg', 'detonate'].some(k => k in fx);
-    const bonus = isAttack ? h.pw.fury + h.empower + (this.has('whet') ? 1 : 0) : 0;
+    const bonus = isAttack ? h.pw.fury + h.empower + (this.has('whet') ? 2 : 0) : 0;
     if (isAttack) h.empower = 0;
 
     for (const [k, v] of Object.entries(fx)) {
