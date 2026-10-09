@@ -827,7 +827,7 @@ function curEnergy(h) {
 
 function pips(el, val, max) {
   if (el.childElementCount !== max) el.innerHTML = '<i><b></b></i>'.repeat(max);
-  [...el.children].forEach((p, i) => { p.firstChild.style.width = `${clamp01(val - i) * 100}%`; p.classList.toggle('full', val >= i + 1); });
+  [...el.children].forEach((p, i) => { setW(p.firstChild, val - i); tog(p, 'full', val >= i + 1); });
 }
 
 function enemyEl(e) {
@@ -897,9 +897,23 @@ function intentFor(e, t) {
   return { a, num, tgt, danger };
 }
 
-function frame() {
+// The combat view is redrawn many times a second, so these only touch the page when
+// a value actually changed. Every write makes the browser redo style and layout,
+// which adds up to a lot of heat on phones.
+const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
+const setHTML = (el, v) => { if (el.dataset.v !== v) { el.innerHTML = v; el.dataset.v = v; } };
+const setW = (el, frac) => { const w = `${Math.round(clamp01(frac) * 400) / 4}%`; if (el.style.width !== w) el.style.width = w; };
+const setHidden = (el, v) => { if (el.hidden !== v) el.hidden = v; };
+const tog = (el, cls, on) => { if (el.classList.contains(cls) !== on) el.classList.toggle(cls, on); };
+
+// About 30 fps is plenty for bars and timers, at half the work of drawing every frame.
+const FRAME_MS = 30;
+let lastFrame = 0;
+function frame(now) {
   requestAnimationFrame(frame);
   if (S.phase !== 'combat' || !C || !combatDom) return;
+  if (now - lastFrame < FRAME_MS) return;
+  lastFrame = now;
   const x = ahead();
   const t = C.t + x;
 
@@ -907,51 +921,51 @@ function frame() {
   const hEl = $('hearthEl');
   const hp = Math.max(0, S.hearth), max = S.hearthMax;
   const sh = Math.max(0, C.shield - (S.relics?.includes('anchor') ? 0 : (0.4 + C.shield * 0.05) * x / TEMPO));
-  hEl.querySelector('.hp').style.width = `${clamp01(hp / max) * 100}%`;
-  hEl.querySelector('.sh').style.width = `${clamp01(sh / max) * 100}%`;
-  hEl.querySelector('.hnum').textContent = `${Math.ceil(hp)} / ${max}`;
-  hEl.querySelector('.snum').textContent = sh >= 1 ? `🛡️ ${Math.floor(sh)}` : '';
-  hEl.classList.toggle('low', hp / max < 0.3);
+  setW(hEl.querySelector('.hp'), hp / max);
+  setW(hEl.querySelector('.sh'), sh / max);
+  setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
+  setText(hEl.querySelector('.snum'), sh >= 1 ? `🛡️ ${Math.floor(sh)}` : '');
+  tog(hEl, 'low', hp / max < 0.3);
 
   // Enemies
   const seen = new Set();
   for (const e of C.enemies) {
     const el = enemyEl(e);
     seen.add(e.id);
-    el.classList.toggle('dead', e.hp <= 0);
-    el.classList.toggle('stunned', e.stun > t);
-    el.querySelector('.bar .hp').style.width = `${clamp01(e.hp / e.max) * 100}%`;
-    el.querySelector('.bar .blk').style.width = `${clamp01(e.block / e.max) * 100}%`;
-    el.querySelector('.bar span').textContent = `${Math.ceil(e.hp)}/${e.max}${e.block ? ` 🛡️${e.block}` : ''}`;
+    tog(el, 'dead', e.hp <= 0);
+    tog(el, 'stunned', e.stun > t);
+    setW(el.querySelector('.bar .hp'), e.hp / e.max);
+    setW(el.querySelector('.bar .blk'), e.block / e.max);
+    setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}${e.block ? ` 🛡️${e.block}` : ''}`);
     const st = [];
     if (e.str) st.push(`<span title="Strength: +${e.str} damage">💪${e.str}</span>`);
     if (e.burn) st.push(`<span title="Burn: takes this much damage next second, then it drops by 1">🔥${e.burn}</span>`);
     if (e.vuln > t) st.push(`<span title="Vulnerable: takes 50% more damage">🎯${Math.ceil(e.vuln - t)}s</span>`);
     if (e.weak > t) st.push(`<span title="Weak: deals 30% less damage">🥀${Math.ceil(e.weak - t)}s</span>`);
     if (e.stun > t) st.push(`<span title="Stunned">💫${Math.ceil(e.stun - t)}s</span>`);
-    const stHtml = st.join('');
-    const stEl = el.querySelector('.status');
-    if (stEl.innerHTML !== stHtml) stEl.innerHTML = stHtml;
+    setHTML(el.querySelector('.status'), st.join(''));
     const tt = el.querySelector('.taunt-tag');
-    if (e.taunt && e.hp > 0) { tt.textContent = `Taunted by ${pName(e.taunt.pid)}`; tt.style.background = pColor(e.taunt.pid); tt.hidden = false; }
-    else tt.hidden = true;
+    if (e.taunt && e.hp > 0) {
+      setText(tt, `Taunted by ${pName(e.taunt.pid)}`);
+      const bg = pColor(e.taunt.pid);
+      if (tt.dataset.bg !== bg) { tt.style.background = bg; tt.dataset.bg = bg; }
+      setHidden(tt, false);
+    } else setHidden(tt, true);
     const intent = el.querySelector('.intent');
     if (e.act && e.hp > 0) {
       const info = intentFor(e, t);
-      intent.hidden = false;
-      intent.classList.toggle('danger', info.danger);
-      intent.querySelector('.iicon').textContent = INTENT[info.a.k];
-      intent.querySelector('.iname').textContent = info.a.n;
-      intent.querySelector('.idmg').textContent = info.num;
-      intent.querySelector('.itgt').textContent = info.tgt;
+      setHidden(intent, false);
+      tog(intent, 'danger', info.danger);
+      setText(intent.querySelector('.iicon'), INTENT[info.a.k]);
+      setText(intent.querySelector('.iname'), info.a.n);
+      setText(intent.querySelector('.idmg'), String(info.num));
+      setText(intent.querySelector('.itgt'), info.tgt);
       const el2 = e.act.el + (e.stun > t ? 0 : x);
-      intent.querySelector('.wind i').style.width = `${clamp01(el2 / e.act.dur) * 100}%`;
-      const pz = intent.querySelector('.poise');
-      const want = e.act.maxPoise >= 99 ? '<span title="Can\'t be interrupted">🔒</span>'
-        : e.act.maxPoise > 1 ? Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('') : '';
-      if (pz.innerHTML !== want) pz.innerHTML = want;
-    } else intent.hidden = true;
-    el.classList.toggle('targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
+      setW(intent.querySelector('.wind i'), el2 / e.act.dur);
+      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? '<span title="Can\'t be interrupted">🔒</span>'
+        : e.act.maxPoise > 1 ? Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('') : '');
+    } else setHidden(intent, true);
+    tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
   }
   for (const [id, el] of combatDom.enemies) if (!seen.has(id)) { el.remove(); combatDom.enemies.delete(id); }
 
@@ -960,42 +974,42 @@ function frame() {
   for (const [pid, h] of Object.entries(C.heroes)) {
     const el = heroEl(pid);
     const p = S.players.find(p => p.id === pid);
-    el.classList.toggle('off', !p?.on);
-    el.classList.toggle('isdown', !!h.down);
-    el.classList.toggle('targetable', selCard?.tgt === 'ally');
-    el.querySelector('.bar .hp').style.width = `${clamp01(h.hp / h.max) * 100}%`;
-    el.querySelector('.bar span').textContent = `${Math.ceil(h.hp)}/${h.max}`;
-    el.querySelector('.guard').textContent = h.guard ? `🛡️ ${Math.round(h.guard)}` : '';
+    tog(el, 'off', !p?.on);
+    tog(el, 'isdown', !!h.down);
+    tog(el, 'targetable', selCard?.tgt === 'ally');
+    setW(el.querySelector('.bar .hp'), h.hp / h.max);
+    setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
+    setText(el.querySelector('.guard'), h.guard ? `🛡️ ${Math.round(h.guard)}` : '');
     pips(el.querySelector('.epips'), curEnergy(h), h.emax);
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
-    el.querySelector('.htaunt').textContent = taunts ? `😤×${taunts}` : '';
+    setText(el.querySelector('.htaunt'), taunts ? `😤×${taunts}` : '');
     const hc = el.querySelector('.hcast');
     if (h.ch) {
-      hc.hidden = false;
+      setHidden(hc, false);
       const c = cardDef(h.ch.inst.id, h.ch.inst.up);
-      hc.querySelector('span').textContent = `${c.icon} ${c.name}`;
-      hc.querySelector('i').style.width = `${clamp01((h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur) * 100}%`;
-    } else hc.hidden = true;
-    el.querySelector('.down').textContent = h.down ? 'Down' : '';
+      setText(hc.querySelector('span'), `${c.icon} ${c.name}`);
+      setW(hc.querySelector('i'), (h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur);
+    } else setHidden(hc, true);
+    setText(el.querySelector('.down'), h.down ? 'Down' : '');
   }
 
   // My hand
   const h = myHero();
   const meEl = $('meEl');
-  meEl.hidden = !h;
+  setHidden(meEl, !h);
   if (!h) return;
   const e = curEnergy(h);
   pips(meEl.querySelector('.energy .epips'), e, h.emax);
-  meEl.querySelector('.enum').textContent = `${Math.floor(e)}/${h.emax}`;
-  meEl.querySelector('.piles').innerHTML = `<span title="Draw pile">🂠 ${h.draw.length}</span><span title="Discard pile">♻️ ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards">↻ free×${h.cycleFree}</span>` : ''}`;
+  setText(meEl.querySelector('.enum'), `${Math.floor(e)}/${h.emax}`);
+  setHTML(meEl.querySelector('.piles'), `<span title="Draw pile">🂠 ${h.draw.length}</span><span title="Discard pile">♻️ ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards">↻ free×${h.cycleFree}</span>` : ''}`);
   const mc = meEl.querySelector('.mycast');
   if (h.ch) {
-    mc.classList.remove('hidden');
+    tog(mc, 'hidden', false);
     const c = cardDef(h.ch.inst.id, h.ch.inst.up);
-    mc.querySelector('span').textContent = `Casting ${c.name}…`;
-    mc.querySelector('i').style.width = `${clamp01((h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur) * 100}%`;
-  } else mc.classList.add('hidden');
-  meEl.classList.toggle('isdown', !!h.down);
+    setText(mc.querySelector('span'), `Casting ${c.name}…`);
+    setW(mc.querySelector('i'), (h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur);
+  } else tog(mc, 'hidden', true);
+  tog(meEl, 'isdown', !!h.down);
 
   if (sel != null && !handCard(sel)) sel = null;
   h.hand.forEach((inst, i) => {
@@ -1010,22 +1024,21 @@ function frame() {
     }
     if (!inst) return;
     const c = cardDef(inst.id, inst.up);
-    slot.el.classList.toggle('poor', !c.unplayable && e < c.cost - 0.02);
-    slot.el.classList.toggle('busy', !!h.ch || !!h.down);
-    slot.el.classList.toggle('sel', sel === u);
-    slot.el.classList.toggle('pending', pending.has(u) && performance.now() - pending.get(u) < 700);
-    const fill = c.cost ? clamp01(e / c.cost) : 1;
-    slot.el.style.setProperty('--fill', fill);
+    tog(slot.el, 'poor', !c.unplayable && e < c.cost - 0.02);
+    tog(slot.el, 'busy', !!h.ch || !!h.down);
+    tog(slot.el, 'sel', sel === u);
+    tog(slot.el, 'pending', pending.has(u) && performance.now() - pending.get(u) < 700);
+    const fill = String(c.cost ? Math.round(clamp01(e / c.cost) * 100) / 100 : 1);
+    if (slot.el.style.getPropertyValue('--fill') !== fill) slot.el.style.setProperty('--fill', fill);
   });
 
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
-  const info = $('cardInfo');
   const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `⏱${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
       : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ↻ discards it and draws another for 1⚡.</span>`
         : `<span class="hint">Click a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
-  if (info.dataset.v !== want) { info.innerHTML = want; info.dataset.v = want; }
+  setHTML($('cardInfo'), want);
 }
 
 // ---------- Floating text ----------

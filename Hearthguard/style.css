@@ -86,7 +86,7 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 /* ---------- Top bar ---------- */
 #topbar {
   position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 8px 16px; background: #120e0ce6; backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
+  padding: 8px 16px; background: #120e0cf5; border-bottom: 1px solid var(--line);
 }
 .brand { font-family: 'Cinzel', serif; font-weight: 800; color: var(--gold); white-space: nowrap; }
 #runbar { flex: 1; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-weight: 700; min-width: 0; }
@@ -305,7 +305,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .down { position: absolute; inset: auto 6px 6px auto; color: var(--danger); font-weight: 800; font-size: .85rem; }
 .down:empty { display: none; }
 
-.me { position: sticky; bottom: 0; background: linear-gradient(180deg, #1c1613ee, #120e0cfa); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; backdrop-filter: blur(4px); }
+.me { position: sticky; bottom: 0; background: linear-gradient(180deg, #1c1613f5, #120e0cfc); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; }
 .me.isdown .hand { filter: grayscale(1) brightness(.6); }
 .me-top { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .energy { display: flex; gap: 8px; align-items: center; }
