@@ -140,7 +140,12 @@ function connect() {
     peers.delete(id);
     electHost();
     if (name) toast(`${name} left`);
-    if (isHost()) sim.leave(id);
+    if (isHost()) {
+      sim.leave(id);
+      // Someone who rejoined before their old connection timed out is watching;
+      // now that the old seat is free they can take it back.
+      for (const [pid, p] of peers) sim.join(pid, p.name);
+    }
     render();
   };
 }
