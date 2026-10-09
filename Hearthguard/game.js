@@ -335,7 +335,7 @@ const SCREENS = {
         <ul>
           <li><b>No turns.</b> ⚡ Energy refills over time. Play cards whenever you can afford them. Cards marked ⏱ take time to cast, and you can't play anything else while casting.</li>
           <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
-          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and Guard. A hero who is knocked out gets back up after 8s.</li>
+          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and Guard. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
           <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. 🔒 moves can't be stopped. 🌊 waves ignore taunts.</li>
           <li><b>Shield</b> soaks hits for the Hearth but fades over time.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
@@ -476,8 +476,8 @@ const SCREENS = {
     const o = S.over;
     return `<div class="panel center">
       ${o.win ? scene('victory', '👑') : scene('defeat', '🕯️')}
-      <h2>${o.win ? 'The Hearth endures' : o.quit ? 'The run was abandoned' : 'The Hearth has gone out'}</h2>
-      <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : o.quit ? `The party turned back on floor ${o.floor}.` : `The party fell on floor ${o.floor}.`}</p>
+      <h2>${o.win ? 'The Hearth endures' : o.quit ? 'The run was abandoned' : o.wipe ? 'The party has fallen' : 'The Hearth has gone out'}</h2>
+      <p class="sub">${o.win ? `You defeated ${esc(o.boss)}!` : o.quit ? `The party turned back on floor ${o.floor}.` : o.wipe ? `Every hero was knocked out on floor ${o.floor}.` : `The party fell on floor ${o.floor}.`}</p>
       <p class="note">${S.stats?.fights || 0} fights · ${S.stats?.cards || 0} cards played · ${(S.relics || []).length} relics</p>
       ${statsBoard()}
       ${isHost() ? '<button class="btn big" data-lobby>Back to the lobby</button>' : `<p class="sub">Waiting for ${esc(pName(hostId))}…</p>`}
@@ -967,7 +967,7 @@ function frame() {
       hc.querySelector('span').textContent = `${c.icon} ${c.name}`;
       hc.querySelector('i').style.width = `${clamp01((h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur) * 100}%`;
     } else hc.hidden = true;
-    el.querySelector('.down').textContent = h.down ? `Down · ${Math.ceil(h.down - t)}s` : '';
+    el.querySelector('.down').textContent = h.down ? 'Down' : '';
   }
 
   // My hand
@@ -1013,7 +1013,7 @@ function frame() {
   const infoInst = infoU != null ? handCard(infoU) : null;
   const info = $('cardInfo');
   const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `⏱${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
-    : h.down ? `<span class="hint">You're down. You'll be back in ${Math.ceil(h.down - t)}s.</span>`
+    : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
       : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ↻ discards it and draws another for 1⚡.</span>`
         : `<span class="hint">Click a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
   if (info.dataset.v !== want) { info.innerHTML = want; info.dataset.v = want; }

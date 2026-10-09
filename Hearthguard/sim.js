@@ -8,8 +8,7 @@ export const MAX_PLAYERS = 4;
 export const HAND = 5;
 export const baseRegen = () => 1 / 1.5 / TEMPO;  // ⚡ per second
 const BASE_MAX_E = 5;
-const DOWN_TIME = 8;             // seconds a hero is knocked out
-const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero gets back up with
+const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero has for the next fight
 const ROWS = 13;                 // map rows before the boss
 const COLS = 5;
 const PRICES = { common: 45, uncommon: 70, rare: 110 };
@@ -310,11 +309,11 @@ export class Sim {
     }
   }
 
-  endRun(win, quit = false) {
+  endRun(win, quit = false, wipe = false) {
     const S = this.S;
     this.foldStats();
     S.phase = 'over';
-    S.over = { win, quit, floor: S.pos ? S.pos.r + 1 : 0, boss: S.boss.map(id => ENEMIES[id].name).join(' & ') };
+    S.over = { win, quit, wipe, floor: S.pos ? S.pos.r + 1 : 0, boss: S.boss.map(id => ENEMIES[id].name).join(' & ') };
     this.C = null;
     this.dirty = true;
   }
@@ -439,7 +438,7 @@ export class Sim {
     if (h.hp <= 0) {
       h.hp = 0;
       this.stat(pid, 'downs');
-      h.down = C.t + DOWN_TIME;
+      h.down = true; // until revived or the fight ends
       h.guard = 0;
       if (h.ch) { h.disc.push(h.ch.inst); h.ch = null; }
       this.ev.push({ k: 'down', to: pid });
@@ -508,14 +507,14 @@ export class Sim {
         case 'teamEmpower': for (const x of Object.values(C.heroes)) x.empower += v; break;
         case 'hurry': for (const x of Object.values(C.heroes)) if (x !== h && x.ch) x.ch.el += v; break;
         case 'revive':
-          for (const [id, x] of Object.entries(C.heroes)) if (x.down) { x.down = 0; x.hp = Math.ceil(x.max / 2); this.stat(pid, 'revives'); this.ev.push({ k: 'txt', to: id, x: 'Revived!' }); }
+          for (const [id, x] of Object.entries(C.heroes)) if (x.down) { x.down = false; x.hp = Math.ceil(x.max / 2); this.stat(pid, 'revives'); this.ev.push({ k: 'txt', to: id, x: 'Revived!' }); }
           break;
         case 'cleanse':
           for (const x of Object.values(C.heroes)) x.hand = x.hand.map(card => { if (card?.id !== 'hex') return card; x.exh.push(card); return this.drawCard(x); });
           break;
         case 'cycleFree': h.cycleFree += v; break;
         case 'gold': if (p) { p.gold += v; this.dirty = true; } break;
-        case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = C.t + DOWN_TIME; this.stat(pid, 'downs'); this.ev.push({ k: 'down', to: pid }); } break;
+        case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = true; this.stat(pid, 'downs'); this.ev.push({ k: 'down', to: pid }); } break;
         case 'ward': C.ward += v; C.wardBy[pid] = (C.wardBy[pid] || 0) + v; break;
         case 'fury': case 'focus': case 'regen': case 'thorns': h.pw[k] += v; break;
       }
@@ -595,7 +594,7 @@ export class Sim {
     const t = C.t;
 
     if (C.end) {
-      if (t >= C.end) C.lost ? this.endRun(false) : this.winCombat();
+      if (t >= C.end) C.lost ? this.endRun(false, false, C.lost === 'wipe') : this.winCombat();
       return;
     }
 
@@ -651,10 +650,7 @@ export class Sim {
     }
 
     for (const [pid, h] of Object.entries(C.heroes)) {
-      if (h.down) {
-        if (t >= h.down) { h.down = 0; h.hp = Math.ceil(h.max * REVIVE_HP); this.ev.push({ k: 'txt', to: pid, x: 'Back up!' }); }
-        continue;
-      }
+      if (h.down) continue;
       if (!this.player(pid)?.on) continue;
       const rate = baseRegen() * (1 + h.pw.regen / 100 + (this.has('quick') ? 0.12 : 0)) * (h.haste > t ? 2 : 1) * (h.slow > t ? 0.5 : 1);
       h.e = Math.min(h.emax, h.e + rate * dt);
@@ -672,13 +668,20 @@ export class Sim {
     }
 
     if (!C.end && C.enemies.every(e => e.hp <= 0)) C.end = t + 1.2;
+    // With every hero here knocked out, nobody can act, so the run is over.
+    const here = Object.entries(C.heroes).filter(([id]) => this.player(id)?.on);
+    if (!C.end && here.length && here.every(([, h]) => h.down)) {
+      C.end = t + 1.5;
+      C.lost = 'wipe';
+      this.note('The whole party is down!');
+    }
   }
 
   winCombat() {
     const S = this.S, C = this.C;
     this.foldStats();
     if (C.kind === 'boss') { this.endRun(true); return; }
-    // Wounds carry over. Anyone knocked out at the end gets back up a little hurt.
+    // Wounds carry over. Anyone knocked out gets back up for the next fight, a little hurt.
     for (const p of S.players) {
       const h = C.heroes[p.id];
       if (h) p.hp = h.down ? Math.ceil(h.max * REVIVE_HP) : Math.max(1, Math.round(h.hp));
