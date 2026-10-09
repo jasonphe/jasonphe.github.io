@@ -295,10 +295,12 @@ const scene = (id, emoji) => `<div class="scene">${pic(`scenes/${id}`, emoji)}</
 function tgtLabel(c) {
   return { enemy: 'Enemy', all: 'All enemies', ally: 'Ally', self: 'Self', none: 'Team' }[c.tgt] || '';
 }
+const RARITY = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare' };
 function cardHTML(id, up, extra = '') {
   const c = cardDef(id, up);
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
     <span class="cost">${c.unplayable ? '–' : c.cost}</span>
+    ${RARITY[c.r] ? `<span class="gem" title="${RARITY[c.r]}"></span>` : ''}
     ${c.cast ? `<span class="ct" title="Cast time">⏱${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
@@ -344,9 +346,9 @@ const SCREENS = {
         <ul>
           <li><b>No turns.</b> ⚡ Energy refills over time. Play cards whenever you can afford them. Cards marked ⏱ take time to cast, and you can't play anything else while casting.</li>
           <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
-          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and Guard. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
+          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and 🪖 Armor. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
           <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. 🔒 moves can't be stopped. 🌊 waves ignore taunts.</li>
-          <li><b>Shield</b> soaks hits for the Hearth but fades over time.</li>
+          <li>🔷 <b>Barrier</b> soaks hits for the Hearth but fades over time. 🪖 <b>Armor</b> soaks hits for one hero.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
           <li>Stuck with a bad card? <b>↻ Discard</b> it to draw another for 1⚡.</li>
           <li>Keys: <kbd>1</kbd>–<kbd>5</kbd> pick a card (press again to auto-target), <kbd>X</kbd> discards it, <kbd>Esc</kbd> cancels.</li>
@@ -560,8 +562,8 @@ const STAT_ROWS = [
   ['kills', '💀', 'Kills'],
   ['tanked', '🛡️', 'Damage tanked'],
   ['healed', '💚', 'Healing'],
-  ['shield', '🔷', 'Shield given'],
-  ['guard', '🪖', 'Guard given'],
+  ['shield', '🔷', 'Barrier given'],
+  ['guard', '🪖', 'Armor given'],
   ['interrupts', '✋', 'Interrupts'],
   ['energyGiven', '⚡', 'Energy given'],
   ['revives', '🕊️', 'Revives'],
@@ -924,7 +926,7 @@ function frame(now) {
   setW(hEl.querySelector('.hp'), hp / max);
   setW(hEl.querySelector('.sh'), sh / max);
   setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
-  setText(hEl.querySelector('.snum'), sh >= 1 ? `🛡️ ${Math.floor(sh)}` : '');
+  setText(hEl.querySelector('.snum'), sh >= 1 ? `🔷 ${Math.floor(sh)}` : '');
   tog(hEl, 'low', hp / max < 0.3);
 
   // Enemies
@@ -979,7 +981,7 @@ function frame(now) {
     tog(el, 'targetable', selCard?.tgt === 'ally');
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
-    setText(el.querySelector('.guard'), h.guard ? `🛡️ ${Math.round(h.guard)}` : '');
+    setText(el.querySelector('.guard'), h.guard ? `🪖 ${Math.round(h.guard)}` : '');
     pips(el.querySelector('.epips'), curEnergy(h), h.emax);
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
     setText(el.querySelector('.htaunt'), taunts ? `😤×${taunts}` : '');
@@ -1072,9 +1074,9 @@ function handleEvents(list) {
       case 'gain': if (ev.to === selfId || ev.to === 'team') showGain(ev); break;
       case 'dmg':
         if (ev.v > 0) { floatText(ev.to, `−${ev.v}`, ev.to === 'hearth' ? 'hearth-dmg' : 'dmg'); flash(ev.to, 'hit'); }
-        else if (ev.b > 0) floatText(ev.to, `🛡️${ev.b}`, 'blocked');
+        else if (ev.b > 0) floatText(ev.to, `${ev.to === 'hearth' ? '🔷' : combatDom?.heroes.has(ev.to) ? '🪖' : '🛡️'}${ev.b}`, 'blocked');
         break;
-      case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}🛡️` : `+${ev.v}`, 'heal'); break;
+      case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}🔷` : `+${ev.v}`, 'heal'); break;
       case 'txt': floatText(ev.to, ev.x, ev.c || 'txt'); break;
       case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); break;
       case 'cast':

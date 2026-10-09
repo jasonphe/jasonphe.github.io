@@ -182,7 +182,13 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 .cardface.cls-rogue { --cc: #4fd18b; }
 .cardface.cls-cleric { --cc: #f2a1c7; }
 .cardface.cls-curse { --cc: #8b3bbf; background: repeating-linear-gradient(45deg, #2b1236, #2b1236 8px, #1e0c26 8px, #1e0c26 16px); }
-.cardface.r-rare { box-shadow: 0 0 0 1px #ffd76a88, 0 4px 18px #ffd76a33; }
+/* Rarity: a gem on the top edge, and a colored outline for uncommon and rare. */
+.gem { position: absolute; top: -9px; left: 50%; z-index: 1; width: 16px; height: 16px; transform: translateX(-50%) rotate(45deg); border: 2px solid #120e0c; border-radius: 2px; }
+.r-common .gem { background: linear-gradient(135deg, #f2eee8, #9a948c); }
+.r-uncommon .gem { background: linear-gradient(135deg, #bfe3ff, #3d8be0); }
+.r-rare .gem { background: linear-gradient(135deg, #fff2b8, #e0a520); box-shadow: 0 0 8px #ffd76a; }
+.cardface.r-uncommon { box-shadow: 0 0 0 2px #5aa6ffaa, 0 4px 14px #0007; }
+.cardface.r-rare { box-shadow: 0 0 0 2px #ffe08a, 0 0 20px 3px #ffcf4a88, 0 4px 14px #0007; }
 .cardface.up .cname { color: var(--good); }
 .cardface.empty { opacity: .2; border-style: dashed; background: none; }
 .cost {

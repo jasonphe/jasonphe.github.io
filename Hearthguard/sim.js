@@ -598,7 +598,7 @@ export class Sim {
       return;
     }
 
-    // The Hearth's Shield fades unless anchored; Wards top it up.
+    // The Hearth's Barrier fades unless anchored; Wards top it up.
     if (!this.has('anchor')) C.shield = Math.max(0, C.shield - (0.4 + C.shield * 0.05) * dt / TEMPO);
     if (C.ward) {
       C.wardT += dt;

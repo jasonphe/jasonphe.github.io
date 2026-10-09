@@ -1,15 +1,13 @@
 // All game content: classes, cards, enemies, encounters, relics and events.
 
 // How slow combat runs compared with the original design (1). Energy regen, enemy
-// wind-ups and every duration in seconds (taunts, stuns, Shield fade...) scale with it
+// wind-ups and every duration in seconds (taunts, stuns, Barrier fade...) scale with it
 // together, so changing it changes the pace without changing the difficulty much.
 // The host picks it in the lobby; everyone applies it with setTempo.
 export const PACES = [
-  { v: 1, name: 'Frantic' },
   { v: 1.5, name: 'Fast' },
   { v: 2, name: 'Normal' },
   { v: 2.5, name: 'Relaxed' },
-  { v: 3, name: 'Leisurely' },
 ];
 export const DEFAULT_TEMPO = 2;
 export let TEMPO = DEFAULT_TEMPO;
@@ -23,10 +21,10 @@ export function setTempo(t) {
 // Card effects (fx) are applied in key order; see sim.js applyCard for what each key does.
 
 export const CLASSES = {
-  knight: { name: 'Knight', icon: '🛡️', hp: 45, color: '#e0b84a', blurb: 'Taunts enemies, soaks hits with Guard, and bashes to interrupt.' },
+  knight: { name: 'Knight', icon: '🛡️', hp: 45, color: '#e0b84a', blurb: 'Taunts enemies, soaks hits with Armor, and bashes to interrupt.' },
   mage: { name: 'Mage', icon: '🔮', hp: 24, color: '#7c8cff', blurb: 'Long casts, huge damage and Burn. Pairs well with combo casting.' },
   rogue: { name: 'Rogue', icon: '🗡️', hp: 30, color: '#4fd18b', blurb: 'Cheap, instant cards. Interrupts, weakens and finishes enemies off.' },
-  cleric: { name: 'Cleric', icon: '🕯️', hp: 32, color: '#f2a1c7', blurb: 'Heals the Hearth, shields the team and gives allies energy.' },
+  cleric: { name: 'Cleric', icon: '🕯️', hp: 32, color: '#f2a1c7', blurb: 'Heals the Hearth, raises Barriers and gives allies energy.' },
 };
 
 // r: starter | common | uncommon | rare. tgt: enemy | all | ally | self | none.
@@ -35,7 +33,7 @@ export const CLASSES = {
 export const CARDS = {
   // ---------- Knight ----------
   k_strike: { name: 'Strike', cls: 'knight', r: 'starter', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 13 } },
-  k_guard: { name: 'Raise Shield', cls: 'knight', r: 'starter', cost: 1, tgt: 'self', icon: '🛡️', fx: { guard: 8 } },
+  k_guard: { name: 'Steel Yourself', cls: 'knight', r: 'starter', cost: 1, tgt: 'self', icon: '🛡️', fx: { guard: 8 } },
   k_provoke: { name: 'Provoke', cls: 'knight', r: 'starter', cost: 2, tgt: 'enemy', icon: '😤', fx: { taunt: 8, guard: 8 } },
   k_bash: { name: 'Shield Bash', cls: 'knight', r: 'starter', cost: 1, tgt: 'enemy', icon: '💥', fx: { dmg: 4, interrupt: 1 } },
   k_brace: { name: 'Brace', cls: 'knight', r: 'starter', cost: 3, tgt: 'none', icon: '🧱', fx: { shield: 20 } },
@@ -77,7 +75,7 @@ export const CARDS = {
   m_detonate: { name: 'Detonate', cls: 'mage', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '💣', fx: { detonate: 4 } },
   m_focus: { name: 'Arcane Focus', cls: 'mage', r: 'uncommon', cost: 1, tgt: 'self', icon: '🧿', ex: 1, power: 1, fx: { focus: 30 } },
   m_inferno: { name: 'Inferno', cls: 'mage', r: 'uncommon', cost: 3, cast: 1, tgt: 'all', icon: '🔥', fx: { burn: 7 } },
-  m_mirror: { name: 'Mirror Shield', cls: 'mage', r: 'uncommon', cost: 4, cast: 1, tgt: 'none', icon: '🪞', fx: { shield: 38 }, combo: { shield: 17 } },
+  m_mirror: { name: 'Mirror Barrier', cls: 'mage', r: 'uncommon', cost: 4, cast: 1, tgt: 'none', icon: '🪞', fx: { shield: 38 }, combo: { shield: 17 } },
   m_meteor: { name: 'Meteor', cls: 'mage', r: 'rare', cost: 5, cast: 3.5, tgt: 'all', icon: '🌠', fx: { dmg: 40 } },
   m_pyro: { name: 'Pyroblast', cls: 'mage', r: 'rare', cost: 5, cast: 4, tgt: 'enemy', icon: '🌞', fx: { dmg: 76, burn: 8 }, combo: { dmg: 27 } },
   m_font: { name: 'Mana Font', cls: 'mage', r: 'rare', cost: 3, tgt: 'self', icon: '⛲', ex: 1, power: 1, fx: { regen: 30 } },
@@ -116,7 +114,7 @@ export const CARDS = {
   c_rebuke: { name: 'Rebuke', cls: 'cleric', r: 'starter', cost: 1, tgt: 'enemy', icon: '✋', fx: { dmg: 3, interrupt: 1 } },
   c_bless: { name: 'Blessing', cls: 'cleric', r: 'starter', cost: 1, tgt: 'ally', icon: '🌟', fx: { energy: 3 } },
   c_light: { name: 'Holy Light', cls: 'cleric', r: 'common', cost: 4, cast: 2.5, tgt: 'none', icon: '☀️', fx: { heal: 18 } },
-  c_divine: { name: 'Divine Shield', cls: 'cleric', r: 'common', cost: 4, cast: 1, tgt: 'none', icon: '🔆', fx: { shield: 35 } },
+  c_divine: { name: 'Divine Barrier', cls: 'cleric', r: 'common', cost: 4, cast: 1, tgt: 'none', icon: '🔆', fx: { shield: 35 } },
   c_purify: { name: 'Purify', cls: 'cleric', r: 'common', cost: 1, tgt: 'none', icon: '💧', fx: { cleanse: 1, shield: 5 } },
   c_judge: { name: 'Judgment', cls: 'cleric', r: 'common', cost: 3, tgt: 'enemy', icon: '⚖️', fx: { dmg: 23, vuln: 6 } },
   c_mend: { name: 'Mend Wounds', cls: 'cleric', r: 'common', cost: 2, tgt: 'ally', icon: '🩹', fx: { mend: 25, guard: 10 } },
@@ -179,8 +177,8 @@ const say = (fx, k, tgt, all) => {
   const ally = tgt === 'ally';
   switch (k) {
     case 'dmg': return `Deal <b>${v}</b> damage${fx.hits > 1 ? ` ${fx.hits} times` : ''}${all ? ' to ALL enemies' : ''}.`;
-    case 'guardDmg': return 'Deal damage equal to your Guard.';
-    case 'shieldDmg': return "Deal damage equal to the Hearth's Shield.";
+    case 'guardDmg': return 'Deal damage equal to your Armor.';
+    case 'shieldDmg': return "Deal damage equal to the Hearth's Barrier.";
     case 'exec': return `+<b>${v}</b> if the target is under 40% HP.`;
     case 'detonate': return `Deal <b>${v}×</b> the target's Burn, then clear it.`;
     case 'interrupt': return `<b>Interrupt</b>${all ? ' ALL' : ''}${v > 1 ? ` (breaks ${v} poise)` : ''}.`;
@@ -189,8 +187,8 @@ const say = (fx, k, tgt, all) => {
     case 'weak': return `Weaken${all ? ' ALL' : ''} ${v}s.`;
     case 'burn': return `Apply <b>${v}</b> Burn${all ? ' to ALL' : ''}.`;
     case 'taunt': return `<b>Taunt</b>${all ? ' ALL enemies' : ''} for ${v}s.`;
-    case 'shield': return `Shield the Hearth <b>${v}</b>.`;
-    case 'guard': return ally ? `Give an ally <b>${v}</b> Guard.` : `Gain <b>${v}</b> Guard.`;
+    case 'shield': return `Give the Hearth <b>${v}</b> Barrier.`;
+    case 'guard': return ally ? `Give an ally <b>${v}</b> Armor.` : `Gain <b>${v}</b> Armor.`;
     case 'heal': return `Heal the Hearth <b>${v}</b>.`;
     case 'mend': return ally ? `Restore <b>${v}</b> HP to an ally.` : `Restore <b>${v}</b> of your HP.`;
     case 'energy': return ally ? `Give an ally <b>${v}</b> ⚡.` : `Gain <b>${v}</b> ⚡.`;
@@ -205,7 +203,7 @@ const say = (fx, k, tgt, all) => {
     case 'cycleFree': return `Your next ${v} discard${v > 1 ? 's are' : ' is'} free.`;
     case 'gold': return `Gain ${v} gold.`;
     case 'selfDmg': return `Lose ${v} of your HP.`;
-    case 'ward': return `<b>Power:</b> the Hearth gains ${v} Shield every ${WARD_EVERY}s.`;
+    case 'ward': return `<b>Power:</b> the Hearth gains ${v} Barrier every ${WARD_EVERY}s.`;
     case 'fury': return `<b>Power:</b> your attacks deal +${v}.`;
     case 'focus': return `<b>Power:</b> you cast ${v}% faster.`;
     case 'regen': return `<b>Power:</b> +${v}% ⚡ regen.`;
@@ -261,7 +259,7 @@ export const ENCOUNTERS = {
 // ---------- Relics (shared by the team) ----------
 export const RELICS = {
   ember: { name: 'Ember Heart', icon: '❤️‍🔥', text: 'The Hearth heals 6 after each fight.' },
-  banner: { name: 'Iron Banner', icon: '🚩', text: 'Start each fight with 12 Shield.' },
+  banner: { name: 'Iron Banner', icon: '🚩', text: 'Start each fight with 12 Barrier.' },
   quick: { name: 'Quicksilver', icon: '⚗️', text: 'Everyone regenerates ⚡ 12% faster.' },
   whet: { name: 'Whetstone', icon: '🪨', text: 'All attacks deal +2 damage.' },
   bell: { name: 'Tower Bell', icon: '🔔', get text() { return `Interrupts also stun for ${1.5 * TEMPO}s.`; } },
@@ -269,12 +267,12 @@ export const RELICS = {
   choir: { name: 'Choir Stone', icon: '🎶', text: 'Combo bonuses are doubled.' },
   tooth: { name: 'Gold Tooth', icon: '🦷', text: 'Everyone gets +10 gold after fights.' },
   pouch: { name: 'Spare Pouch', icon: '👝', text: 'Everyone has +1 max ⚡.' },
-  collar: { name: 'Thorned Collar', icon: '⛓️', text: 'Taunting grants 5 Guard.' },
+  collar: { name: 'Thorned Collar', icon: '⛓️', text: 'Taunting grants 5 Armor.' },
   phoenix: { name: 'Phoenix Feather', icon: '🪶', text: 'Once: if the Hearth would fall, it returns at 30%.' },
   glass: { name: 'Hourglass', icon: '⏳', text: 'Enemies wind up 10% slower.' },
   lantern: { name: 'Watch Lantern', icon: '🏮', get text() { return `Enemies start each fight ${3 * TEMPO}s later.`; } },
   tome: { name: 'Grim Tome', icon: '📕', text: 'Burn deals +1 damage per tick.' },
-  anchor: { name: 'Anchor', icon: '⚓', text: 'The Hearth\'s Shield no longer decays.' },
+  anchor: { name: 'Anchor', icon: '⚓', text: 'The Hearth\'s Barrier no longer decays.' },
   candle: { name: 'Vigil Candle', icon: '🕯️', text: 'Everyone starts fights with full ⚡.' },
 };
 
