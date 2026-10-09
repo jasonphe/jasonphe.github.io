@@ -48,6 +48,15 @@ function toast(text, kind = '') {
 }
 
 // ---------- Join screen ----------
+// When the game files this browser is running were published, newest first, so
+// players can tell whether they have the latest build. Read from the copies the
+// browser already has, which are the ones actually running.
+Promise.all(['index.html', 'game.js', 'sim.js', 'data.js', 'style.css'].map(f =>
+  fetch(f, { method: 'HEAD', cache: 'force-cache' }).then(r => Date.parse(r.headers.get('Last-Modified')) || 0, () => 0)))
+  .then(times => {
+    const t = Math.max(...times);
+    if (t) $('buildStamp').textContent = `Updated ${new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+  });
 const hashCode = location.hash.slice(1).toUpperCase().replace(/[^A-Z0-9]/g, '');
 $('nameInput').value = store.get('hearthguard-name') || '';
 if (hashCode) {

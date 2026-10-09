@@ -449,3 +449,4 @@ dialog::backdrop { background: #000b; }
 
 .chip.danger { border-color: #7a2e22; color: #ffb4a6; }
 .chip.danger:hover { border-color: var(--danger); background: #3a0f0a; }
+.build { margin: 4px 0 0; text-align: center; font-size: 12px; }
