@@ -301,7 +301,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hname b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .htaunt { font-size: .8rem; font-weight: 800; }
 .hrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.guard { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 3px 4px; font-weight: 800; color: var(--guard); font-size: .85rem; }
+.guard { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; font-weight: 800; color: var(--guard); font-size: .85rem; }
 .epips { display: flex; gap: 3px; }
 .epips i { width: 14px; height: 8px; border-radius: 3px; background: #0008; overflow: hidden; border: 1px solid #7a6420; }
 .epips i b { display: block; height: 100%; background: #b8951e; }
@@ -399,7 +399,6 @@ dialog::backdrop { background: #000b; }
   .enemy.boss .art { font-size: 3.2rem; height: 130px; }
   .heroes { gap: 6px; }
   .hero { width: calc(50% - 3px); padding: 6px; }
-  .hero .pic.pw-pic { width: 20px; height: 20px; }
   .hand { gap: 5px; }
   .hand-card { flex: 1; min-width: 0; }
   .hand-card .cardface { width: 100%; min-height: 136px; padding: 6px 3px 32px; }

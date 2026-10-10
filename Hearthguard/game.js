@@ -47,6 +47,15 @@ const store = {
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const cleanText = (s, max) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const clamp01 = x => Math.max(0, Math.min(1, x));
+// Each page load gets a new peer id, so this per-tab key (kept across reloads) is how the
+// host recognises a player coming back before their old connection has timed out.
+const tabKey = (() => {
+  try {
+    let k = sessionStorage.getItem('hearthguard-tab');
+    if (!k) sessionStorage.setItem('hearthguard-tab', k = realRandom().toString(36).slice(2, 14));
+    return k;
+  } catch { return realRandom().toString(36).slice(2, 14); }
+})();
 
 // ---------- Progress (this browser only) ----------
 // Embers earned from runs, cards bought with them, cards seen during runs, the deck
@@ -182,7 +191,7 @@ function start(name, code) {
   $('game').classList.remove('hidden');
   $('roomCode').textContent = code;
   document.title = `Hearthguard · ${code}`;
-  peers.set(selfId, { name, t: Date.now() });
+  peers.set(selfId, { name, t: Date.now(), key: tabKey });
   connect();
   electHost();
   render();
@@ -210,12 +219,12 @@ function connect() {
       sim.leave(id);
       // Someone who rejoined before their old connection timed out is watching;
       // now that the old seat is free they can take it back.
-      for (const [pid, p] of peers) sim.join(pid, p.name);
+      for (const [pid, p] of peers) sim.join(pid, p.name, p.key);
     }
     render();
   };
 }
-const hello = () => ({ n: peers.get(selfId).name, t: peers.get(selfId).t });
+const hello = () => ({ n: peers.get(selfId).name, t: peers.get(selfId).t, k: tabKey });
 function send(name, data, target) {
   try { actions[name].send(data, target ? { target } : undefined); } catch (e) { console.warn(name, e); }
 }
@@ -232,7 +241,7 @@ function electHost() {
     sim = new Sim(S, C);
     sim.hostId = selfId;
     for (const p of [...S.players]) if (p.on && !peers.has(p.id)) sim.leave(p.id);
-    for (const [id, p] of peers) sim.join(id, p.name);
+    for (const [id, p] of peers) sim.join(id, p.name, p.key);
     if (was !== selfId && S.phase !== 'lobby') toast('You are now hosting the run');
     // A brand-new room starts at the pace this browser last picked.
     const saved = Number(store.get('hearthguard-pace'));
@@ -243,10 +252,14 @@ function electHost() {
 const handlers = {
   hello(d, from) {
     const isNew = !peers.has(from);
-    peers.set(from, { name: cleanText(d?.n, 16) || 'Hero', t: Number(d?.t) || Date.now() });
+    // A duplicated tab copies our key; never let it stand in for us.
+    const key = cleanText(d?.k, 24) === tabKey ? '' : cleanText(d?.k, 24);
+    // Same tab under a new id (it reloaded or reconnected): its old connection is dead.
+    if (key) for (const [id, p] of peers) if (id !== from && id !== selfId && p.key === key) peers.delete(id);
+    peers.set(from, { name: cleanText(d?.n, 16) || 'Hero', t: Number(d?.t) || Date.now(), key });
     electHost();
     if (isNew && S.phase === 'lobby') toast(`${pName(from)} joined`);
-    if (isHost()) { sim.join(from, peers.get(from).name); sim.dirty = true; }
+    if (isHost()) { sim.join(from, peers.get(from).name, key); sim.dirty = true; }
     render();
   },
   st(d, from) {
@@ -1179,7 +1192,7 @@ function heroEl(pid) {
   el.innerHTML = `
     <div class="hname"><span class="havatar">${classPic(p?.cls)}</span><b>${esc(p?.name)}</b><span class="htaunt"></span></div>
     <div class="bar"><i class="hp"></i><span></span></div>
-    <div class="hrow"><div class="epips"></div><span class="guard"></span></div>
+    <div class="hrow"><span class="guard"></span></div>
     <div class="hcast"><i></i><span></span></div>
     <div class="down"></div>`;
   $('heroesEl').append(el);
@@ -1364,7 +1377,6 @@ function frame(now) {
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
     setHTML(el.querySelector('.guard'), heroStatuses(pid, h, t));
-    pips(el.querySelector('.epips'), curEnergy(h), h.emax);
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
     setHTML(el.querySelector('.htaunt'), taunts ? `<span${tipAttr(`Taunting ${taunts}`, `${taunts} enem${taunts > 1 ? 'ies are' : 'y is'} attacking this hero instead of the Hearth.`)}>${ico('taunt')}×${taunts}</span>` : '');
     const hc = el.querySelector('.hcast');

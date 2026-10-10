@@ -74,15 +74,18 @@ export class Sim {
   }
 
   // ---------- Lobby ----------
-  join(id, name) {
+  // `key` identifies the browser tab across reloads (each reload gets a new id).
+  join(id, name, key) {
     const S = this.S;
     let p = S.players.find(p => p.id === id);
-    if (p) { p.on = true; p.name = name; this.dirty = true; return; }
-    // A returning player with the same name takes their old seat back.
-    p = S.players.find(p => !p.on && p.name === name);
+    if (p) { p.on = true; p.name = name; if (key) p.key = key; this.dirty = true; return; }
+    // A returning player takes their old seat back: the same tab even if its old connection
+    // hasn't timed out yet, or anyone with the same name whose seat is empty.
+    p = (key && S.players.find(p => p.key === key)) || S.players.find(p => !p.on && p.name === name);
     if (p) {
       const old = p.id;
-      p.id = id; p.on = true;
+      p.id = id; p.on = true; p.name = name;
+      if (key) p.key = key;
       if (this.C?.heroes[old]) { this.C.heroes[id] = this.C.heroes[old]; delete this.C.heroes[old]; }
       if (this.C?.st?.[old]) { this.C.st[id] = this.C.st[old]; delete this.C.st[old]; }
       for (const e of this.C?.enemies || []) if (e.burnBy?.[old]) { e.burnBy[id] = e.burnBy[old]; delete e.burnBy[old]; }
@@ -96,7 +99,7 @@ export class Sim {
       return;
     }
     if (S.phase !== 'lobby' || S.players.length >= MAX_PLAYERS) return; // watches instead
-    S.players.push({ id, name, cls: null, on: true, gold: 0, deck: [] });
+    S.players.push({ id, name, key, cls: null, on: true, gold: 0, deck: [] });
     this.dirty = true;
   }
 

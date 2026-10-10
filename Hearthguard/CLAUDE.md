@@ -26,7 +26,7 @@ No build step and no dependencies to install. Plain ES modules served as static 
   - `ev`: events (damage numbers, toasts, gains).
   - Clients send `act` messages to the host and just draw what comes back.
 - **Host migration:** every client keeps the last S and C. If the host leaves, the next-oldest peer builds a `Sim` from them and carries on. C uses fight-time (`C.t`), never wall-clock time, so this works. Keep it that way.
-- **Rejoining:** a player who rejoins with the same name takes their old seat back (`Sim.join` remaps every per-player key). New per-player state needs adding to that remap.
+- **Rejoining:** every page load gets a new peer id, and an old connection can take a long time to time out. Each tab sends a key in `hello` (`tabKey`, kept in `sessionStorage` across reloads), so the same tab takes its seat back straight away, even while its old id still looks connected. Otherwise, a player who rejoins with the same name takes back a seat whose player is offline. `Sim.join` remaps every per-player key; new per-player state needs adding to that remap.
 - **Background tabs:** the host tick catches up in 0.1s steps (timers run about once a second in background tabs). Clients extrapolate bars between snapshots (`ahead()` in `game.js`).
 - **Rendering:** phases outside combat re-render `#main` from HTML strings (`SCREENS[phase]`), skipping the render when the string is unchanged. Combat builds its DOM once and updates it in `frame()` (requestAnimationFrame) with `setText`/`setHTML`/`setW`/`tog` helpers that only touch the DOM on change. This keeps phones cool, so preserve it.
 - **Player actions** are validated in the `ACTIONS` table at the bottom of `sim.js`. Host-only actions check `p.id === this.hostId`.
