@@ -19,10 +19,12 @@ const REWARD_ODDS = { fight: [['legendary', 0.01], ['epic', 0.04], ['rare', 0.13
 const REMOVE_PRICE = 60;
 // Indexed by party size.
 export const HP_SCALE = [1, 0.85, 1.9, 3.1, 4.8];
-export const DMG_SCALE = [1, 1.0, 2.5, 4.1, 8.0];
+export const DMG_SCALE = [1, 1.0, 2.1, 2.4, 2.7];
 // Hits on heroes (pounces, taunted attacks, quakes) scale more gently than hits on the
 // Hearth, so a tank can still survive taking them for the party.
 export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.0, 1.15];
+// Bigger parties carry more interrupts, so enemy moves need more of them (by party size).
+export const POISE_SCALE = [1, 1, 1.15, 1.6, 2.2];
 const HEARTH = [60, 70, 85, 100, 115];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -679,6 +681,15 @@ export class Sim {
     }
   }
 
+  // A move's poise, scaled up for bigger parties. Fractions round up at random, so a
+  // 1-poise move at ×1.6 (3 players) needs 2 interrupts 60% of the time. Unstoppable stays so.
+  poiseFor(a) {
+    const base = a.poise || 1;
+    if (base >= 99) return base;
+    const x = base * (POISE_SCALE[this.S.players.length] || 1);
+    return Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
+  }
+
   nextAction(e) {
     const d = ENEMIES[e.type];
     let i;
@@ -686,7 +697,7 @@ export class Sim {
     else { do i = randInt(0, d.acts.length - 1); while (d.acts.length > 1 && i === e.last); }
     e.last = i;
     const a = d.acts[i];
-    const poise = a.poise || 1;
+    const poise = this.poiseFor(a);
     e.act = { i, el: 0, dur: a.w * TEMPO * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
   }
 
