@@ -753,7 +753,8 @@ export class Sim {
         const total = owners.reduce((sum, [, n]) => sum + n, 0) || 1;
         const dealt = this.hitEnemy(e, b);
         e.block = blk;
-        for (const [id, n] of owners) this.stat(id, 'burn', dealt * n / total);
+        // Burn counts toward each owner's total damage as well as its own stat.
+        for (const [id, n] of owners) { this.stat(id, 'burn', dealt * n / total); this.stat(id, 'dmg', dealt * n / total); }
         if (e.hp <= 0 && owners.length) this.stat(owners.reduce((a, c) => (c[1] > a[1] ? c : a))[0], 'kills');
         // The stack drops by one; shrink everyone's share to match.
         for (const [id, n] of owners) e.burnBy[id] = e.burn ? n * e.burn / (e.burn + 1) : 0;
