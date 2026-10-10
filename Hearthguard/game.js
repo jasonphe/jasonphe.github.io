@@ -356,7 +356,7 @@ function tgtLabel(c) {
 function cardBackHTML(id) {
   const c = CARDS[id];
   return `<div class="cardface back r-${c.r}"><span class="gem" title="${RARITY_NAMES[c.r]}"></span>
-    <div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
+    <div class="cback">?</div><div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
 }
 function cardHTML(id, up, extra = '') {
   const c = cardDef(id, up);

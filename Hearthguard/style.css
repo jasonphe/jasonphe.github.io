@@ -177,10 +177,7 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   border: 2px solid color-mix(in srgb, var(--cc) 70%, #000); border-radius: 12px; padding: 8px 8px 6px; text-align: center;
   box-shadow: 0 4px 14px #0007;
 }
-.cardface.cls-knight { --cc: #e0b84a; }
-.cardface.cls-mage { --cc: #7c8cff; }
-.cardface.cls-rogue { --cc: #4fd18b; }
-.cardface.cls-cleric { --cc: #f2a1c7; }
+/* Every class's cards share one neutral look, so rarity is the only color. */
 .cardface.cls-curse { --cc: #8b3bbf; background: repeating-linear-gradient(45deg, #2b1236, #2b1236 8px, #1e0c26 8px, #1e0c26 16px); }
 /* Rarity: a gem on the top edge in the rarity's color, and from Uncommon up a matching
    outline that glows from Epic up. */
@@ -478,8 +475,8 @@ dialog::backdrop { background: #000b; }
 .unlock { margin: 14px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 14px; background: #e0b84a14; }
 .unlock-note { color: var(--gold); }
 .pace:disabled { opacity: .5; cursor: not-allowed; }
-.cardface.back { justify-content: flex-end; background: #1b1410 url(assets/ui/card-back.webp) center / cover; border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
-.cardface.back .ctype { background: #000a; border-radius: 6px; padding: 1px 8px; color: color-mix(in srgb, var(--rc) 70%, #fff); }
+.cardface.back { justify-content: center; gap: 10px; background: repeating-linear-gradient(45deg, #241b16, #241b16 10px, #1b1410 10px, #1b1410 20px); border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
+.cback { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rc) 60%, #000); font: 800 2rem 'Cinzel', serif; color: color-mix(in srgb, var(--rc) 70%, #fff); background: #0006; }
 .seat-deck { margin-top: 6px; }
 .embers { margin-left: auto; margin-right: 12px; font-weight: 800; color: #ffb35a; }
 .card-btn.pick.in .cardface { opacity: 1; outline: 3px solid var(--gold); outline-offset: 2px; }
