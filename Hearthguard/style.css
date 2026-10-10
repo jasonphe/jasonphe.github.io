@@ -545,3 +545,11 @@ dialog::backdrop { background: #000b; }
 .up-diff { color: var(--good); font-weight: 800; background: #5fd38d26; border-radius: 4px; padding: 0 2px; }
 .cost.diff { box-shadow: 0 0 0 2px var(--good), 0 0 10px var(--good); }
 .ct.diff { color: var(--good); box-shadow: 0 0 0 1px var(--good); }
+
+/* ---------- Debug menu ---------- */
+#debugDialog { width: min(460px, calc(100vw - 32px)); }
+.cheat { display: flex; gap: 12px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 8px 0; cursor: pointer; }
+.cheat input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--gold); flex: none; }
+.cheat b { display: block; }
+.cheat small { color: var(--muted); }
+.chip.debug.on { border-color: #b58cff; color: #d6c4ff; background: #2a1d3d; }

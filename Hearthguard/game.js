@@ -65,13 +65,23 @@ const progress = (() => {
   };
 })();
 const saveProgress = () => store.set(PROGRESS_KEY, JSON.stringify(progress));
-const isUnlocked = id => CARDS[id]?.r === 'common' || progress.unlocked.includes(id);
+
+// ---------- Debug cheats (this browser only) ----------
+// Kept apart from real progress: while on, every card is usable and every difficulty
+// open, decks built go in their own slot, and runs don't touch Embers, unlocks or seen
+// cards. Turning them off brings back the real progress exactly as it was.
+const CHEAT_KEY = 'hearthguard-cheats';
+const cheats = (() => { try { return { cards: false, diffs: false, decks: {}, ...JSON.parse(store.get(CHEAT_KEY) || '{}') }; } catch { return { cards: false, diffs: false, decks: {} }; } })();
+const saveCheats = () => store.set(CHEAT_KEY, JSON.stringify(cheats));
+const cheating = () => cheats.cards || cheats.diffs;
+
+const isUnlocked = id => cheats.cards || CARDS[id]?.r === 'common' || progress.unlocked.includes(id);
 const rarityIdx = id => RARITIES.indexOf(CARDS[id]?.r);
 // Remember every card this player has come across in a run, so the deck builder can
 // show it (locked) instead of face down.
 function noteSeen() {
   const m = me();
-  if (!m || S.phase === 'lobby') return;
+  if (!m || S.phase === 'lobby' || cheating()) return;
   const ids = [...(m.deck || []).map(c => c.id), ...(S.reward?.[m.id]?.cards || []), ...(S.shop?.items?.[m.id] || []).map(x => x.id),
     ...(S.event?.gains || []).filter(g => g.pid === m.id && g.card).map(g => g.card)];
   const fresh = ids.filter(id => CARDS[id] && CARDS[id].r !== 'common' && !progress.seen.includes(id));
@@ -81,7 +91,7 @@ function noteSeen() {
 }
 // The deck this player starts with as `cls`: their saved build, or the default one.
 function myDeck(cls) {
-  const ids = progress.decks[cls];
+  const ids = (cheats.cards ? cheats.decks : progress.decks)[cls];
   return ids && !deckProblem(cls, ids) && ids.every(isUnlocked) ? ids : DEFAULT_DECK[cls];
 }
 
@@ -723,7 +733,7 @@ function diffHTML() {
   if (!isHost()) return `<p class="pace-note">Difficulty: <b>${d.name}</b> <span>(${d.blurb})</span></p>`;
   return `<h3>Difficulty</h3>
     <div class="paces">${DIFFICULTIES.map((x, i) => {
-      const open = i <= progress.best + 1 || i === cur;
+      const open = cheats.diffs || i <= progress.best + 1 || i === cur;
       return `<button class="pace ${i === cur ? 'on' : ''}" data-diff="${i}" ${open ? '' : 'disabled'}>
         <b>${open ? '' : `${ico('lock')} `}${x.name}</b><small>${x.blurb}</small>
         <small>${open ? `${ico('embers')} ×${x.embers} · a win lets you buy <span class="rt r-${x.cap}">${RARITY_NAMES[x.cap]}</span> cards` : `Win on ${DIFFICULTIES[i - 1].name} to open`}</small></button>`;
@@ -739,6 +749,7 @@ function embersHTML() {
   const m = me();
   if (!m?.cls || !S.runId) return '';
   const diff = S.diff ?? 0;
+  if (cheating()) return `<div class="unlock"><p class="sub">🛠 Cheats were on, so this run doesn't earn Embers or open difficulties.</p></div>`;
   let a = progress.award;
   if (a?.run !== S.runId) {
     const first = S.over.win && diff > progress.best;
@@ -764,6 +775,39 @@ function embersHTML() {
 // difficulty whose `cap` it is.
 const buyNeeds = r => DIFFICULTIES.findIndex(d => d.cap === r);
 const canBuyTier = r => buyNeeds(r) <= progress.best;
+
+// ---------- Debug menu ----------
+// Hidden from normal play: Ctrl+Shift+D, or ?debug in the address, shows it. The 🛠
+// button stays in the top bar while any cheat is on, so they're easy to turn off.
+const debugWanted = new URLSearchParams(location.search).has('debug');
+function renderDebugButton() {
+  const on = cheating();
+  $('debugBtn').classList.toggle('hidden', !(on || debugWanted));
+  $('debugBtn').classList.toggle('on', on);
+  $('debugBtn').innerHTML = on ? '🛠 Cheats on' : '🛠';
+}
+function openDebug() {
+  $('cheatCards').checked = cheats.cards;
+  $('cheatDiffs').checked = cheats.diffs;
+  $('debugDialog').showModal();
+}
+function setCheat(key, on) {
+  cheats[key] = on;
+  saveCheats();
+  renderDebugButton();
+  if ($('buildDialog').open) { draft = [...myDeck(draftCls)]; renderBuilder(); }
+  screenKey = '';
+  render();
+  toast(on ? 'Cheat on' : 'Cheat off: your real progress is back');
+}
+$('debugBtn').onclick = openDebug;
+$('debugClose').onclick = () => $('debugDialog').close();
+$('cheatCards').onchange = e => setCheat('cards', e.target.checked);
+$('cheatDiffs').onchange = e => setCheat('diffs', e.target.checked);
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); openDebug(); }
+});
+renderDebugButton();
 
 // ---------- Deck builder ----------
 let draft = [], draftCls = null;
@@ -817,8 +861,8 @@ $('buildCancel').onclick = () => $('buildDialog').close();
 $('buildReset').onclick = () => { draft = [...DEFAULT_DECK[draftCls]]; renderBuilder(); };
 $('buildSave').onclick = () => {
   if (deckProblem(draftCls, draft)) return;
-  progress.decks[draftCls] = [...draft];
-  saveProgress();
+  if (cheats.cards) { cheats.decks[draftCls] = [...draft]; saveCheats(); }
+  else { progress.decks[draftCls] = [...draft]; saveProgress(); }
   $('buildDialog').close();
   screenKey = '';
   render();

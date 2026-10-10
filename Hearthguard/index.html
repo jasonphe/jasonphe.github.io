@@ -45,6 +45,7 @@
     <header id="topbar">
       <div class="brand"><img src="assets/logo.webp" alt="" draggable="false"> <span>Hearthguard</span></div>
       <div id="runbar"></div>
+      <button class="chip debug hidden" id="debugBtn" title="Debug menu (Ctrl+Shift+D)">🛠</button>
       <button class="chip danger hidden" id="endRunBtn" title="End the run for everyone">End run</button>
       <button class="chip" id="copyTop" title="Copy invite link">Room <b id="roomCode"></b> 🔗</button>
     </header>
@@ -75,6 +76,17 @@
       <p id="buildHint" class="sub"></p>
     </div>
     <div id="buildGrid" class="card-grid"></div>
+  </dialog>
+
+  <dialog id="debugDialog">
+    <div class="dlg-head">
+      <h3>🛠 Debug</h3>
+      <button class="btn ghost small" id="debugClose" type="button">Close</button>
+    </div>
+    <p class="sub">Only affects this browser. Your real Embers, unlocks and decks are kept apart and come back when you turn these off.</p>
+    <label class="cheat"><input type="checkbox" id="cheatCards"><span><b>Unlock all cards</b><small>Every card is usable in the deck builder. Decks you build now are saved separately from your real ones.</small></span></label>
+    <label class="cheat"><input type="checkbox" id="cheatDiffs"><span><b>Open all difficulties</b><small>Host any difficulty without winning the one before it.</small></span></label>
+    <p class="note">While either is on, runs don't earn Embers, open difficulties or reveal cards.</p>
   </dialog>
 
   <div id="toasts" aria-live="polite"></div>
