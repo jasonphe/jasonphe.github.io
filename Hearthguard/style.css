@@ -469,7 +469,6 @@ dialog::backdrop { background: #000b; }
 #buildDialog .build-top { position: sticky; top: 0; z-index: 3; background: var(--panel); padding: 14px 0 6px; border-bottom: 1px solid var(--line); }
 #buildDialog .bad { color: #ff8a7a; }
 .card-btn { position: relative; }
-.owned { position: absolute; bottom: 6px; right: 8px; z-index: 2; background: var(--gold); color: #2a1a05; font-weight: 800; border-radius: 999px; padding: 0 7px; font-size: .8rem; }
 .card-btn.locked .cardface { filter: grayscale(.6) brightness(.75); }
 .lockmark { position: absolute; left: 2px; right: 2px; bottom: 26px; z-index: 2; padding: 3px 4px; background: #000c; border-radius: 6px; font-size: .72rem; font-weight: 800; color: #e8dccb; text-align: center; pointer-events: none; }
 .unlock { margin: 14px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 14px; background: #e0b84a14; }
@@ -477,13 +476,13 @@ dialog::backdrop { background: #000b; }
 .pace:disabled { opacity: .5; cursor: not-allowed; }
 .cardface.back { justify-content: center; gap: 10px; background: repeating-linear-gradient(45deg, #241b16, #241b16 10px, #1b1410 10px, #1b1410 20px); border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
 .cback { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rc) 60%, #000); font: 800 2rem 'Cinzel', serif; color: color-mix(in srgb, var(--rc) 70%, #fff); background: #0006; }
-.seat-deck { margin-top: 6px; }
+.seat-deck { margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.seat-deck.view { border-color: var(--gold); color: var(--gold); }
+.seat-deck.view:hover { background: #e0b84a1a; }
 .embers { margin-left: auto; margin-right: 12px; font-weight: 800; color: #ffb35a; }
 .card-btn.pick.in .cardface { opacity: 1; outline: 3px solid var(--gold); outline-offset: 2px; }
 .card-btn.pick:disabled { opacity: 1; cursor: not-allowed; }
 .card-btn.pick:disabled .cardface { opacity: .6; }
-.card-btn.pick.in .ctype { visibility: hidden; }
-.card-btn.pick.in .owned { left: 50%; right: auto; bottom: 5px; transform: translateX(-50%); white-space: nowrap; }
 .card-btn.buyable { cursor: pointer; }
 .card-btn.buyable .lockmark { background: #3a2208e6; color: #ffcf8a; border: 1px solid #ffb35a; }
 .card-btn.buyable:disabled .lockmark { background: #000c; color: #9a8f82; border-color: transparent; }

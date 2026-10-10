@@ -409,7 +409,7 @@ const SCREENS = {
       return `<div class="seat" style="--pc:${pColor(p.id)}">
         <div class="seat-icon">${classPic(p.cls)}</div>
         <div><b>${esc(p.name)}</b>${p.id === hostId ? ' <span class="tag">host</span>' : ''}${p.id === selfId ? ' <span class="tag">you</span>' : ''}<br><small>${c ? c.name : 'choosing…'}${p.id === selfId ? ` · ${ico('embers')} ${progress.embers}` : ''}</small>
-          ${c ? (p.id === selfId ? '<button class="btn ghost small seat-deck" data-build>Edit deck</button>' : `<button class="btn ghost small seat-deck" data-view-deck="${p.id}">View deck</button>`) : ''}</div>
+          ${c ? (p.id === selfId ? `<button class="btn small seat-deck" data-build>${ico('deck')} Edit deck</button>` : `<button class="btn ghost small seat-deck view" data-view-deck="${p.id}">${ico('deck')} View deck</button>`) : ''}</div>
       </div>`;
     }).join('');
     const ready = S.players.length && S.players.every(p => p.cls);
@@ -420,7 +420,7 @@ const SCREENS = {
       ${m ? `<h3>Choose your class</h3>
       <div class="classes">${Object.entries(CLASSES).map(([k, c]) => `
         <button class="class-card ${m.cls === k ? 'on' : ''}" data-cls="${k}" style="--cc:${c.color}">
-          <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>${ico('hp')} ${c.hp} HP</small><span>${c.blurb}</span>
+          <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><span>${c.blurb}</span>
         </button>`).join('')}</div>` : `<p class="note">The party is full, so you're watching this one.</p>`}
       ${diffHTML()}
       ${paceHTML()}
@@ -787,7 +787,7 @@ function renderBuilder() {
     const r = CARDS[id].r;
     if (isUnlocked(id)) {
       const inDeck = draft.includes(id);
-      return `<button class="card-btn pick ${inDeck ? 'in' : ''}" data-toggle="${id}" ${!inDeck && draft.length >= DECK_SIZE ? 'disabled' : ''}>${cardHTML(id, 0, inDeck ? '<span class="owned">✓ In deck</span>' : '')}</button>`;
+      return `<button class="card-btn pick ${inDeck ? 'in' : ''}" data-toggle="${id}" ${!inDeck && draft.length >= DECK_SIZE ? 'disabled' : ''}>${cardHTML(id, 0)}</button>`;
     }
     if (!progress.seen.includes(id)) return `<div class="card-btn static" title="Find this card in a run to reveal it">${cardBackHTML(id)}</div>`;
     if (!canBuyTier(r)) return `<div class="card-btn static locked">${cardHTML(id, 0)}<span class="lockmark">${ico('lock')} Win on ${DIFFICULTIES[buyNeeds(r)].name} to buy</span></div>`;
