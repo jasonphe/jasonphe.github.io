@@ -5,7 +5,7 @@
 import { CLASSES, CARDS, DEFAULT_DECK, deckProblem, DIFFICULTIES, costFor, cardDef, ENEMIES, ENCOUNTERS, RELICS, EVENTS, TEMPO, WARD_EVERY, PACES, DEFAULT_TEMPO, setTempo } from './data.js';
 
 export const MAX_PLAYERS = 4;
-export const HAND = 5;
+export const HAND = 4;
 export const baseRegen = () => 1 / 1.5 / TEMPO;  // ⚡ per second
 // How long after a teammate's cast lands that yours still counts as a combo.
 export const comboWindow = () => 1.5 * TEMPO;

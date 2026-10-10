@@ -342,18 +342,18 @@ function render() {
 function renderRunbar() {
   const html = runbarHTML();
   if ($('runbar').dataset.v !== html) { $('runbar').innerHTML = html; $('runbar').dataset.v = html; }
+  // In a run the logo makes way for the run stats.
+  $('topbar').classList.toggle('inrun', !!html);
 }
 function runbarHTML() {
   const m = me();
   if (S.phase === 'lobby' || !S.hearthMax) return '';
-  const floor = S.pos ? Math.min(S.pos.r + 1, ROWS + 1) : 0;
   return `
-    <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
-    <span title="Floor">${ico('floor')} ${floor}/${ROWS + 1}</span>
-    ${S.diff ? `<span title="Difficulty">${ico('difficulty')} ${DIFFICULTIES[S.diff].name}</span>` : ''}
-    ${m ? `<span title="Your HP">${ico('hp')} ${m.hp}/${m.maxHp}</span><span title="Your gold">${ico('gold')} ${m.gold}</span>` : ''}
+    <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b><span class="rb-max">/${S.hearthMax}</span></span>
+    ${S.diff ? `<span title="Difficulty: ${DIFFICULTIES[S.diff].name}">${ico('difficulty')}<span class="rb-txt"> ${DIFFICULTIES[S.diff].name}</span></span>` : ''}
+    ${m ? `<span title="Your HP">${ico('hp')} ${m.hp}<span class="rb-max">/${m.maxHp}</span></span><span title="Your gold">${ico('gold')} ${m.gold}</span>` : ''}
     <span class="rb-relics">${(S.relics || []).map(r => `<button class="relic" data-relic="${r}" aria-label="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</button>`).join('')}</span>
-    ${m ? `<button class="chip" data-deck="view">${ico('deck')} Deck ${m.deck.length}</button>` : ''}`;
+    ${m ? `<button class="chip" data-deck="view" title="Your deck">${ico('deck')}<span class="rb-txt"> Deck</span> ${m.deck.length}</button>` : ''}`;
 }
 
 // A painted image, or the emoji if the image is missing.
@@ -369,7 +369,7 @@ function tgtLabel(c) {
 // A card not yet seen in any run: face down, showing only its rarity.
 function cardBackHTML(id) {
   const c = CARDS[id];
-  return `<div class="cardface back r-${c.r}"><span class="gem" title="${RARITY_NAMES[c.r]}"></span>
+  return `<div class="cardface back r-${c.r}">
     <div class="cback">?</div><div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
 }
 // `from` (another version of the card) highlights what changed, for upgrade previews.
@@ -378,7 +378,6 @@ function cardHTML(id, up, extra = '', from = null) {
   const changed = k => from && from[k] !== c[k] ? ' diff' : '';
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
     <span class="cost${changed('cost')}">${c.unplayable ? '–' : c.cost}</span>
-    ${RARITY_NAMES[c.r] ? `<span class="gem" title="${RARITY_NAMES[c.r]}"></span>` : ''}
     ${c.cast ? `<span class="ct${changed('cast')}" title="Cast time">${ico('cast')}${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
@@ -1014,7 +1013,7 @@ function buildCombat() {
         <div class="piles"></div>
       </div>
       <div class="info" id="cardInfo"></div>
-      <div class="hand" id="handEl"></div>
+      <div class="hand" id="handEl"><button class="zoom" id="cardZoom" hidden></button></div>
     </div>
   </div>`;
   screenKey = '';
@@ -1038,6 +1037,9 @@ function buildCombat() {
   });
   $('handEl').addEventListener('pointerover', e => { const b = e.target.closest('.hand-card'); hoverU = b ? slotU(b.dataset.slot) : null; });
   $('handEl').addEventListener('pointerleave', () => { hoverU = null; });
+  $('cardZoom').addEventListener('click', () => { if (sel != null) chooseCard(sel); });
+  // Tapping anywhere else (that didn't just play the card) puts the selected card back.
+  root.addEventListener('click', e => { if (!e.target.closest('.hand, .mycast')) sel = null; });
   $('enemiesEl').addEventListener('click', e => {
     const en = e.target.closest('.enemy');
     if (en && selDef()?.tgt === 'enemy') playSel(en.dataset.id);
@@ -1414,11 +1416,29 @@ function frame(now) {
     if ((slot.el.dataset.combo || '') !== label) { if (label) slot.el.dataset.combo = label; else delete slot.el.dataset.combo; }
   });
 
+  const comboHint = c => {
+    const partners = c.cast > 0 && !h.ch ? comboPartners(selfId, t + c.cast / (1 + h.pw.focus / 100), t) : [];
+    return partners.length ? `<span class="combo-hint">Combo ${comboLabel(partners.length)} with ${partners.map(id => esc(pName(id))).join(' & ')}</span>` : '';
+  };
+
+  // Phones: the selected card pops up full size, with its text, above the hand.
+  const zoom = $('cardZoom');
+  const zInst = sel != null ? handCard(sel) : null;
+  setHidden(zoom, !zInst);
+  if (zInst) {
+    const c = cardDef(zInst.id, zInst.up), slot = combatDom.hand.find(s => s.u === sel)?.el;
+    setHTML(zoom, cardHTML(zInst.id, zInst.up, `<span class="zoom-hint">${comboHint(c)} ${selHint(c)}</span>`));
+    if (slot) {
+      tog(zoom, 'poor', slot.classList.contains('poor'));
+      const fill = slot.style.getPropertyValue('--fill');
+      if (zoom.style.getPropertyValue('--fill') !== fill) zoom.style.setProperty('--fill', fill);
+    }
+  }
+
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); const partners = c.cast > 0 && !h.ch ? comboPartners(selfId, t + c.cast / (1 + h.pw.focus / 100), t) : [];
-      const combo = partners.length ? ` <span class="combo-hint">Combo ${comboLabel(partners.length)} with ${partners.map(id => esc(pName(id))).join(' & ')}</span>` : '';
-      return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${combo}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
+  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); const combo = comboHint(c);
+      return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${combo ? ` ${combo}` : ''}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
       : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ${ico('discard')} discards it and draws another for 1${ico('energy')}.</span>`
         : `<span class="hint">Click a card to play it. ${ico('discard')} (or right-click, or X) discards it and draws another for 1${ico('energy')}.</span>`;
