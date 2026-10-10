@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Hearthguard</title>
   <meta name="description" content="A real-time co-op roguelike deckbuilder for 1 to 4 players. Share a room code, guard the Hearth together, and fight down a branching dungeon.">
-  <link rel="icon" href="../favicon.ico">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Alegreya+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -15,7 +17,7 @@
   <!-- ---------- Join screen ---------- -->
   <section id="join">
     <form class="panel join-panel" id="joinForm" autocomplete="off">
-      <div class="crest" aria-hidden="true">🔥</div>
+      <div class="crest" aria-hidden="true"><img src="assets/logo.webp" alt="" draggable="false"></div>
       <h1>Hearthguard</h1>
       <p class="sub">A real-time co-op deckbuilder for 1 to 4 players. Cast cards as fast as your energy allows, interrupt enemy attacks, and keep the shared Hearth burning.</p>
       <label class="field">Your name
@@ -41,7 +43,7 @@
   <!-- ---------- Game ---------- -->
   <section id="game" class="hidden">
     <header id="topbar">
-      <div class="brand">🔥 <span>Hearthguard</span></div>
+      <div class="brand"><img src="assets/logo.webp" alt="" draggable="false"> <span>Hearthguard</span></div>
       <div id="runbar"></div>
       <button class="chip danger hidden" id="endRunBtn" title="End the run for everyone">End run</button>
       <button class="chip" id="copyTop" title="Copy invite link">Room <b id="roomCode"></b> 🔗</button>

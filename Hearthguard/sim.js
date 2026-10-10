@@ -449,6 +449,12 @@ export class Sim {
   hitHero(pid, amt, from) {
     const C = this.C, h = C.heroes[pid];
     if (!h || h.down) return this.hitHearth(amt);
+    // Intercept: someone has stepped in front of this hero.
+    const guardian = h.cover && h.cover.until > C.t && C.heroes[h.cover.by];
+    if (guardian && h.cover.by !== pid && !guardian.down && this.player(h.cover.by)?.on) {
+      this.ev.push({ k: 'txt', to: pid, x: 'Intercepted' });
+      return this.hitHero(h.cover.by, amt, from);
+    }
     if (h.vanish > C.t) { this.ev.push({ k: 'txt', to: pid, x: 'Dodged' }); return; }
     const blocked = Math.min(h.guard, amt);
     h.guard -= blocked;
@@ -476,8 +482,8 @@ export class Sim {
   }
 
   interrupt(e, n, by) {
-    if (!e.act) return;
-    if (e.act.poise >= 99) { this.ev.push({ k: 'txt', to: e.id, x: 'Unstoppable' }); return; }
+    if (!e.act) return false;
+    if (e.act.poise >= 99) { this.ev.push({ k: 'txt', to: e.id, x: 'Unstoppable' }); return false; }
     e.act.poise -= n;
     if (e.act.poise <= 0) {
       this.ev.push({ k: 'txt', to: e.id, x: 'Interrupted!', c: 'int' });
@@ -485,12 +491,25 @@ export class Sim {
       e.act = null;
       e.rec = 1.5 * TEMPO;
       if (this.has('bell')) e.stun = Math.max(e.stun, this.C.t + 1.5 * TEMPO);
-    } else this.ev.push({ k: 'txt', to: e.id, x: `Poise ${e.act.poise}`, c: 'int' });
+      return true;
+    }
+    this.ev.push({ k: 'txt', to: e.id, x: `Poise ${e.act.poise}`, c: 'int' });
+    return false;
+  }
+
+  // Caltrops: heroes with the power strike back at an enemy that hit the Hearth.
+  caltrops(e) {
+    for (const [id, x] of Object.entries(this.C.heroes)) {
+      if (!x.pw.caltrops || x.down || e.hp <= 0) continue;
+      this.hitEnemy(e, x.pw.caltrops, id);
+      if (e.hp > 0) { e.burn += 2; e.burnBy[id] = (e.burnBy[id] || 0) + 2; }
+    }
   }
 
   // ---------- Card effects ----------
-  resolve(pid, inst, tgt, combo) {
+  resolve(pid, inst, tgt, combo, again = false) {
     const C = this.C, h = C.heroes[pid], p = this.player(pid);
+    let cancelled = false, killed = false;
     const c = cardDef(inst.id, inst.up);
     const fx = { ...c.fx };
     if (combo && c.combo) for (const [k, v] of Object.entries(c.combo)) fx[k] = (fx[k] || 0) + v;
@@ -507,6 +526,7 @@ export class Sim {
           for (const e of foes) for (let i = 0; i < (fx.hits || 1); i++) {
             const ex = fx.exec && e.hp < e.max * 0.4 ? fx.exec : 0;
             this.hitEnemy(e, (v + bonus + ex) * mult, pid);
+            if (e.hp <= 0) killed = true;
           }
           // Shadow Clone: one more strike at reduced damage.
           if (h.pw.echo) for (const e of foes) this.hitEnemy(e, (v + bonus) * mult * h.pw.echo / 100, pid);
@@ -531,19 +551,28 @@ export class Sim {
         case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); break;
         case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
         case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; e.burnBy = {}; this.hitEnemy(e, b * v + bonus, pid); } break;
-        case 'interrupt': for (const e of foes) this.interrupt(e, v, pid); break;
+        case 'interrupt': for (const e of foes) if (this.interrupt(e, v, pid)) cancelled = true; break;
         case 'stun': for (const e of foes) { e.stun = Math.max(e.stun, C.t + v); this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' }); } break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
         case 'burn': for (const e of foes) { const n = Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)); e.burn += n; e.burnBy[pid] = (e.burnBy[pid] || 0) + n; } break;
         case 'taunt':
           for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
+          // Rallying Standard: taunting fires up the whole team.
+          if (foes.length && h.pw.rally) for (const [id, x] of Object.entries(C.heroes)) if (!x.down) { const was = x.e; x.e = Math.min(x.emax, x.e + h.pw.rally); if (x !== h) this.stat(pid, 'energyGiven', x.e - was); }
           if (foes.length && this.has('collar')) { h.guard += 5; this.stat(pid, 'guard', 5); }
           this.ev.push({ k: 'txt', to: pid, x: 'Taunt!' });
           break;
         case 'shield': C.shield += Math.round(v * mult); this.stat(pid, 'shield', Math.round(v * mult)); this.ev.push({ k: 'heal', to: 'shield', v: Math.round(v * mult) }); break;
         case 'guard': ally.guard += Math.round(v * mult); this.stat(pid, 'guard', Math.round(v * mult)); break;
-        case 'heal': this.stat(pid, 'healed', this.healHearth(Math.round(v * mult))); break;
+        case 'heal': {
+          const healed = this.healHearth(Math.round(v * mult));
+          this.stat(pid, 'healed', healed);
+          // Retribution: healing the Hearth lashes out at a random enemy.
+          const alive = C.enemies.filter(e => e.hp > 0);
+          if (h.pw.retri && healed > 0 && alive.length) this.hitEnemy(pick(alive), healed * h.pw.retri / 100, pid);
+          break;
+        }
         case 'mend': if (!ally.down) { const was = ally.hp; ally.hp = Math.min(ally.max, ally.hp + v); this.stat(pid, 'healed', ally.hp - was); } break;
         case 'energy': { const was = ally.e; ally.e = Math.min(ally.emax, ally.e + v); if (ally !== h) this.stat(pid, 'energyGiven', ally.e - was); break; }
         case 'teamEnergy':
@@ -551,7 +580,23 @@ export class Sim {
           break;
         case 'haste': ally.haste = Math.max(ally.haste, C.t + v); break;
         case 'teamHaste': for (const x of Object.values(C.heroes)) x.haste = Math.max(x.haste, C.t + v); break;
-        case 'empower': h.empower += v; break;
+        case 'empower': ally.empower += v; break;
+        case 'cover': if (ally !== h) { ally.cover = { by: pid, until: C.t + v }; this.ev.push({ k: 'txt', to: tgt, x: 'Covered' }); } break;
+        case 'guardSelf': h.guard += Math.round(v * mult); this.stat(pid, 'guard', Math.round(v * mult)); break;
+        case 'bastion': {
+          const n = Math.round(h.guard + v * mult);
+          h.guard = 0;
+          C.shield += n;
+          this.stat(pid, 'shield', n);
+          this.ev.push({ k: 'heal', to: 'shield', v: n });
+          break;
+        }
+        case 'refund': if (cancelled) h.e = Math.min(h.emax, h.e + v); break;
+        case 'killEnergy': if (killed) { h.e = Math.min(h.emax, h.e + v); this.ev.push({ k: 'txt', to: pid, x: `+${v}⚡` }); } break;
+        case 'twin': h.twin = (h.twin || 0) + v; break;
+        case 'teamGuard':
+          for (const x of Object.values(C.heroes)) if (!x.down) { x.guard += Math.round(v * mult); this.stat(pid, 'guard', Math.round(v * mult)); }
+          break;
         case 'teamEmpower': for (const x of Object.values(C.heroes)) x.empower += v; break;
         case 'hurry': for (const x of Object.values(C.heroes)) if (x !== h && x.ch) x.ch.el += v; break;
         case 'revive':
@@ -565,11 +610,13 @@ export class Sim {
         case 'selfDmg': h.hp -= v; if (h.hp <= 0) { h.hp = 0; h.down = true; this.stat(pid, 'downs'); this.ev.push({ k: 'down', to: pid }); } break;
         case 'ward': C.ward += v; C.wardBy[pid] = (C.wardBy[pid] || 0) + v; break;
         case 'fury': case 'focus': case 'regen': case 'thorns':
-        case 'aegis': case 'undying': case 'pyro': case 'discount': case 'echo': case 'cuts': h.pw[k] = (h.pw[k] || 0) + v; break;
+        case 'aegis': case 'undying': case 'pyro': case 'discount': case 'echo': case 'cuts':
+        case 'rally': case 'caltrops': case 'retri': h.pw[k] = (h.pw[k] || 0) + v; break;
       }
     }
     // Living Flame: attacks also set their targets alight.
     if (isAttack && h.pw.pyro && !('burn' in fx)) for (const e of foes.filter(e => e.hp > 0)) { e.burn += 3; e.burnBy[pid] = (e.burnBy[pid] || 0) + 3; }
+    if (again) return;   // Twincast's repeat: the card is already in a pile
     (c.ex ? h.exh : h.disc).push(inst);
     if (combo) this.stat(pid, 'combos');
     this.ev.push({ k: 'cast', by: pid, card: c.name, combo });
@@ -597,16 +644,19 @@ export class Sim {
     switch (a.k) {
       case 'atk':
         for (let i = 0; i < (a.hits || 1); i++) taunter ? this.hitHero(taunter, heroDmg, e) : this.hitHearth(dmg);
+        if (!taunter) this.caltrops(e);
         if (a.heal) e.hp = Math.min(e.max, e.hp + Math.round(a.heal * scale));
         break;
       case 'pounce': {
         const id = taunter || pick(heroes)?.[0];
-        id ? this.hitHero(id, heroDmg, e) : this.hitHearth(dmg);
+        if (id) this.hitHero(id, heroDmg, e);
+        else { this.hitHearth(dmg); this.caltrops(e); }
         break;
       }
-      case 'wave': this.hitHearth(dmg); break;
+      case 'wave': this.hitHearth(dmg); this.caltrops(e); break;
       case 'quake':
         this.hitHearth(dmg);
+        this.caltrops(e);
         for (const [id] of heroes) this.hitHero(id, heroDmg, e);
         break;
       case 'block': e.block += Math.round(a.v * scale); break;
@@ -727,7 +777,10 @@ export class Sim {
           const { inst, tgt } = h.ch;
           h.ch = null;
           h.lastCh = t;
+          const twice = h.twin > 0;
+          if (twice) h.twin--;
           this.resolve(pid, inst, tgt, combo);
+          if (twice && !C.end) { this.ev.push({ k: 'txt', to: pid, x: 'Twincast!' }); this.resolve(pid, inst, tgt, combo, true); }
         }
       }
     }

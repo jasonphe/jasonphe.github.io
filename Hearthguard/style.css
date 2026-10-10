@@ -493,3 +493,8 @@ dialog::backdrop { background: #000b; }
 .intent .iicon .ico { width: 1.6em; height: 1.6em; vertical-align: -0.45em; }
 .status .ico { width: 1.35em; height: 1.35em; margin-right: 1px; }
 .ct .ico { width: 1.1em; height: 1.1em; vertical-align: -0.2em; }
+
+/* ---------- Logo ---------- */
+.crest img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 0 18px #ff7a3d88); }
+.brand { display: flex; align-items: center; gap: 6px; }
+.brand img { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 0 6px #ff7a3d66); }

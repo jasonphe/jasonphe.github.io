@@ -34,6 +34,10 @@ const ico = (name, title = '') => ICONS[name]
   ? `<img class="ico" src="assets/ui/${name}.webp" alt="${ICONS[name]}"${title ? ` title="${title}"` : ''} draggable="false" onerror="this.replaceWith(this.alt)">`
   : name;
 
+// Card and relic text is written with ⚡; show the painted energy icon in its place.
+const iconize = html => html.replace(/ ?⚡/g, m => (m[0] === ' ' ? ' ' : '') + ico('energy'));
+const relicText = id => iconize(esc(RELICS[id].text));
+
 // ---------- Helpers ----------
 const $ = id => document.getElementById(id);
 const store = {
@@ -366,7 +370,7 @@ function cardHTML(id, up, extra = '') {
     ${c.cast ? `<span class="ct" title="Cast time">${ico('cast')}${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
-    <div class="ctext">${cardText(c)}</div>
+    <div class="ctext">${iconize(cardText(c))}</div>
     <div class="ctype">${c.power ? 'Power' : tgtLabel(c)}</div>
     ${extra}
   </div>`;
@@ -409,12 +413,12 @@ const SCREENS = {
         <summary>How to play</summary>
         <ul>
           <li><b>No turns.</b> ${ico('energy')} Energy refills over time. Play cards whenever you can afford them. Cards marked ${ico('cast')} take time to cast, and you can't play anything else while casting.</li>
-          <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
+          <li><b>The Hearth</b> ${hearthPic()} is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
           <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and ${ico('armor')} Armor. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
           <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. ${ico('lock')} moves can't be stopped. ${ico('wave')} waves ignore taunts.</li>
           <li>${ico('barrier')} <b>Barrier</b> soaks hits for the Hearth but fades over time. ${ico('armor')} <b>Armor</b> soaks hits for one hero.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
-          <li>Stuck with a bad card? <b>↻ Discard</b> it to draw another for 1⚡.</li>
+          <li>Stuck with a bad card? <b>${ico('discard')} Discard</b> it to draw another for 1${ico('energy')}.</li>
           <li><b>${ico('embers')} Embers:</b> every run earns Embers (more for winning and on harder difficulties). Spend them in <b>Edit deck</b> to unlock cards you've found in runs. Rarer cards need a win on a harder difficulty, and each win opens the next one.</li>
           <li>Keys: <kbd>1</kbd>–<kbd>5</kbd> pick a card (press again to auto-target), <kbd>X</kbd> discards it, <kbd>Esc</kbd> cancels.</li>
         </ul>
@@ -470,7 +474,7 @@ const SCREENS = {
     const relic = S.rewardRelic && RELICS[S.rewardRelic];
     return `<div class="panel center">
       <h2>Victory</h2>
-      <p class="sub">Everyone gains <b>${ico('gold')} ${S.rewardGold}</b>.${relic ? ` The team found <b>${relicPic(S.rewardRelic)} ${esc(relic.name)}</b>: ${esc(relic.text)}` : ''}</p>
+      <p class="sub">Everyone gains <b>${ico('gold')} ${S.rewardGold}</b>.${relic ? ` The team found <b>${relicPic(S.rewardRelic)} ${esc(relic.name)}</b>: ${relicText(S.rewardRelic)}` : ''}</p>
       ${r && !done ? `<h3>Add a card to your deck</h3>
         <div class="card-grid">${r.cards.map(id => `<button class="card-btn" data-reward="${id}">${cardHTML(id, 0)}</button>`).join('')}</div>
         <button class="btn ghost" data-reward-skip>Skip</button>`
@@ -488,7 +492,7 @@ const SCREENS = {
       <h2>Campfire</h2>
       <p class="sub">Each of you picks one: tend the Hearth, or sharpen a card.</p>
       ${m && done == null ? `<div class="choices">
-        <button class="choice" data-rest><b>🔥 Rest</b><span>Heal the Hearth ${heal} and restore your HP (${m.hp}/${m.maxHp}).</span></button>
+        <button class="choice" data-rest><b>${pic('icons/rest', '🔥')} Rest</b><span>Heal the Hearth ${heal} and restore your HP (${m.hp}/${m.maxHp}).</span></button>
         <button class="choice" data-deck="smith"><b>⚒️ Smith</b><span>Upgrade a card in your deck.</span></button>
       </div>` : `<p class="note">${m ? (done === 'rest' ? 'You rested.' : 'You upgraded a card.') : ''} Waiting for the others…</p>`}
       ${waitingFor(S.done)}
@@ -508,7 +512,7 @@ const SCREENS = {
       <div class="card-grid">${items.map((it, i) => `<button class="card-btn ${it.sold ? 'sold' : ''}" data-buy="${i}" ${it.sold || m.gold < it.price ? 'disabled' : ''}>${cardHTML(it.id, 0, `<span class="price">${ico('gold')} ${it.price}</span>`)}</button>`).join('')}</div>
       <h3>Relics</h3>
       <div class="relic-row">${S.shop.relics.map((r, i) => `<button class="relic-btn" data-buy-relic="${i}" ${r.sold || m.gold < r.price ? 'disabled' : ''}>
-        <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${esc(RELICS[r.id].text)}</small><span class="price">${r.sold ? 'Sold' : `${ico('gold')} ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
+        <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${relicText(r.id)}</small><span class="price">${r.sold ? 'Sold' : `${ico('gold')} ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
       <div class="shop-foot">
         <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}>🗑️ Remove a card (${ico('gold')} ${REMOVE_PRICE})</button>
         <button class="btn" data-done>Leave shop</button>
@@ -542,7 +546,7 @@ const SCREENS = {
     return `<div class="panel center">
       ${scene('treasure', '🎁')}
       <h2>Treasure</h2>
-      ${r ? `<p class="sub">The team found <b>${relicPic(S.treasure)} ${esc(r.name)}</b>: ${esc(r.text)}</p>` : '<p class="sub">The chest is empty.</p>'}
+      ${r ? `<p class="sub">The team found <b>${relicPic(S.treasure)} ${esc(r.name)}</b>: ${relicText(S.treasure)}</p>` : '<p class="sub">The chest is empty.</p>'}
       ${me() && S.done?.[selfId] == null ? '<button class="btn" data-done>Continue</button>' : ''}
       ${waitingFor(S.done)}
     </div>`;
@@ -564,7 +568,7 @@ const SCREENS = {
 
 // ---------- Gains ----------
 // A relic as a small tile with its picture and effect.
-const relicTile = id => `<div class="relic-tile">${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${esc(RELICS[id].text)}</span></div></div>`;
+const relicTile = id => `<div class="relic-tile">${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${relicText(id)}</span></div></div>`;
 
 // What an event gave out: relics for the team, cards for each player (yours first).
 function gainsHTML(gains) {
@@ -597,7 +601,7 @@ let tipFor = null;
 function showRelicTip(btn) {
   const id = btn.dataset.relic;
   const tip = $('relicTip');
-  tip.innerHTML = `${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${esc(RELICS[id].text)}</span><small>Team relic · helps everyone</small></div>`;
+  tip.innerHTML = `${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${relicText(id)}</span><small>Team relic · helps everyone</small></div>`;
   tip.hidden = false;
   const r = btn.getBoundingClientRect(), w = tip.offsetWidth;
   tip.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
@@ -858,7 +862,7 @@ function openDeck(mode) {
   const order = Object.keys(CARDS);
   const deck = [...m.deck].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id) || a.up - b.up);
   $('deckTitle').textContent = { view: 'Your deck', smith: 'Upgrade a card', remove: 'Remove a card' }[mode];
-  $('deckHint').textContent = { view: `${deck.length} cards.`, smith: 'Showing what each card becomes once upgraded.', remove: `Pick a card to remove for 🪙 ${REMOVE_PRICE}.` }[mode];
+  $('deckHint').innerHTML = { view: `${deck.length} cards.`, smith: 'Showing what each card becomes once upgraded.', remove: `Pick a card to remove for ${ico('gold')} ${REMOVE_PRICE}.` }[mode];
   $('deckGrid').innerHTML = deck.map(c => {
     if (mode === 'view') return `<div class="card-btn static">${cardHTML(c.id, c.up)}</div>`;
     if (mode === 'smith') return `<button class="card-btn" data-pick="${c.u}" ${c.up ? 'disabled' : ''}>${cardHTML(c.id, 1)}</button>`;
@@ -987,7 +991,7 @@ function playSel(tgt) {
   const c = cardDef(inst.id, inst.up);
   if (c.tgt === 'enemy' && !aliveEnemies().some(e => e.id === tgt)) { sel = u; return; }
   if (c.tgt === 'ally' && !C.heroes[tgt]) { sel = u; return; }
-  if (curEnergy(h) < costFor(c, h) - 0.02) { toast('Not enough ⚡'); return; }
+  if (curEnergy(h) < costFor(c, h) - 0.02) { toast('Not enough energy'); return; }
   pending.set(u, performance.now());
   act({ k: 'play', u, t: tgt });
 }
@@ -1131,7 +1135,7 @@ function frame(now) {
     tog(el, 'stunned', e.stun > t);
     setW(el.querySelector('.bar .hp'), e.hp / e.max);
     setW(el.querySelector('.bar .blk'), e.block / e.max);
-    setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}${e.block ? ` 🛡️${e.block}` : ''}`);
+    setHTML(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}${e.block ? ` ${ico('block')}${e.block}` : ''}`);
     const st = [];
     if (e.str) st.push(`<span title="Strength: +${e.str} damage">${ico('buff')}${e.str}</span>`);
     if (e.burn) st.push(`<span title="Burn: takes this much damage next second, then it drops by 1">${ico('burn')}${e.burn}</span>`);
@@ -1154,7 +1158,7 @@ function frame(now) {
       setHTML(intent.querySelector('.iicon'), ico(info.a.k));
       setText(intent.querySelector('.iname'), info.a.n);
       setText(intent.querySelector('.idmg'), String(info.num));
-      setText(intent.querySelector('.itgt'), info.tgt);
+      setHTML(intent.querySelector('.itgt'), iconize(esc(info.tgt)));
       const el2 = e.act.el + (e.stun > t ? 0 : x);
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
       setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span title="Can't be interrupted">${ico('lock')}</span>`
@@ -1213,7 +1217,7 @@ function frame(now) {
     if (slot.u !== u) {
       slot.u = u;
       if (inst) {
-        slot.el.innerHTML = cardHTML(inst.id, inst.up, `<span class="cyc" title="Discard and draw (${h.cycleFree ? 'free' : '1⚡'})">↻</span><span class="key">${i + 1}</span>`);
+        slot.el.innerHTML = cardHTML(inst.id, inst.up, `<span class="cyc" title="Discard and draw (${h.cycleFree ? 'free' : '1 energy'})">${ico('discard')}</span><span class="key">${i + 1}</span>`);
         slot.el.classList.remove('drawn'); void slot.el.offsetWidth; slot.el.classList.add('drawn');
       } else slot.el.innerHTML = '<div class="cardface empty"></div>';
     }
@@ -1230,10 +1234,10 @@ function frame(now) {
 
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
+  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
-      : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ↻ discards it and draws another for 1⚡.</span>`
-        : `<span class="hint">Click a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
+      : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ${ico('discard')} discards it and draws another for 1${ico('energy')}.</span>`
+        : `<span class="hint">Click a card to play it. ${ico('discard')} (or right-click, or X) discards it and draws another for 1${ico('energy')}.</span>`;
   setHTML($('cardInfo'), want);
 }
 
@@ -1243,13 +1247,13 @@ function anchor(to) {
   if (to === 'hearth' || to === 'shield') return $('hearthEl');
   return combatDom.enemies.get(to) || combatDom.heroes.get(to) || null;
 }
-function floatText(to, text, cls) {
+function floatText(to, text, cls, html = false) {
   const a = anchor(to);
   if (!a) return;
   const r = a.getBoundingClientRect();
   const f = document.createElement('div');
   f.className = `float ${cls || ''}`;
-  f.textContent = text;
+  if (html) f.innerHTML = text; else f.textContent = text;
   f.style.left = `${r.left + r.width / 2 + (Math.random() * 30 - 15)}px`;
   f.style.top = `${r.top + r.height * 0.35}px`;
   $('fxLayer').append(f);
@@ -1268,9 +1272,9 @@ function handleEvents(list) {
       case 'gain': if (ev.to === selfId || ev.to === 'team') showGain(ev); break;
       case 'dmg':
         if (ev.v > 0) { floatText(ev.to, `−${ev.v}`, ev.to === 'hearth' ? 'hearth-dmg' : 'dmg'); flash(ev.to, 'hit'); }
-        else if (ev.b > 0) floatText(ev.to, `${ev.to === 'hearth' ? '🔷' : combatDom?.heroes.has(ev.to) ? '🪖' : '🛡️'}${ev.b}`, 'blocked');
+        else if (ev.b > 0) floatText(ev.to, `${ico(ev.to === 'hearth' ? 'barrier' : combatDom?.heroes.has(ev.to) ? 'armor' : 'block')}${ev.b}`, 'blocked', true);
         break;
-      case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}🔷` : `+${ev.v}`, 'heal'); break;
+      case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}${ico('barrier')}` : `+${ev.v}`, 'heal', true); break;
       case 'txt': floatText(ev.to, ev.x, ev.c || 'txt'); break;
       case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); break;
       case 'cast':

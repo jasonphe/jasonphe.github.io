@@ -61,6 +61,13 @@ export const CARDS = {
   k_aegis: { name: 'Aegis', cls: 'knight', r: 'legendary', cost: 3, tgt: 'self', icon: '🔰', ex: 1, power: 1, fx: { guard: 12, aegis: 8 } },
   k_titan: { name: "Titan's Wrath", cls: 'knight', r: 'legendary', cost: 4, tgt: 'all', icon: '🗿', fx: { guardBlast: 2 } },
   k_undying: { name: 'Undying Vow', cls: 'knight', r: 'mythic', cost: 3, tgt: 'self', icon: '♾️', ex: 1, power: 1, fx: { undying: 1, guard: 20 } },
+
+  k_toss: { name: 'Shield Toss', cls: 'knight', r: 'common', cost: 2, tgt: 'random', icon: '🥏', fx: { zap: 9, hits: 2, guard: 6 } },
+  k_parry: { name: 'Parry', cls: 'knight', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '🤺', fx: { dmg: 8, interrupt: 1, guard: 12 } },
+  k_intercept: { name: 'Intercept', cls: 'knight', r: 'uncommon', cost: 2, tgt: 'ally', icon: '🫸', fx: { cover: 8, guardSelf: 15 } },
+  k_bastion: { name: 'Bastion', cls: 'knight', r: 'rare', cost: 2, tgt: 'none', icon: '🏛️', fx: { bastion: 10 } },
+  k_standard: { name: 'Rallying Standard', cls: 'knight', r: 'rare', cost: 2, tgt: 'self', icon: '🚩', ex: 1, power: 1, fx: { rally: 1 }, up: { cost: 1 } },
+  k_comers: { name: 'Challenge All Comers', cls: 'knight', r: 'epic', cost: 4, tgt: 'all', icon: '⚔️', fx: { taunt: 7, vuln: 6, guard: 24 } },
   // ---------- Mage ----------
   m_bolt: { name: 'Firebolt', cls: 'mage', r: 'common', cost: 2, cast: 1.5, tgt: 'enemy', icon: '🔥', fx: { dmg: 17 } },
   m_ward: { name: 'Frost Ward', cls: 'mage', r: 'common', cost: 1, cast: 0.5, tgt: 'none', icon: '❄️', fx: { shield: 6 } },
@@ -90,6 +97,13 @@ export const CARDS = {
   m_rewind: { name: 'Time Warp', cls: 'mage', r: 'legendary', cost: 4, tgt: 'all', icon: '⏳', fx: { rewind: 1, stun: 2 } },
   m_living: { name: 'Living Flame', cls: 'mage', r: 'legendary', cost: 3, tgt: 'self', icon: '🪔', ex: 1, power: 1, fx: { pyro: 50 } },
   m_arch: { name: 'Archmage Ascendant', cls: 'mage', r: 'mythic', cost: 5, tgt: 'self', icon: '🌌', ex: 1, power: 1, fx: { discount: 1, focus: 30 } },
+
+  m_scorch: { name: 'Scorch', cls: 'mage', r: 'common', cost: 1, cast: 0.5, tgt: 'enemy', icon: '🔥', fx: { dmg: 5, burn: 4 } },
+  m_frostbite: { name: 'Frostbite', cls: 'mage', r: 'uncommon', cost: 2, cast: 0.5, tgt: 'enemy', icon: '🥶', fx: { dmg: 10, stun: 2 } },
+  m_steal: { name: 'Spellsteal', cls: 'mage', r: 'rare', cost: 1, tgt: 'enemy', icon: '🫴', fx: { interrupt: 1, refund: 3 } },
+  m_combust: { name: 'Combustion', cls: 'mage', r: 'rare', cost: 3, cast: 1, tgt: 'all', icon: '💥', fx: { detonate: 3 } },
+  m_blizzard: { name: 'Blizzard', cls: 'mage', r: 'epic', cost: 5, cast: 3, tgt: 'all', icon: '🌨️', fx: { dmg: 16, stun: 2, weak: 6 } },
+  m_twin: { name: 'Twincast', cls: 'mage', r: 'epic', cost: 3, tgt: 'self', icon: '♊', ex: 1, fx: { twin: 1 }, up: { cost: 2 } },
   // ---------- Rogue ----------
   r_stab: { name: 'Stab', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🗡️', fx: { dmg: 6 } },
   r_kick: { name: 'Kick', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🦶', fx: { dmg: 2, interrupt: 1 } },
@@ -120,6 +134,13 @@ export const CARDS = {
   r_vanish: { name: 'Vanish', cls: 'rogue', r: 'legendary', cost: 2, tgt: 'self', icon: '👤', fx: { vanish: 4, empower: 25 } },
   r_clone: { name: 'Shadow Clone', cls: 'rogue', r: 'legendary', cost: 4, tgt: 'self', icon: '👥', ex: 1, power: 1, fx: { echo: 50 } },
   r_cuts: { name: 'Thousand Cuts', cls: 'rogue', r: 'mythic', cost: 4, tgt: 'self', icon: '✴️', ex: 1, power: 1, fx: { cuts: 4 } },
+
+  r_shiv: { name: 'Shiv', cls: 'rogue', r: 'common', cost: 0, tgt: 'enemy', icon: '🔪', fx: { dmg: 4, cycleFree: 1 } },
+  r_dart: { name: 'Poisoned Dart', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🎯', fx: { dmg: 3, burn: 5 } },
+  r_cloak: { name: 'Cloak', cls: 'rogue', r: 'uncommon', cost: 2, tgt: 'ally', icon: '🧥', fx: { vanish: 4, empower: 10 } },
+  r_coup: { name: 'Coup de Grâce', cls: 'rogue', r: 'rare', cost: 2, tgt: 'enemy', icon: '🗡️', fx: { dmg: 14, exec: 30, killEnergy: 3 } },
+  r_caltrops: { name: 'Caltrops', cls: 'rogue', r: 'rare', cost: 2, tgt: 'self', icon: '⭐', ex: 1, power: 1, fx: { caltrops: 6 } },
+  r_mark: { name: 'Death Mark', cls: 'rogue', r: 'epic', cost: 2, tgt: 'enemy', icon: '💀', fx: { vuln: 6, teamEmpower: 8 } },
   // ---------- Cleric ----------
   c_smite: { name: 'Smite', cls: 'cleric', r: 'common', cost: 2, tgt: 'enemy', icon: '✝️', fx: { dmg: 13 } },
   c_prayer: { name: 'Prayer', cls: 'cleric', r: 'common', cost: 3, cast: 2, tgt: 'none', icon: '🙏', fx: { heal: 8 }, combo: { heal: 5 } },
@@ -149,6 +170,13 @@ export const CARDS = {
   c_divint: { name: 'Divine Intervention', cls: 'cleric', r: 'legendary', cost: 5, tgt: 'none', icon: '🛐', ex: 1, fx: { invuln: 4 } },
   c_beacon: { name: 'Beacon of Light', cls: 'cleric', r: 'legendary', cost: 4, tgt: 'none', icon: '🗼', ex: 1, power: 1, fx: { beacon: 5 } },
   c_ascend: { name: 'Ascendance', cls: 'cleric', r: 'mythic', cost: 4, tgt: 'none', icon: '😇', ex: 1, power: 1, fx: { teamRegen: 40 } },
+
+  c_penance: { name: 'Penance', cls: 'cleric', r: 'common', cost: 2, tgt: 'enemy', icon: '📿', fx: { dmg: 10, heal: 4 } },
+  c_dawn: { name: 'Light of Dawn', cls: 'cleric', r: 'common', cost: 3, cast: 1.5, tgt: 'none', icon: '🌅', fx: { heal: 8, teamMend: 8 } },
+  c_peal: { name: 'Peal of Silence', cls: 'cleric', r: 'uncommon', cost: 3, cast: 1, tgt: 'all', icon: '🔔', fx: { interrupt: 1 }, up: { cost: 2 } },
+  c_transfuse: { name: 'Transfusion', cls: 'cleric', r: 'rare', cost: 1, tgt: 'ally', icon: '🩸', fx: { selfDmg: 10, mend: 20, energy: 3 } },
+  c_covenant: { name: 'Covenant', cls: 'cleric', r: 'epic', cost: 3, tgt: 'none', icon: '🤝', fx: { teamGuard: 18, teamEnergy: 1 } },
+  c_retri: { name: 'Retribution', cls: 'cleric', r: 'epic', cost: 3, tgt: 'self', icon: '⚔️', ex: 1, power: 1, fx: { retri: 100 } },
   // ---------- Curses ----------
   hex: { name: 'Hex', cls: 'curse', r: 'curse', cost: 0, tgt: 'none', icon: '🧿', fx: {}, unplayable: 1 },
 };
@@ -192,8 +220,8 @@ export const DIFFICULTIES = [
 // What a card costs to play right now, after powers like Archmage Ascendant.
 export const costFor = (c, h) => Math.max(0, c.cost - (h?.pw?.discount || 0));
 
-const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'thorns', 'ward', 'aegis', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen', 'zap', 'pyro', 'echo', 'cuts', 'teamMend', 'beacon', 'teamRegen'];
-const UPG_TIME = ['taunt', 'stun', 'vuln', 'weak', 'haste', 'teamHaste', 'vanish', 'invuln', 'shelter'];
+const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'thorns', 'ward', 'aegis', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen', 'zap', 'pyro', 'echo', 'cuts', 'teamMend', 'beacon', 'teamRegen', 'guardSelf', 'bastion', 'refund', 'killEnergy', 'caltrops', 'teamGuard', 'retri'];
+const UPG_TIME = ['taunt', 'stun', 'vuln', 'weak', 'haste', 'teamHaste', 'vanish', 'invuln', 'shelter', 'cover'];
 
 // The card definition as it plays, with the upgrade applied.
 const cardCache = new Map();
@@ -229,7 +257,7 @@ const say = (fx, k, tgt, all) => {
     case 'guardDmg': return 'Deal damage equal to your Armor.';
     case 'shieldDmg': return "Deal damage equal to the Hearth's Barrier.";
     case 'exec': return `+<b>${v}</b> if the target is under 40% HP.`;
-    case 'detonate': return `Deal <b>${v}×</b> the target's Burn, then clear it.`;
+    case 'detonate': return all ? `Deal <b>${v}×</b> each enemy's Burn to it, then clear it.` : `Deal <b>${v}×</b> the target's Burn, then clear it.`;
     case 'interrupt': return `<b>Interrupt</b>${all ? ' ALL' : ''}${v > 1 ? ` (breaks ${v} poise)` : ''}.`;
     case 'stun': return `Stun${all ? ' ALL' : ''} ${v}s.`;
     case 'vuln': return `Vulnerable${all ? ' to ALL' : ''} ${v}s.`;
@@ -244,12 +272,12 @@ const say = (fx, k, tgt, all) => {
     case 'teamEnergy': return `Everyone gains <b>${v}</b> ⚡.`;
     case 'haste': return `Double your ⚡ regen for ${v}s.`;
     case 'teamHaste': return `Everyone regens ⚡ twice as fast for ${v}s.`;
-    case 'empower': return `Your next attack deals +${v}.`;
+    case 'empower': return ally ? `Their next attack deals +${v}.` : `Your next attack deals +${v}.`;
     case 'teamEmpower': return `Everyone's next attack deals +<b>${v}</b>.`;
     case 'hurry': return `Allies' casts jump ${v}s ahead.`;
     case 'revive': return 'Revive downed allies.';
     case 'cleanse': return 'Remove Hexes from every hand.';
-    case 'cycleFree': return `Your next ${v} discard${v > 1 ? 's are' : ' is'} free.`;
+    case 'cycleFree': return v > 1 ? `Your next ${v} discards are free.` : 'Your next discard is free.';
     case 'gold': return `Gain ${v} gold.`;
     case 'selfDmg': return `Lose ${v} of your HP.`;
     case 'ward': return `<b>Power:</b> the Hearth gains ${v} Barrier every ${WARD_EVERY}s.`;
@@ -264,7 +292,7 @@ const say = (fx, k, tgt, all) => {
     case 'rewind': return `Reset ALL enemies' wind-ups.`;
     case 'pyro': return `<b>Power:</b> your Burn is ${v}% stronger, and your attacks also apply 3 Burn.`;
     case 'discount': return `<b>Power:</b> your cards cost ${v} less.`;
-    case 'vanish': return `Enemies can't hurt you for ${v}s.`;
+    case 'vanish': return ally ? `An ally can't be hurt for ${v}s.` : `Enemies can't hurt you for ${v}s.`;
     case 'shelter': return `For ${v}s, your Armor also soaks hits on the Hearth.`;
     case 'echo': return `<b>Power:</b> your attacks strike again for ${v}% damage.`;
     case 'cuts': return `<b>Power:</b> every card you play deals ${v} damage to ALL enemies.`;
@@ -272,6 +300,16 @@ const say = (fx, k, tgt, all) => {
     case 'invuln': return `The Hearth takes no damage for ${v}s.`;
     case 'beacon': return `<b>Power:</b> the Hearth heals ${v} every ${WARD_EVERY}s.`;
     case 'teamRegen': return `<b>Power:</b> everyone regenerates ⚡ ${v}% faster.`;
+    case 'cover': return `For ${v}s, hits aimed at an ally hit you instead.`;
+    case 'guardSelf': return `Gain <b>${v}</b> Armor.`;
+    case 'bastion': return `Turn all your Armor into Barrier for the Hearth, plus <b>${v}</b>.`;
+    case 'rally': return `<b>Power:</b> whenever you Taunt, everyone gains ${v} ⚡.`;
+    case 'refund': return `If it cancels the move, gain <b>${v}</b> ⚡.`;
+    case 'twin': return 'Your next spell with a cast time resolves twice.';
+    case 'killEnergy': return `If it kills, gain <b>${v}</b> ⚡.`;
+    case 'caltrops': return `<b>Power:</b> whenever an enemy hits the Hearth, it takes ${v} damage and 2 Burn.`;
+    case 'teamGuard': return `Everyone gains <b>${v}</b> Armor.`;
+    case 'retri': return `<b>Power:</b> whenever you heal the Hearth, deal ${v}% of it to a random enemy.`;
     default: return '';
   }
 };
