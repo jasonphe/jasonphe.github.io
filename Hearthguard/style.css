@@ -323,10 +323,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .mycast span { position: relative; padding-left: 8px; font-weight: 800; font-size: .85rem; flex: 1; }
 .mycast .x { position: relative; background: #0006; border: 0; height: 100%; padding: 0 10px; }
 .piles { display: flex; gap: 10px; color: var(--muted); font-weight: 700; margin-left: auto; font-size: .9rem; }
-.info { min-height: 2.6em; font-size: .9rem; margin: 6px 0; color: var(--text); }
-.info .hint { color: var(--muted); }
-.info b { color: var(--gold); }
-.hand { display: flex; gap: 10px; justify-content: center; }
+.hand { display: flex; gap: 10px; justify-content: center; margin-top: 22px; }
 .hand-card { position: relative; background: none; border: 0; padding: 0; transition: transform .12s, filter .12s; }
 .hand-card .cardface { width: 150px; min-height: 226px; }
 .hand-card:hover .cardface { transform: translateY(-6px); }
@@ -408,9 +405,8 @@ dialog::backdrop { background: #000b; }
   .hand-card .ctext, .hand-card .ctype { display: none; }
   .hand-card .cname { font-size: .74rem; }
   .hand-card .cart { height: 56px; font-size: 1.5rem; margin-top: 4px; }
-  /* No text line under the energy: the selected card pops up above the hand instead. */
-  .info { display: none; }
-  .hand { position: relative; margin-top: 8px; }
+  /* The selected card pops up above the hand, with its text. */
+  .hand { position: relative; margin-top: 16px; }
   .zoom:not([hidden]) {
     display: block; position: absolute; bottom: calc(100% + 38px); left: 50%; z-index: 20;
     width: min(196px, 58vw); padding: 0; background: none; border: 0; transform: translateX(-50%);
@@ -421,7 +417,6 @@ dialog::backdrop { background: #000b; }
   .zoom .cname { font-size: 1rem; }
   .zoom .ctext { font-size: .88rem; }
   .zoom.poor .cardface { filter: brightness(.75) saturate(.7); }
-  .zoom-hint { align-self: stretch; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--line); font-size: .74rem; line-height: 1.25; color: var(--muted); }
   .hand-card .ct { font-size: .62rem; top: 2px; right: 3px; }
   .hand-card .cost { width: 24px; height: 24px; top: -6px; left: -4px; font-size: .85rem; }
   .cyc { width: 24px; height: 24px; bottom: 4px; right: 50%; transform: translateX(50%); }
@@ -532,7 +527,6 @@ dialog::backdrop { background: #000b; }
   animation: combo-pulse 1.2s ease-in-out infinite;
 }
 @keyframes combo-pulse { 50% { box-shadow: 0 0 10px #ffd76a; } }
-.combo-hint { color: var(--gold); font-weight: 800; }
 
 /* ---------- Status tooltips ---------- */
 [data-tip] { cursor: help; }

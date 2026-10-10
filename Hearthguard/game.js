@@ -1012,7 +1012,6 @@ function buildCombat() {
         <div class="mycast hidden"><i></i><span></span><button class="x" title="Cancel cast (Esc)">✕</button></div>
         <div class="piles"></div>
       </div>
-      <div class="info" id="cardInfo"></div>
       <div class="hand" id="handEl"><button class="zoom" id="cardZoom" hidden></button></div>
     </div>
   </div>`;
@@ -1079,16 +1078,6 @@ function chooseCard(u) {
   const needsPick = (c.tgt === 'enemy' && aliveEnemies().length > 1) || (c.tgt === 'ally' && Object.keys(C.heroes).length > 1);
   if (!needsPick) { sel = u; playSel(autoTarget(c)); return; }
   sel = u;
-}
-
-function selHint(c) {
-  if (touch.matches) {
-    if (c.unplayable) return 'Tap ↻ to discard it.';
-    if (c.tgt === 'enemy') return 'Tap an enemy, or tap the card again to hit the most urgent one.';
-    if (c.tgt === 'ally') return 'Tap an ally, or tap the card again to target yourself.';
-    return 'Tap the card again to play it.';
-  }
-  return `${c.tgt === 'ally' ? 'Click an ally' : 'Click an enemy'}, or press its key again to auto-target. Esc cancels.`;
 }
 
 function autoTarget(c) {
@@ -1416,33 +1405,19 @@ function frame(now) {
     if ((slot.el.dataset.combo || '') !== label) { if (label) slot.el.dataset.combo = label; else delete slot.el.dataset.combo; }
   });
 
-  const comboHint = c => {
-    const partners = c.cast > 0 && !h.ch ? comboPartners(selfId, t + c.cast / (1 + h.pw.focus / 100), t) : [];
-    return partners.length ? `<span class="combo-hint">Combo ${comboLabel(partners.length)} with ${partners.map(id => esc(pName(id))).join(' & ')}</span>` : '';
-  };
-
   // Phones: the selected card pops up full size, with its text, above the hand.
   const zoom = $('cardZoom');
   const zInst = sel != null ? handCard(sel) : null;
   setHidden(zoom, !zInst);
   if (zInst) {
-    const c = cardDef(zInst.id, zInst.up), slot = combatDom.hand.find(s => s.u === sel)?.el;
-    setHTML(zoom, cardHTML(zInst.id, zInst.up, `<span class="zoom-hint">${comboHint(c)} ${selHint(c)}</span>`));
+    const slot = combatDom.hand.find(s => s.u === sel)?.el;
+    setHTML(zoom, cardHTML(zInst.id, zInst.up));
     if (slot) {
       tog(zoom, 'poor', slot.classList.contains('poor'));
       const fill = slot.style.getPropertyValue('--fill');
       if (zoom.style.getPropertyValue('--fill') !== fill) zoom.style.setProperty('--fill', fill);
     }
   }
-
-  const infoU = sel ?? hoverU;
-  const infoInst = infoU != null ? handCard(infoU) : null;
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); const combo = comboHint(c);
-      return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${combo ? ` ${combo}` : ''}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
-    : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
-      : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ${ico('discard')} discards it and draws another for 1${ico('energy')}.</span>`
-        : `<span class="hint">Click a card to play it. ${ico('discard')} (or right-click, or X) discards it and draws another for 1${ico('energy')}.</span>`;
-  setHTML($('cardInfo'), want);
 }
 
 // ---------- Floating text ----------
