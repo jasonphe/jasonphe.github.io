@@ -7,6 +7,8 @@ import { CLASSES, CARDS, DEFAULT_DECK, deckProblem, DIFFICULTIES, costFor, cardD
 export const MAX_PLAYERS = 4;
 export const HAND = 5;
 export const baseRegen = () => 1 / 1.5 / TEMPO;  // ⚡ per second
+// How long after a teammate's cast lands that yours still counts as a combo.
+export const comboWindow = () => 1.5 * TEMPO;
 const BASE_MAX_E = 5;
 const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero has for the next fight
 const ROWS = 13;                 // map rows before the boss
@@ -773,7 +775,7 @@ export class Sim {
         h.ch.el += dt * (1 + h.pw.focus / 100);
         if (h.ch.el >= h.ch.dur) {
           // Combo: other heroes mid-cast, or who just finished one, power this one up.
-          const combo = Object.entries(C.heroes).filter(([id, x]) => id !== pid && !x.down && ((x.ch && x.ch.el > 0.2) || t - x.lastCh < 1.5)).length;
+          const combo = Object.entries(C.heroes).filter(([id, x]) => id !== pid && !x.down && ((x.ch && x.ch.el > 0.2) || t - x.lastCh < comboWindow())).length;
           const { inst, tgt } = h.ch;
           h.ch = null;
           h.lastCh = t;

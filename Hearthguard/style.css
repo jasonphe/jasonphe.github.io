@@ -498,3 +498,19 @@ dialog::backdrop { background: #000b; }
 .crest img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 0 18px #ff7a3d88); }
 .brand { display: flex; align-items: center; gap: 6px; }
 .brand img { width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 0 6px #ff7a3d66); }
+
+/* ---------- Combo hints ---------- */
+.hcast.combo-open { box-shadow: 0 0 0 1px var(--gold), 0 0 10px #e0b84a88; }
+.hcast.combo-open i { background: linear-gradient(90deg, #b8860b, #ffd76a); }
+.hcast.window span { color: #2a1a05; }
+.mycast.combo { box-shadow: 0 0 0 2px var(--gold), 0 0 14px #e0b84a99; }
+.mycast.combo i { background: linear-gradient(90deg, #b8860b, #ffd76a); }
+.mycast.combo span { color: #2a1a05; }
+.hand-card[data-combo] .cardface { box-shadow: 0 0 0 2px var(--gold), 0 0 16px #e0b84aaa; }
+.hand-card[data-combo]::after {
+  content: 'COMBO ' attr(data-combo); position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 2;
+  font: 800 .68rem/1 'Cinzel', serif; color: #2a1a05; background: var(--gold); border-radius: 999px; padding: 3px 7px; white-space: nowrap;
+  animation: combo-pulse 1.2s ease-in-out infinite;
+}
+@keyframes combo-pulse { 50% { box-shadow: 0 0 10px #ffd76a; } }
+.combo-hint { color: var(--gold); font-weight: 800; }

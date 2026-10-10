@@ -14,7 +14,7 @@ const { joinRoom, selfId } = await import('https://cdn.jsdelivr.net/npm/trystero
 Math.random = realRandom;
 
 import { CLASSES, CARDS, cardDef, cardText, ENEMIES, RELICS, EVENTS, PACES, DEFAULT_TEMPO, TEMPO, setTempo, RARITIES, RARITY_NAMES, DECK_SIZE, UNLOCK_PRICE, DEFAULT_DECK, DIFFICULTIES, deckProblem, costFor } from './data.js';
-import { Sim, newLobby, MAX_PLAYERS, HAND, REMOVE_PRICE, ROWS, baseRegen } from './sim.js';
+import { Sim, newLobby, MAX_PLAYERS, HAND, REMOVE_PRICE, ROWS, baseRegen, comboWindow } from './sim.js';
 
 // ---------- Settings ----------
 const APP_ID = 'jasonphe-hearthguard';
@@ -1101,6 +1101,20 @@ function intentFor(e, t) {
 // which adds up to a lot of heat on phones.
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setHTML = (el, v) => { if (el.dataset.v !== v) { el.innerHTML = v; el.dataset.v = v; } };
+// Who would combo with `pid` if their cast landed at fight-time `at`: teammates still
+// casting then, or who finished a cast within the combo window before it.
+function comboPartners(pid, at, now) {
+  const W = comboWindow(), out = [];
+  for (const [id, x] of Object.entries(C.heroes)) {
+    if (id === pid || x.down || !S.players.find(p => p.id === id)?.on) continue;
+    const lands = x.ch ? now + (x.ch.dur - x.ch.el) / (1 + x.pw.focus / 100) : x.lastCh;
+    if (lands > at - W && (x.ch || x.lastCh > -9)) out.push(id);
+  }
+  return out;
+}
+const comboMult = n => 1 + 0.25 * n * (S.relics?.includes('choir') ? 2 : 1);
+const comboLabel = n => `×${comboMult(n).toFixed(2).replace(/0$/, '')}`;
+
 const setW = (el, frac) => { const w = `${Math.round(clamp01(frac) * 400) / 4}%`; if (el.style.width !== w) el.style.width = w; };
 const setHidden = (el, v) => { if (el.hidden !== v) el.hidden = v; };
 const tog = (el, cls, on) => { if (el.classList.contains(cls) !== on) el.classList.toggle(cls, on); };
@@ -1183,12 +1197,20 @@ function frame(now) {
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
     setHTML(el.querySelector('.htaunt'), taunts ? `${ico('taunt')}×${taunts}` : '');
     const hc = el.querySelector('.hcast');
+    const windowLeft = !h.ch && pid !== selfId && !h.down ? h.lastCh + comboWindow() - t : 0;
     if (h.ch) {
       setHidden(hc, false);
       const c = cardDef(h.ch.inst.id, h.ch.inst.up);
       setText(hc.querySelector('span'), `${c.icon} ${c.name}`);
       setW(hc.querySelector('i'), (h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur);
+    } else if (windowLeft > 0) {
+      setHidden(hc, false);
+      setText(hc.querySelector('span'), 'Combo window');
+      setW(hc.querySelector('i'), windowLeft / comboWindow());
     } else setHidden(hc, true);
+    // A teammate's cast (or the window after it) is a chance to combo.
+    tog(hc, 'combo-open', pid !== selfId && (!!h.ch || windowLeft > 0));
+    tog(hc, 'window', windowLeft > 0);
     setText(el.querySelector('.down'), h.down ? 'Down' : '');
   }
 
@@ -1205,8 +1227,11 @@ function frame(now) {
   if (h.ch) {
     tog(mc, 'hidden', false);
     const c = cardDef(h.ch.inst.id, h.ch.inst.up);
-    setText(mc.querySelector('span'), `Casting ${c.name}…`);
+    const lands = t + (h.ch.dur - h.ch.el - x * (1 + h.pw.focus / 100)) / (1 + h.pw.focus / 100);
+    const n = comboPartners(selfId, lands, t).length;
+    setText(mc.querySelector('span'), `Casting ${c.name}…${n ? ` · Combo ${comboLabel(n)}` : ''}`);
     setW(mc.querySelector('i'), (h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur);
+    tog(mc, 'combo', n > 0);
   } else tog(mc, 'hidden', true);
   tog(meEl, 'isdown', !!h.down);
 
@@ -1230,11 +1255,16 @@ function frame(now) {
     tog(slot.el, 'pending', pending.has(u) && performance.now() - pending.get(u) < 700);
     const fill = String(cost ? Math.round(clamp01(e / cost) * 100) / 100 : 1);
     if (slot.el.style.getPropertyValue('--fill') !== fill) slot.el.style.setProperty('--fill', fill);
+    const n = c.cast > 0 && !h.ch && !h.down ? comboPartners(selfId, t + c.cast / (1 + h.pw.focus / 100), t).length : 0;
+    const label = n ? comboLabel(n) : '';
+    if ((slot.el.dataset.combo || '') !== label) { if (label) slot.el.dataset.combo = label; else delete slot.el.dataset.combo; }
   });
 
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
+  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); const partners = c.cast > 0 && !h.ch ? comboPartners(selfId, t + c.cast / (1 + h.pw.focus / 100), t) : [];
+      const combo = partners.length ? ` <span class="combo-hint">Combo ${comboLabel(partners.length)} with ${partners.map(id => esc(pName(id))).join(' & ')}</span>` : '';
+      return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${iconize(cardText(c))}${combo}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
       : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ${ico('discard')} discards it and draws another for 1${ico('energy')}.</span>`
         : `<span class="hint">Click a card to play it. ${ico('discard')} (or right-click, or X) discards it and draws another for 1${ico('energy')}.</span>`;
