@@ -549,17 +549,9 @@ dialog::backdrop { background: #000b; }
 .votes-list .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--pc); flex: none; }
 .votes-list .pic { width: 1.2em; height: 1.2em; }
 
-/* ---------- Upgrade before/after ---------- */
-#deckCompare {
-  position: fixed; z-index: 5; display: flex; align-items: center; gap: 8px; pointer-events: none;
-  background: linear-gradient(180deg, #2d231df7, #1c1613fa); border: 1px solid var(--gold); border-radius: 14px; padding: 10px 12px 12px;
-  box-shadow: 0 16px 40px #000d;
-}
-#deckCompare[hidden] { display: none; }
-.cmp-col { display: grid; justify-items: center; gap: 4px; }
-.cmp-col small { font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: .7rem; }
-.cmp-col:last-child small { color: var(--good); }
-.cmp-arrow { font-size: 1.6rem; font-weight: 800; color: var(--gold); }
+/* ---------- Upgrade preview ---------- */
+/* The upgrade picker shows the card upgraded while it's hovered or tapped once. */
+.card-btn.previewing .cardface { outline: 2px solid var(--good); outline-offset: 3px; }
 .up-diff { color: var(--good); font-weight: 800; background: #5fd38d26; border-radius: 4px; padding: 0 2px; }
 .cost.diff { box-shadow: 0 0 0 2px var(--good), 0 0 10px var(--good); }
 /* Cost lowered by a power (Archmage Ascendant). */

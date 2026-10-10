@@ -958,10 +958,10 @@ function openDeck(mode) {
   $('deckTitle').textContent = { view: 'Your deck', smith: 'Upgrade a card', remove: 'Remove a card' }[mode];
   $('deckHint').innerHTML = {
     view: `${deck.length} cards.`,
-    smith: touch.matches ? 'Tap a card to compare it before and after, then tap it again to upgrade.' : 'Hover a card to see it before and after. Click it to upgrade.',
+    smith: touch.matches ? 'Tap a card to see it upgraded, then tap it again to upgrade it.' : 'Hover a card to see it upgraded. Click it to upgrade it.',
     remove: `Pick a card to remove for ${ico('gold')} ${REMOVE_PRICE}.`,
   }[mode];
-  hideCompare();
+  compareFor = null;
   $('deckGrid').innerHTML = deck.map(c => {
     if (mode === 'view') return `<div class="card-btn static">${cardHTML(c.id, c.up)}</div>`;
     if (mode === 'smith') return c.up
@@ -974,26 +974,21 @@ function openDeck(mode) {
 $('deckClose').onclick = () => $('deckDialog').close();
 $('deckDialog').addEventListener('close', () => hideCompare());
 
-// The before/after popover for the upgrade picker, placed beside the hovered card.
+// The upgrade picker: hovering (or a first tap) turns a card into its upgraded version,
+// with the numbers that change highlighted.
 let compareFor = null;
 function showCompare(btn) {
-  const id = btn.dataset.compare, box = $('deckCompare');
-  if (box.dataset.id !== id) {
-    box.innerHTML = `<div class="cmp-col"><small>Now</small>${cardHTML(id, 0)}</div><div class="cmp-arrow">→</div>
-      <div class="cmp-col"><small>Upgraded</small>${cardHTML(id, 1, '', cardDef(id, 0))}</div>`;
-    box.dataset.id = id;
-  }
-  box.hidden = false;
-  const r = btn.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
-  // Prefer the right of the card, then the left, then above or below it.
-  let left = r.right + 10, top = r.top + r.height / 2 - h / 2;
-  if (left + w > innerWidth - 8) left = r.left - w - 10;
-  if (left < 8) { left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)); top = r.top - h - 10 < 8 ? r.bottom + 10 : r.top - h - 10; }
-  box.style.left = `${left}px`;
-  box.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, top))}px`;
+  if (compareFor === btn.dataset.pick) return;
+  hideCompare();
+  btn.innerHTML = cardHTML(btn.dataset.compare, 1, '', cardDef(btn.dataset.compare, 0));
+  btn.classList.add('previewing');
   compareFor = btn.dataset.pick;
 }
-function hideCompare() { $('deckCompare').hidden = true; delete $('deckCompare').dataset.id; compareFor = null; }
+function hideCompare() {
+  const b = compareFor != null && $('deckGrid').querySelector(`[data-pick="${compareFor}"]`);
+  if (b) { b.innerHTML = cardHTML(b.dataset.compare, 0); b.classList.remove('previewing'); }
+  compareFor = null;
+}
 $('deckGrid').addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
   const b = e.target.closest('[data-compare]');
@@ -1002,10 +997,6 @@ $('deckGrid').addEventListener('pointerover', e => {
 $('deckGrid').addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideCompare(); });
 // Keyboard focus only: a tap also focuses the card, and that must not count as the first tap.
 $('deckGrid').addEventListener('focusin', e => { const b = e.target.closest('[data-compare]'); if (b && b.matches(':focus-visible')) showCompare(b); });
-// Scrolling (including a tap that scrolls its card into view) keeps the popover beside its card.
-const followCompare = () => { const b = compareFor != null && $('deckGrid').querySelector(`[data-pick="${compareFor}"]`); if (b) showCompare(b); };
-$('deckGrid').addEventListener('scroll', followCompare, { passive: true });
-$('deckDialog').addEventListener('scroll', followCompare, { passive: true });
 $('deckDialog').addEventListener('click', e => {
   if (e.target === $('deckDialog')) $('deckDialog').close();
   else if (!e.target.closest('[data-compare]')) hideCompare();

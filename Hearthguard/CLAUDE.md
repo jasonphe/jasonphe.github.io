@@ -48,7 +48,7 @@ No build step and no dependencies to install. Plain ES modules served as static 
   - Each card's `fx` keys are applied in order in `Sim.resolve`, and card text is generated from them by `say()` in `data.js`.
   - A new effect needs all three: a case in `resolve`, a `say()` line, and an entry in `UPG_SCALE`/`UPG_TIME` if it should grow when upgraded.
   - Powers (`power: 1`) add to `h.pw`. Write ⚡ in text, and `iconize()` swaps it for the painted energy icon.
-- **Upgrades:** numbers grow about 35%, durations +1, cast time −30%, or the card's own `up` override. These cards currently gain nothing when upgraded: Counterspell, Feint, Blessing, Grace, Overload, Preparation and Titan's Wrath. That was flagged but not fixed.
+- **Upgrades:** numbers grow about 35%, durations +1, cast time −30%, or the card's own `up` override. These cards currently gain nothing when upgraded: Feint, Blessing, Grace, Preparation and Titan's Wrath. That was flagged but not fixed.
 - **Rarities and unlocks:**
   - The six rarities are common through mythic. Decks are 10 cards, one copy each (`deckProblem`).
   - Commons are always unlocked. Other cards must first be *seen* in a run, then bought with Embers.
