@@ -362,18 +362,37 @@ function cardBackHTML(id) {
   return `<div class="cardface back r-${c.r}"><span class="gem" title="${RARITY_NAMES[c.r]}"></span>
     <div class="cback">?</div><div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
 }
-function cardHTML(id, up, extra = '') {
+// `from` (another version of the card) highlights what changed, for upgrade previews.
+function cardHTML(id, up, extra = '', from = null) {
   const c = cardDef(id, up);
+  const changed = k => from && from[k] !== c[k] ? ' diff' : '';
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
-    <span class="cost">${c.unplayable ? '–' : c.cost}</span>
+    <span class="cost${changed('cost')}">${c.unplayable ? '–' : c.cost}</span>
     ${RARITY_NAMES[c.r] ? `<span class="gem" title="${RARITY_NAMES[c.r]}"></span>` : ''}
-    ${c.cast ? `<span class="ct" title="Cast time">${ico('cast')}${c.cast}s</span>` : ''}
+    ${c.cast ? `<span class="ct${changed('cast')}" title="Cast time">${ico('cast')}${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
-    <div class="ctext">${iconize(cardText(c))}</div>
+    <div class="ctext">${iconize(from ? diffText(cardText(from), cardText(c)) : cardText(c))}</div>
     <div class="ctype">${c.power ? 'Power' : tgtLabel(c)}</div>
     ${extra}
   </div>`;
+}
+
+// Highlights each number in `after` that differs from the matching number in `before`.
+// Card text keeps the same wording when upgraded, so the numbers line up in order.
+function diffText(before, after) {
+  const old = before.match(/\d+(\.\d+)?/g) || [];
+  let i = 0;
+  return after.replace(/\d+(\.\d+)?/g, n => (old[i++] === n ? n : `<span class="up-diff">${n}</span>`));
+}
+
+// The map sidebar: each player's vote, in their color, with the room they picked.
+function voteList() {
+  return `<div class="waiting votes-list">${S.players.filter(p => p.on).map(p => {
+    const v = S.votes?.[p.id];
+    const type = v === 'boss' ? 'boss' : v ? S.map[v.split(',')[0]]?.[v.split(',')[1]]?.type : null;
+    return `<span class="pchip vote ${v ? 'ok' : ''}" style="--pc:${pColor(p.id)}"><i class="dot"></i>${esc(p.name)} ${type ? `${pic(`icons/${type}`, NODE_ICONS[type] || '👑')} ${NODE_NAMES[type]}` : '…'}</span>`;
+  }).join('')}</div>`;
 }
 
 function waitingFor(done) {
@@ -443,8 +462,14 @@ const SCREENS = {
         lines += `<line x1="${x}" y1="${y}" x2="${t[0]}" y2="${t[1]}" class="${walked ? 'walked' : ''}"/>`;
       });
     }));
-    const voteDots = key => S.players.filter(p => S.votes?.[p.id] === key)
-      .map((p, k) => `<circle cx="${-14 + k * 9}" cy="-24" r="5" fill="${pColor(p.id)}"><title>${esc(p.name)}</title></circle>`).join('');
+    // Each vote rings the room in the voter's color and adds a pin with their initial.
+    const voteDots = (key, r0 = 19) => {
+      const voters = S.players.filter(p => S.votes?.[p.id] === key);
+      const rings = voters.map((p, k) => `<circle class="vote-ring" r="${r0 + 4 + k * 4}" style="stroke:${pColor(p.id)}"/>`).join('');
+      const pins = voters.map((p, k) => `<g class="vote-pin" transform="translate(${(k - (voters.length - 1) / 2) * 17},${-r0 - 14 - voters.length * 2})">
+        <circle r="8" style="fill:${pColor(p.id)};stroke:#1a120c"/><text y="4">${esc((p.name || '?')[0].toUpperCase())}</text><title>${esc(p.name)}</title></g>`).join('');
+      return rings + pins;
+    };
     S.map.forEach((row, r) => row.forEach((n, i) => {
       const key = `${r},${i}`;
       const [x, y] = pos(r, n);
@@ -455,12 +480,12 @@ const SCREENS = {
     }));
     const bossName = S.boss.map(id => ENEMIES[id].name).join(' & ');
     nodes += `<g class="node boss ${reach.has('boss') ? 'can' : ''} ${S.votes?.[selfId] === 'boss' ? 'mine' : ''}" data-node="boss" transform="translate(${bossXY[0]},${bossXY[1]})"><title>Boss: ${esc(bossName)}</title>
-      <circle r="27"/><text y="10" class="big alt">${ENEMIES[S.boss[0]].icon}</text><image href="assets/enemies/${S.boss[0]}.webp" x="-24" y="-26" width="48" height="48" clip-path="circle(24px)" onerror="this.previousElementSibling.classList.remove('alt')"/>${voteDots('boss')}</g>`;
+      <circle r="27"/><text y="10" class="big alt">${ENEMIES[S.boss[0]].icon}</text><image href="assets/enemies/${S.boss[0]}.webp" x="-24" y="-26" width="48" height="48" clip-path="circle(24px)" onerror="this.previousElementSibling.classList.remove('alt')"/>${voteDots('boss', 27)}</g>`;
     return `<div class="map-wrap">
       <aside class="panel map-side">
         <h2>The Descent</h2>
         <p class="sub">Vote on the next room. Majority wins, ties are random.</p>
-        ${waitingFor(S.votes)}
+        ${voteList()}
         <ul class="legend">${Object.entries(NODE_ICONS).map(([k, v]) => `<li>${pic(`icons/${k}`, v)} ${NODE_NAMES[k]}</li>`).join('')}<li>${pic('icons/boss', ENEMIES[S.boss[0]].icon)} ${esc(bossName)}</li></ul>
         <div class="party">${partyList()}</div>
       </aside>
@@ -598,30 +623,42 @@ function showGain(ev) {
 
 // ---------- Relic details in the top bar ----------
 let tipFor = null;
+// Any element with data-tip (a title) and data-tipd (what it does) gets the same styled
+// panel as relics, on hover, keyboard focus or tap.
+const tipAttr = (title, desc) => ` data-tip="${esc(title)}" data-tipd="${esc(desc)}"`;
+const TIPPABLE = '[data-relic], [data-tip]';
 function showRelicTip(btn) {
-  const id = btn.dataset.relic;
   const tip = $('relicTip');
-  tip.innerHTML = `${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${relicText(id)}</span><small>Team relic · helps everyone</small></div>`;
+  if (btn.dataset.relic) {
+    const id = btn.dataset.relic;
+    tip.innerHTML = `${relicPic(id)}<div><b>${esc(RELICS[id].name)}</b><span>${relicText(id)}</span><small>Team relic · helps everyone</small></div>`;
+  } else {
+    const icon = btn.querySelector('img.ico, img.pic');
+    tip.innerHTML = `${icon ? `<img class="ico" src="${icon.getAttribute('src')}" alt="">` : ''}<div><b>${esc(btn.dataset.tip)}</b><span>${iconize(esc(btn.dataset.tipd || ''))}</span></div>`;
+  }
+  tip.classList.toggle('status', !btn.dataset.relic);
   tip.hidden = false;
-  const r = btn.getBoundingClientRect(), w = tip.offsetWidth;
+  const r = btn.getBoundingClientRect(), w = tip.offsetWidth, hgt = tip.offsetHeight;
   tip.style.left = `${Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2))}px`;
-  tip.style.top = `${r.bottom + 8}px`;
-  tipFor = id;
+  // Open above things near the bottom of the screen (like hero panels).
+  tip.style.top = `${r.bottom + 8 + hgt > innerHeight - 8 ? Math.max(8, r.top - hgt - 8) : r.bottom + 8}px`;
+  tipFor = btn;
 }
 function hideRelicTip() { $('relicTip').hidden = true; tipFor = null; }
 document.addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
-  const b = e.target.closest('[data-relic]');
-  if (b) showRelicTip(b);
+  const b = e.target.closest(TIPPABLE);
+  if (b) { if (b !== tipFor) showRelicTip(b); }
   else if (tipFor) hideRelicTip();
 });
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-relic]');
-  if (b) { tipFor === b.dataset.relic && e.pointerType !== 'mouse' ? hideRelicTip() : showRelicTip(b); return; }
+  const b = e.target.closest(TIPPABLE);
+  if (b && e.pointerType !== 'mouse') { tipFor === b ? hideRelicTip() : showRelicTip(b); return; }
+  if (b) return;
   if (tipFor && !e.target.closest('#relicTip')) hideRelicTip();
 });
-document.addEventListener('focusin', e => { const b = e.target.closest('[data-relic]'); if (b) showRelicTip(b); });
-document.addEventListener('focusout', e => { if (e.target.closest('[data-relic]')) hideRelicTip(); });
+document.addEventListener('focusin', e => { const b = e.target.closest(TIPPABLE); if (b) showRelicTip(b); });
+document.addEventListener('focusout', e => { if (e.target.closest(TIPPABLE)) hideRelicTip(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && tipFor) hideRelicTip(); });
 addEventListener('scroll', () => tipFor && hideRelicTip(), { passive: true });
 
@@ -846,6 +883,7 @@ document.addEventListener('click', e => {
   else if (d.evote != null) act({ k: 'evote', o: Number(d.evote) });
   else if (d.deck) openDeck(d.deck);
   else if (d.pick != null) {
+    if (deckMode === 'smith' && e.pointerType !== 'mouse' && compareFor !== d.pick) { showCompare(t); return; }
     const u = Number(d.pick);
     if (deckMode === 'smith') act({ k: 'rest', u });
     if (deckMode === 'remove') act({ k: 'remove', u });
@@ -862,15 +900,49 @@ function openDeck(mode) {
   const order = Object.keys(CARDS);
   const deck = [...m.deck].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id) || a.up - b.up);
   $('deckTitle').textContent = { view: 'Your deck', smith: 'Upgrade a card', remove: 'Remove a card' }[mode];
-  $('deckHint').innerHTML = { view: `${deck.length} cards.`, smith: 'Showing what each card becomes once upgraded.', remove: `Pick a card to remove for ${ico('gold')} ${REMOVE_PRICE}.` }[mode];
+  $('deckHint').innerHTML = {
+    view: `${deck.length} cards.`,
+    smith: touch.matches ? 'Tap a card to compare it before and after, then tap it again to upgrade.' : 'Hover a card to see it before and after. Click it to upgrade.',
+    remove: `Pick a card to remove for ${ico('gold')} ${REMOVE_PRICE}.`,
+  }[mode];
+  hideCompare();
   $('deckGrid').innerHTML = deck.map(c => {
     if (mode === 'view') return `<div class="card-btn static">${cardHTML(c.id, c.up)}</div>`;
-    if (mode === 'smith') return `<button class="card-btn" data-pick="${c.u}" ${c.up ? 'disabled' : ''}>${cardHTML(c.id, 1)}</button>`;
+    if (mode === 'smith') return c.up
+      ? `<button class="card-btn" disabled title="Already upgraded">${cardHTML(c.id, 1)}</button>`
+      : `<button class="card-btn" data-pick="${c.u}" data-compare="${c.id}">${cardHTML(c.id, 0)}</button>`;
     return `<button class="card-btn" data-pick="${c.u}">${cardHTML(c.id, c.up)}</button>`;
   }).join('');
   $('deckDialog').showModal();
 }
 $('deckClose').onclick = () => $('deckDialog').close();
+$('deckDialog').addEventListener('close', () => hideCompare());
+
+// The before/after popover for the upgrade picker, placed beside the hovered card.
+let compareFor = null;
+function showCompare(btn) {
+  const id = btn.dataset.compare, box = $('deckCompare');
+  box.innerHTML = `<div class="cmp-col"><small>Now</small>${cardHTML(id, 0)}</div><div class="cmp-arrow">→</div>
+    <div class="cmp-col"><small>Upgraded</small>${cardHTML(id, 1, '', cardDef(id, 0))}</div>`;
+  box.hidden = false;
+  const r = btn.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+  // Prefer the right of the card, then the left, then above or below it.
+  let left = r.right + 10, top = r.top + r.height / 2 - h / 2;
+  if (left + w > innerWidth - 8) left = r.left - w - 10;
+  if (left < 8) { left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)); top = r.top - h - 10 < 8 ? r.bottom + 10 : r.top - h - 10; }
+  box.style.left = `${left}px`;
+  box.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, top))}px`;
+  compareFor = btn.dataset.pick;
+}
+function hideCompare() { $('deckCompare').hidden = true; compareFor = null; }
+$('deckGrid').addEventListener('pointerover', e => {
+  if (e.pointerType !== 'mouse') return;
+  const b = e.target.closest('[data-compare]');
+  if (b) showCompare(b); else hideCompare();
+});
+$('deckGrid').addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideCompare(); });
+$('deckGrid').addEventListener('focusin', e => { const b = e.target.closest('[data-compare]'); if (b) showCompare(b); });
+$('deckGrid').addEventListener('scroll', hideCompare, { passive: true });
 $('deckDialog').addEventListener('click', e => { if (e.target === $('deckDialog')) $('deckDialog').close(); });
 
 // ---------- Combat UI ----------
@@ -1101,6 +1173,38 @@ function intentFor(e, t) {
 // which adds up to a lot of heat on phones.
 const setText = (el, v) => { if (el.textContent !== v) el.textContent = v; };
 const setHTML = (el, v) => { if (el.dataset.v !== v) { el.innerHTML = v; el.dataset.v = v; } };
+// What each enemy move kind does, for the intent icon's tooltip.
+const INTENT_TIPS = {
+  atk: 'An attack on the Hearth, or on whoever has taunted this enemy.',
+  pounce: 'An attack on a random hero, or on whoever has taunted this enemy.',
+  wave: 'Hits the Hearth and ignores taunts. Interrupt it or raise Barrier.',
+  quake: 'Hits the Hearth and every hero.',
+  block: 'Gains block that soaks damage.',
+  buff: 'Gains strength: its attacks hit harder for the rest of the fight.',
+  rally: 'Every enemy gains strength.',
+  heal: 'Restores its HP.',
+  summon: 'Calls another enemy into the fight.',
+  hex: 'Shuffles unplayable Hex cards into decks. Discard them to get rid of them.',
+  drain: 'Drains energy from every hero.',
+  slow: "Halves every hero's energy regen for a while.",
+};
+
+// Status icons on a hero panel, each with a tooltip.
+function heroStatuses(pid, h, t) {
+  const out = [];
+  const left = until => `${Math.ceil(until - t)}s left.`;
+  const tag = (icon, title, desc, label = '') => out.push(`<span class="hs"${tipAttr(title, desc)}>${icon}${label}</span>`);
+  if (h.guard) tag(ico('armor'), `Armor ${Math.round(h.guard)}`, 'Soaks hits on this hero before their HP.', ` ${Math.round(h.guard)}`);
+  if (h.shelter > t) tag(ico('stand-guard'), 'Standing guard', `This hero's Armor also soaks hits on the Hearth. ${left(h.shelter)}`);
+  if (h.vanish > t) tag('👤', 'Cloaked', `Enemies can't hurt this hero. ${left(h.vanish)}`);
+  if (h.cover && h.cover.until > t && C.heroes[h.cover.by] && h.cover.by !== pid) tag('🫸', `Covered by ${pName(h.cover.by)}`, `Hits aimed at this hero go to ${pName(h.cover.by)} instead. ${left(h.cover.until)}`);
+  if (h.haste > t) tag(ico('energy'), 'Hasted', `Regenerates ⚡ twice as fast. ${left(h.haste)}`);
+  if (h.slow > t) tag(ico('slow'), 'Slowed', `Regenerates ⚡ at half speed. ${left(h.slow)}`);
+  if (h.empower) tag(ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
+  if (h.twin) tag('♊', 'Twincast ready', 'The next spell with a cast time resolves twice.');
+  return out.join(' ');
+}
+
 // Who would combo with `pid` if their cast landed at fight-time `at`: teammates still
 // casting then, or who finished a cast within the combo window before it.
 function comboPartners(pid, at, now) {
@@ -1137,7 +1241,7 @@ function frame(now) {
   setW(hEl.querySelector('.hp'), hp / max);
   setW(hEl.querySelector('.sh'), sh / max);
   setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
-  setHTML(hEl.querySelector('.snum'), sh >= 1 ? `${ico('barrier')} ${Math.floor(sh)}` : '');
+  setHTML(hEl.querySelector('.snum'), sh >= 1 ? `<span${tipAttr(`Barrier ${Math.floor(sh)}`, S.relics?.includes('anchor') ? 'Soaks hits on the Hearth. The Anchor stops it from fading.' : 'Soaks hits on the Hearth, and slowly fades.')}>${ico('barrier')} ${Math.floor(sh)}</span>` : '');
   tog(hEl, 'low', hp / max < 0.3);
 
   // Enemies
@@ -1149,17 +1253,21 @@ function frame(now) {
     tog(el, 'stunned', e.stun > t);
     setW(el.querySelector('.bar .hp'), e.hp / e.max);
     setW(el.querySelector('.bar .blk'), e.block / e.max);
-    setHTML(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}${e.block ? ` ${ico('block')}${e.block}` : ''}`);
+    setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}`);
     const st = [];
-    if (e.str) st.push(`<span title="Strength: +${e.str} damage">${ico('buff')}${e.str}</span>`);
-    if (e.burn) st.push(`<span title="Burn: takes this much damage next second, then it drops by 1">${ico('burn')}${e.burn}</span>`);
-    if (e.vuln > t) st.push(`<span title="Vulnerable: takes 50% more damage">${ico('vuln')}${Math.ceil(e.vuln - t)}s</span>`);
-    if (e.weak > t) st.push(`<span title="Weak: deals 30% less damage">${ico('weak')}${Math.ceil(e.weak - t)}s</span>`);
-    if (e.stun > t) st.push(`<span title="Stunned">${ico('stun')}${Math.ceil(e.stun - t)}s</span>`);
+    const left = until => `${Math.ceil(until - t)}s left.`;
+    if (e.str) st.push(`<span${tipAttr(`Strength +${e.str}`, `Its attacks deal ${e.str} more damage.`)}>${ico('buff')}${e.str}</span>`);
+    if (e.burn) st.push(`<span${tipAttr(`Burn ${e.burn}`, `Takes ${e.burn} damage each second, then Burn drops by 1. Ignores block.`)}>${ico('burn')}${e.burn}</span>`);
+    if (e.vuln > t) st.push(`<span${tipAttr('Vulnerable', `Takes 50% more damage. ${left(e.vuln)}`)}>${ico('vuln')}${Math.ceil(e.vuln - t)}s</span>`);
+    if (e.weak > t) st.push(`<span${tipAttr('Weak', `Deals 30% less damage. ${left(e.weak)}`)}>${ico('weak')}${Math.ceil(e.weak - t)}s</span>`);
+    if (e.stun > t) st.push(`<span${tipAttr('Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`)}>${ico('stun')}${Math.ceil(e.stun - t)}s</span>`);
+    if (e.block) st.push(`<span${tipAttr(`Block ${e.block}`, `Soaks the next ${e.block} damage before its HP. Burn ignores it.`)}>${ico('block')}${e.block}</span>`);
     setHTML(el.querySelector('.status'), st.join(''));
     const tt = el.querySelector('.taunt-tag');
     if (e.taunt && e.hp > 0) {
       setText(tt, `Taunted by ${pName(e.taunt.pid)}`);
+      const td = `Its attacks hit ${pName(e.taunt.pid)} (and their Armor) instead of the Hearth. ${Math.max(0, Math.ceil(e.taunt.until - t))}s left.`;
+      if (tt.dataset.tipd !== td) { tt.dataset.tip = 'Taunted'; tt.dataset.tipd = td; }
       const bg = pColor(e.taunt.pid);
       if (tt.dataset.bg !== bg) { tt.style.background = bg; tt.dataset.bg = bg; }
       setHidden(tt, false);
@@ -1169,14 +1277,14 @@ function frame(now) {
       const info = intentFor(e, t);
       setHidden(intent, false);
       tog(intent, 'danger', info.danger);
-      setHTML(intent.querySelector('.iicon'), ico(info.a.k));
+      setHTML(intent.querySelector('.iicon'), `<span${tipAttr(info.a.n, INTENT_TIPS[info.a.k] || '')}>${ico(info.a.k)}</span>`);
       setText(intent.querySelector('.iname'), info.a.n);
       setText(intent.querySelector('.idmg'), String(info.num));
       setHTML(intent.querySelector('.itgt'), iconize(esc(info.tgt)));
       const el2 = e.act.el + (e.stun > t ? 0 : x);
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
-      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span title="Can't be interrupted">${ico('lock')}</span>`
-        : e.act.maxPoise > 1 ? Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('') : '');
+      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span${tipAttr('Unstoppable', "This move can't be interrupted. Block it with Barrier, Armor or a taunt.")}>${ico('lock')}</span>`
+        : e.act.maxPoise > 1 ? `<span class="pips"${tipAttr(`Poise ${e.act.poise}/${e.act.maxPoise}`, `Takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel this move. Each interrupt breaks one pip.`)}>${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
     } else setHidden(intent, true);
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
   }
@@ -1192,10 +1300,10 @@ function frame(now) {
     tog(el, 'targetable', selCard?.tgt === 'ally');
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
-    setHTML(el.querySelector('.guard'), (h.guard ? `${ico('armor')} ${Math.round(h.guard)}` : '') + (h.shelter > t ? ` ${ico('stand-guard', 'Standing guard: Armor soaks hits on the Hearth')}` : ''));
+    setHTML(el.querySelector('.guard'), heroStatuses(pid, h, t));
     pips(el.querySelector('.epips'), curEnergy(h), h.emax);
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
-    setHTML(el.querySelector('.htaunt'), taunts ? `${ico('taunt')}×${taunts}` : '');
+    setHTML(el.querySelector('.htaunt'), taunts ? `<span${tipAttr(`Taunting ${taunts}`, `${taunts} enem${taunts > 1 ? 'ies are' : 'y is'} attacking this hero instead of the Hearth.`)}>${ico('taunt')}×${taunts}</span>` : '');
     const hc = el.querySelector('.hcast');
     const windowLeft = !h.ch && pid !== selfId && !h.down ? h.lastCh + comboWindow() - t : 0;
     if (h.ch) {
@@ -1211,7 +1319,9 @@ function frame(now) {
     // A teammate's cast (or the window after it) is a chance to combo.
     tog(hc, 'combo-open', pid !== selfId && (!!h.ch || windowLeft > 0));
     tog(hc, 'window', windowLeft > 0);
-    setText(el.querySelector('.down'), h.down ? 'Down' : '');
+    const dn = el.querySelector('.down');
+    setText(dn, h.down ? 'Down' : '');
+    if (h.down && !dn.dataset.tip) { dn.dataset.tip = 'Knocked out'; dn.dataset.tipd = "Can't act until a Resurrection or the end of the fight."; }
   }
 
   // My hand

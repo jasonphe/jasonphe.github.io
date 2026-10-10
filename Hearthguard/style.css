@@ -514,3 +514,35 @@ dialog::backdrop { background: #000b; }
 }
 @keyframes combo-pulse { 50% { box-shadow: 0 0 10px #ffd76a; } }
 .combo-hint { color: var(--gold); font-weight: 800; }
+
+/* ---------- Status tooltips ---------- */
+[data-tip] { cursor: help; }
+.hs { display: inline-flex; align-items: center; }
+.poise .pips { display: inline-flex; gap: 3px; }
+#relicTip.status { max-width: min(280px, calc(100vw - 16px)); }
+#relicTip.status .ico { width: 34px; height: 34px; flex: none; }
+#relicTip.status b { font-size: .95rem; }
+
+/* ---------- Map votes ---------- */
+.node circle.vote-ring { fill: none; stroke-width: 3; animation: none; }
+.node .vote-pin circle { stroke-width: 1.5; animation: none; }
+.vote-pin text { font: 800 10px 'Alegreya Sans', sans-serif; fill: #111; text-anchor: middle; }
+.votes-list .pchip.vote { display: inline-flex; align-items: center; gap: 5px; border-color: color-mix(in srgb, var(--pc) 60%, transparent); }
+.votes-list .pchip.vote.ok { background: color-mix(in srgb, var(--pc) 18%, transparent); }
+.votes-list .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--pc); flex: none; }
+.votes-list .pic { width: 1.2em; height: 1.2em; }
+
+/* ---------- Upgrade before/after ---------- */
+#deckCompare {
+  position: fixed; z-index: 5; display: flex; align-items: center; gap: 8px; pointer-events: none;
+  background: linear-gradient(180deg, #2d231df7, #1c1613fa); border: 1px solid var(--gold); border-radius: 14px; padding: 10px 12px 12px;
+  box-shadow: 0 16px 40px #000d;
+}
+#deckCompare[hidden] { display: none; }
+.cmp-col { display: grid; justify-items: center; gap: 4px; }
+.cmp-col small { font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-size: .7rem; }
+.cmp-col:last-child small { color: var(--good); }
+.cmp-arrow { font-size: 1.6rem; font-weight: 800; color: var(--gold); }
+.up-diff { color: var(--good); font-weight: 800; background: #5fd38d26; border-radius: 4px; padding: 0 2px; }
+.cost.diff { box-shadow: 0 0 0 2px var(--good), 0 0 10px var(--good); }
+.ct.diff { color: var(--good); box-shadow: 0 0 0 1px var(--good); }
