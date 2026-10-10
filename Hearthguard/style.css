@@ -466,12 +466,6 @@ dialog::backdrop { background: #000b; }
 .build { margin: 4px 0 0; text-align: center; font-size: 12px; }
 
 /* Lobby deck, deck builder and unlocks */
-.deck-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
-.dchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid color-mix(in srgb, var(--rc) 60%, var(--line)); color: var(--text); font-size: .85rem; }
-.dchip .gem { position: static; transform: rotate(45deg); width: 9px; height: 9px; border-width: 1px; flex: none; }
-button.dchip { cursor: pointer; }
-button.dchip:hover { border-color: var(--rc); }
-.deck-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 #buildDialog .row { display: flex; gap: 8px; }
 #buildDialog { overflow-x: hidden; padding-top: 0; }
 /* Keep Save/Cancel and the deck list in view while scrolling the collection. */
@@ -486,3 +480,13 @@ button.dchip:hover { border-color: var(--rc); }
 .pace:disabled { opacity: .5; cursor: not-allowed; }
 .cardface.back { justify-content: center; gap: 10px; background: repeating-linear-gradient(45deg, #241b16, #241b16 10px, #1b1410 10px, #1b1410 20px); border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
 .cback { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rc) 60%, #000); font: 800 2rem 'Cinzel', serif; color: color-mix(in srgb, var(--rc) 70%, #fff); background: #0006; }
+.seat-deck { margin-top: 6px; }
+.embers { margin-left: auto; margin-right: 12px; font-weight: 800; color: #ffb35a; }
+.card-btn.pick.in .cardface { opacity: 1; outline: 3px solid var(--gold); outline-offset: 2px; }
+.card-btn.pick:disabled { opacity: 1; cursor: not-allowed; }
+.card-btn.pick:disabled .cardface { opacity: .6; }
+.card-btn.pick.in .ctype { visibility: hidden; }
+.card-btn.pick.in .owned { left: 50%; right: auto; bottom: 5px; transform: translateX(-50%); white-space: nowrap; }
+.card-btn.buyable { cursor: pointer; }
+.card-btn.buyable .lockmark { background: #3a2208e6; color: #ffcf8a; border: 1px solid #ffb35a; }
+.card-btn.buyable:disabled .lockmark { background: #000c; color: #9a8f82; border-color: transparent; }

@@ -16,8 +16,11 @@ const PRICES = { common: 45, uncommon: 70, rare: 110, epic: 160, legendary: 240,
 const REWARD_ODDS = { fight: [['legendary', 0.01], ['epic', 0.04], ['rare', 0.13], ['uncommon', 0.30]], elite: [['legendary', 0.04], ['epic', 0.13], ['rare', 0.28], ['uncommon', 0.35]] };
 const REMOVE_PRICE = 60;
 // Indexed by party size.
-const HP_SCALE = [1, 0.85, 1.8, 2.8, 3.9];
-const DMG_SCALE = [1, 0.6, 1.05, 1.6, 2.2];
+export const HP_SCALE = [1, 0.85, 1.9, 3.1, 4.8];
+export const DMG_SCALE = [1, 1.0, 2.5, 4.1, 8.0];
+// Hits on heroes (pounces, taunted attacks, quakes) scale more gently than hits on the
+// Hearth, so a tank can still survive taking them for the party.
+export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.0, 1.15];
 const HEARTH = [60, 70, 85, 100, 115];
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -47,7 +50,7 @@ export class Sim {
   allDone(done) { const a = this.active(); return a.length > 0 && a.every(p => done[p.id] != null); }
   diff() { return DIFFICULTIES[this.S.diff] || DIFFICULTIES[0]; }
   hpMult() { return (HP_SCALE[this.S.players.length] || 1) * this.diff().hp; }
-  dmgMult() { return (DMG_SCALE[this.S.players.length] || 1) * this.diff().dmg * (1 + 0.03 * (this.S.pos?.r || 0)); }
+  dmgMult(table = DMG_SCALE) { return (table[this.S.players.length] || 1) * this.diff().dmg * (1 + 0.03 * (this.S.pos?.r || 0)); }
 
   // Per-player stats for the current fight; folded into each player's run totals when it ends.
   stat(pid, key, v = 1) {
@@ -326,7 +329,7 @@ export class Sim {
   startCombat(group, kind) {
     const S = this.S;
     const hpM = this.hpMult() * (kind === 'boss' ? 1 : 1 + 0.04 * (S.pos?.r || 0));
-    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult(), st: {}, wardBy: {} };
+    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult(), hdm: this.dmgMult(HERO_DMG_SCALE), st: {}, wardBy: {} };
     for (const type of group) this.spawn(type, hpM, true);
     for (const p of S.players) {
       const cls = CLASSES[p.cls];
@@ -335,7 +338,7 @@ export class Sim {
         hp: Math.max(1, p.hp ?? cls.hp), max: p.maxHp ?? cls.hp, guard: 0, e: this.has('candle') ? emax : 2, emax,
         hand: [], draw: shuffle(p.deck.map(c => ({ ...c }))), disc: [], exh: [],
         ch: null, down: 0, haste: 0, slow: 0, empower: 0, cycleFree: 0, lastCh: -9,
-        pw: { fury: 0, focus: 0, regen: 0, thorns: 0 },
+        pw: { fury: 0, focus: 0, regen: 0, thorns: 0 }, shelter: 0, aegisT: 0,
       };
       for (let i = 0; i < HAND; i++) h.hand.push(this.drawCard(h));
     }
@@ -420,18 +423,20 @@ export class Sim {
   hitHearth(amt) {
     const C = this.C, S = this.S;
     if (C.invuln > C.t) { this.ev.push({ k: 'dmg', to: 'hearth', v: 0, b: Math.round(amt) }); return; }
+    const blocked = Math.min(C.shield, amt);
+    C.shield -= blocked;
+    amt -= blocked;
+    // Stand Guard: a hero's Armor soaks what gets past the Barrier for a while.
     for (const [id, h] of Object.entries(C.heroes)) {
-      if (!h.pw.aegis || h.down || h.guard <= 0 || amt <= 0) continue;
+      if (!(h.shelter > C.t) || h.down || h.guard <= 0 || amt <= 0 || !this.player(id)?.on) continue;
       const soak = Math.min(h.guard, amt);
       h.guard -= soak;
       amt -= soak;
       this.stat(id, 'tanked', soak);
       this.ev.push({ k: 'dmg', to: id, v: 0, b: Math.round(soak) });
     }
-    if (amt <= 0) return;
-    const blocked = Math.min(C.shield, amt);
-    C.shield -= blocked;
-    const dmg = Math.round(amt - blocked);
+    if (amt <= 0) { this.ev.push({ k: 'dmg', to: 'hearth', v: 0, b: Math.round(blocked) }); return; }
+    const dmg = Math.round(amt);
     S.hearth -= dmg;
     this.ev.push({ k: 'dmg', to: 'hearth', v: dmg, b: Math.round(blocked) });
     if (S.hearth <= 0) {
@@ -516,6 +521,7 @@ export class Sim {
         case 'guardBlast': for (const e of foes) this.hitEnemy(e, (h.guard * v + bonus) * mult, pid); h.guard = 0; break;
         case 'rewind': for (const e of foes) if (e.act) e.act.el = 0; break;
         case 'vanish': ally.vanish = Math.max(ally.vanish || 0, C.t + v); break;
+        case 'shelter': ally.shelter = Math.max(ally.shelter || 0, C.t + v); this.ev.push({ k: 'txt', to: pid, x: 'Standing guard' }); break;
         case 'teamMend':
           for (const x of Object.values(C.heroes)) if (!x.down) { const was = x.hp; x.hp = Math.min(x.max, x.hp + v); this.stat(pid, 'healed', x.hp - was); }
           break;
@@ -582,24 +588,26 @@ export class Sim {
   enemyAct(e) {
     const C = this.C, d = ENEMIES[e.type], a = d.acts[e.act.i];
     const weak = e.weak > C.t ? 0.7 : 1;
-    const dmg = Math.round(((a.dmg || 0) + e.str) * weak * C.dm);
+    const base = ((a.dmg || 0) + e.str) * weak;
+    const dmg = Math.round(base * C.dm);
+    const heroDmg = Math.round(base * (C.hdm ?? C.dm));
     const heroes = Object.entries(C.heroes).filter(([id, h]) => !h.down && this.player(id)?.on);
     const taunter = e.taunt && C.heroes[e.taunt.pid] && !C.heroes[e.taunt.pid].down ? e.taunt.pid : null;
     const scale = this.hpMult();
     switch (a.k) {
       case 'atk':
-        for (let i = 0; i < (a.hits || 1); i++) taunter ? this.hitHero(taunter, dmg, e) : this.hitHearth(dmg);
+        for (let i = 0; i < (a.hits || 1); i++) taunter ? this.hitHero(taunter, heroDmg, e) : this.hitHearth(dmg);
         if (a.heal) e.hp = Math.min(e.max, e.hp + Math.round(a.heal * scale));
         break;
       case 'pounce': {
         const id = taunter || pick(heroes)?.[0];
-        id ? this.hitHero(id, dmg, e) : this.hitHearth(dmg);
+        id ? this.hitHero(id, heroDmg, e) : this.hitHearth(dmg);
         break;
       }
       case 'wave': this.hitHearth(dmg); break;
       case 'quake':
         this.hitHearth(dmg);
-        for (const [id] of heroes) this.hitHero(id, dmg, e);
+        for (const [id] of heroes) this.hitHero(id, heroDmg, e);
         break;
       case 'block': e.block += Math.round(a.v * scale); break;
       case 'buff': e.str += a.v; break;
@@ -653,6 +661,13 @@ export class Sim {
         for (const [id, v] of Object.entries(C.wardBy || {})) this.stat(id, 'shield', v);
         this.ev.push({ k: 'heal', to: 'shield', v: C.ward });
       }
+    }
+
+    // Aegis: Armor builds up over time.
+    for (const h of Object.values(C.heroes)) {
+      if (!h.pw.aegis || h.down) continue;
+      h.aegisT += dt;
+      if (h.aegisT >= WARD_EVERY) { h.aegisT -= WARD_EVERY; h.guard += h.pw.aegis; }
     }
 
     if (C.beacon) {
