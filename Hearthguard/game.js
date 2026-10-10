@@ -1010,7 +1010,7 @@ function buildCombat() {
     <div class="hearth" id="hearthEl">
       <div class="hearth-icon">${hearthPic()}</div>
       <div class="hearth-body">
-        <div class="hearth-label"><b>Hearth</b><span class="hnum"></span><span class="snum"></span></div>
+        <div class="hearth-label"><b>Hearth</b><span class="hnum"></span><span class="snum"></span><span class="hpows"></span></div>
         <div class="bar big"><i class="hp"></i><i class="sh"></i></div>
       </div>
     </div>
@@ -1247,6 +1247,23 @@ function heroStatuses(pid, h, t) {
   if (h.slow > t) tag(ico('slow'), 'Slowed', `Regenerates ⚡ at half speed. ${left(h.slow)}`);
   if (h.empower) tag(ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
   if (h.twin) tag('♊', 'Twincast ready', 'The next spell with a cast time resolves twice.');
+  // Powers this hero played that act on themselves; team-wide ones sit on the Hearth.
+  for (const [id, up] of h.powers || []) {
+    const c = cardDef(id, up);
+    if (c.tgt !== 'none') tag(powerPic(c), c.name, `Active for the rest of the fight. ${powerText(c)}`);
+  }
+  return out.join(' ');
+}
+
+// Active powers show as their card art, with the card's text (minus markup) as the tooltip.
+const powerPic = c => pic(`cards/${c.id}`, c.icon, 'pw-pic');
+const powerText = c => cardText(c).replace(/<[^>]+>/g, '').replace(/(^|\. )Power: (.)/g, (m, a, ch) => a + ch.toUpperCase());
+function teamPowers() {
+  const out = [];
+  for (const [pid, h] of Object.entries(C.heroes)) for (const [id, up] of h.powers || []) {
+    const c = cardDef(id, up);
+    if (c.tgt === 'none') out.push(`<span class="hs"${tipAttr(c.name, `Played by ${pName(pid)}, active for the rest of the fight. ${powerText(c)}`)}>${powerPic(c)}</span>`);
+  }
   return out.join(' ');
 }
 
@@ -1286,6 +1303,7 @@ function frame(now) {
   setW(hEl.querySelector('.hp'), hp / max);
   setW(hEl.querySelector('.sh'), sh / max);
   setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
+  setHTML(hEl.querySelector('.hpows'), teamPowers());
   setHTML(hEl.querySelector('.snum'), sh >= 1 ? `<span${tipAttr(`Barrier ${Math.floor(sh)}`, S.relics?.includes('anchor') ? 'Soaks hits on the Hearth. The Anchor stops it from fading.' : 'Soaks hits on the Hearth, and slowly fades.')}>${ico('barrier')} ${Math.floor(sh)}</span>` : '');
   tog(hEl, 'low', hp / max < 0.3);
 

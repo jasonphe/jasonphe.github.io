@@ -342,7 +342,7 @@ export class Sim {
         hp: Math.max(1, p.hp ?? cls.hp), max: p.maxHp ?? cls.hp, guard: 0, e: this.has('candle') ? emax : 2, emax,
         hand: [], draw: shuffle(p.deck.map(c => ({ ...c }))), disc: [], exh: [],
         ch: null, down: 0, haste: 0, slow: 0, empower: 0, cycleFree: 0, lastCh: -9,
-        pw: { fury: 0, focus: 0, regen: 0, thorns: 0 }, shelter: 0, aegisT: 0,
+        pw: { fury: 0, focus: 0, regen: 0, thorns: 0 }, powers: [], shelter: 0, aegisT: 0,
       };
       for (let i = 0; i < HAND; i++) h.hand.push(this.drawCard(h));
     }
@@ -621,6 +621,8 @@ export class Sim {
     // Living Flame: attacks also set their targets alight.
     if (isAttack && h.pw.pyro && !('burn' in fx)) for (const e of foes.filter(e => e.hp > 0)) { e.burn += 3; e.burnBy[pid] = (e.burnBy[pid] || 0) + 3; }
     if (again) return;   // Twincast's repeat: the card is already in a pile
+    // Powers last the rest of the fight; remember which were played so the UI can show them.
+    if (c.power) (h.powers ??= []).push([inst.id, inst.up]);
     (c.ex ? h.exh : h.disc).push(inst);
     if (combo) this.stat(pid, 'combos');
     this.ev.push({ k: 'cast', by: pid, card: c.name, combo });
