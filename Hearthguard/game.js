@@ -965,8 +965,11 @@ $('deckDialog').addEventListener('close', () => hideCompare());
 let compareFor = null;
 function showCompare(btn) {
   const id = btn.dataset.compare, box = $('deckCompare');
-  box.innerHTML = `<div class="cmp-col"><small>Now</small>${cardHTML(id, 0)}</div><div class="cmp-arrow">→</div>
-    <div class="cmp-col"><small>Upgraded</small>${cardHTML(id, 1, '', cardDef(id, 0))}</div>`;
+  if (box.dataset.id !== id) {
+    box.innerHTML = `<div class="cmp-col"><small>Now</small>${cardHTML(id, 0)}</div><div class="cmp-arrow">→</div>
+      <div class="cmp-col"><small>Upgraded</small>${cardHTML(id, 1, '', cardDef(id, 0))}</div>`;
+    box.dataset.id = id;
+  }
   box.hidden = false;
   const r = btn.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
   // Prefer the right of the card, then the left, then above or below it.
@@ -977,16 +980,23 @@ function showCompare(btn) {
   box.style.top = `${Math.max(8, Math.min(innerHeight - h - 8, top))}px`;
   compareFor = btn.dataset.pick;
 }
-function hideCompare() { $('deckCompare').hidden = true; compareFor = null; }
+function hideCompare() { $('deckCompare').hidden = true; delete $('deckCompare').dataset.id; compareFor = null; }
 $('deckGrid').addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
   const b = e.target.closest('[data-compare]');
   if (b) showCompare(b); else hideCompare();
 });
 $('deckGrid').addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideCompare(); });
-$('deckGrid').addEventListener('focusin', e => { const b = e.target.closest('[data-compare]'); if (b) showCompare(b); });
-$('deckGrid').addEventListener('scroll', hideCompare, { passive: true });
-$('deckDialog').addEventListener('click', e => { if (e.target === $('deckDialog')) $('deckDialog').close(); });
+// Keyboard focus only: a tap also focuses the card, and that must not count as the first tap.
+$('deckGrid').addEventListener('focusin', e => { const b = e.target.closest('[data-compare]'); if (b && b.matches(':focus-visible')) showCompare(b); });
+// Scrolling (including a tap that scrolls its card into view) keeps the popover beside its card.
+const followCompare = () => { const b = compareFor != null && $('deckGrid').querySelector(`[data-pick="${compareFor}"]`); if (b) showCompare(b); };
+$('deckGrid').addEventListener('scroll', followCompare, { passive: true });
+$('deckDialog').addEventListener('scroll', followCompare, { passive: true });
+$('deckDialog').addEventListener('click', e => {
+  if (e.target === $('deckDialog')) $('deckDialog').close();
+  else if (!e.target.closest('[data-compare]')) hideCompare();
+});
 
 // ---------- Combat UI ----------
 let combatDom = null;   // { root, enemies: Map, heroes: Map, hand: [] }
