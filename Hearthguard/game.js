@@ -419,7 +419,7 @@ const SCREENS = {
       return `<div class="seat" style="--pc:${pColor(p.id)}">
         <div class="seat-icon">${classPic(p.cls)}</div>
         <div><b>${esc(p.name)}</b>${p.id === hostId ? ' <span class="tag">host</span>' : ''}${p.id === selfId ? ' <span class="tag">you</span>' : ''}<br><small>${c ? c.name : 'choosing…'}${p.id === selfId ? ` · ${ico('embers')} ${progress.embers}` : ''}</small>
-          ${c ? (p.id === selfId ? `<button class="btn small seat-deck" data-build>${ico('deck')} Edit deck</button>` : `<button class="btn ghost small seat-deck view" data-view-deck="${p.id}">${ico('deck')} View deck</button>`) : ''}</div>
+          ${c ? (p.id === selfId ? `<button class="btn small seat-deck" data-build>${ico('deck')} Edit deck</button>` : `<button class="btn small seat-deck" data-view-deck="${p.id}">${ico('deck')} View deck</button>`) : ''}</div>
       </div>`;
     }).join('');
     const ready = S.players.length && S.players.every(p => p.cls);
