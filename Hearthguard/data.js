@@ -326,7 +326,7 @@ export function cardText(c) {
   let t = fxText(c.fx, c.tgt);
   // Combo adds to the card's own numbers, so show the totals.
   if (c.combo) t += ` <i>Combo: ${Object.keys(c.combo).map(k => say({ ...c.fx, [k]: (c.fx[k] || 0) + c.combo[k] }, k, c.tgt, c.tgt === 'all')).join(' ')}</i>`;
-  if (c.share) t += ' <i>Half as much on yourself.</i>';
+  if (c.share) t += ' <i>Half on self-cast.</i>';
   if (c.ex && !c.power) t += ' <i>Exhaust.</i>';
   return t;
 }
