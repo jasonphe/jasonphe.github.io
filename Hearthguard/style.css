@@ -562,6 +562,8 @@ dialog::backdrop { background: #000b; }
 .cmp-arrow { font-size: 1.6rem; font-weight: 800; color: var(--gold); }
 .up-diff { color: var(--good); font-weight: 800; background: #5fd38d26; border-radius: 4px; padding: 0 2px; }
 .cost.diff { box-shadow: 0 0 0 2px var(--good), 0 0 10px var(--good); }
+/* Cost lowered by a power (Archmage Ascendant). */
+.cost.cheaper { color: #0b3d1c; box-shadow: 0 0 0 2px var(--good), 0 0 8px var(--good); }
 .ct.diff { color: var(--good); box-shadow: 0 0 0 1px var(--good); }
 
 /* ---------- Debug menu ---------- */

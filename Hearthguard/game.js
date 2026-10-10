@@ -686,7 +686,7 @@ addEventListener('scroll', () => tipFor && hideRelicTip(), { passive: true });
 
 // ---------- End-of-run stats ----------
 const STAT_ROWS = [
-  ['dmg', 'atk', 'Damage dealt'],
+  ['dmg', 'atk', 'Total damage dealt'],
   ['burn', 'burn', 'Burn damage'],
   ['kills', 'difficulty', 'Kills'],
   ['tanked', 'block', 'Damage tanked'],
@@ -1434,6 +1434,8 @@ function frame(now) {
     if (!inst) return;
     const c = cardDef(inst.id, inst.up);
     const cost = costFor(c, h);
+    // The printed cost, after discounts like Archmage Ascendant.
+    if (!c.unplayable) { const ce = slot.el.querySelector('.cost'); setText(ce, String(cost)); tog(ce, 'cheaper', cost < c.cost); }
     tog(slot.el, 'poor', !c.unplayable && e < cost - 0.02);
     tog(slot.el, 'busy', !!h.ch || !!h.down);
     tog(slot.el, 'sel', sel === u);
@@ -1453,6 +1455,8 @@ function frame(now) {
     const slot = combatDom.hand.find(s => s.u === sel)?.el;
     setHTML(zoom, cardHTML(zInst.id, zInst.up));
     if (slot) {
+      const sc = slot.querySelector('.cost'), zc = zoom.querySelector('.cost');
+      if (sc && zc) { setText(zc, sc.textContent); tog(zc, 'cheaper', sc.classList.contains('cheaper')); }
       tog(zoom, 'poor', slot.classList.contains('poor'));
       const fill = slot.style.getPropertyValue('--fill');
       if (zoom.style.getPropertyValue('--fill') !== fill) zoom.style.setProperty('--fill', fill);

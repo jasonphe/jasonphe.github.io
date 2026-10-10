@@ -586,6 +586,7 @@ export class Sim {
           for (const x of Object.values(C.heroes)) if (!x.down) { const was = x.e; x.e = Math.min(x.emax, x.e + v); if (x !== h) this.stat(pid, 'energyGiven', x.e - was); }
           break;
         case 'haste': ally.haste = Math.max(ally.haste, C.t + v); break;
+        case 'selfSlow': h.slow = Math.max(h.slow, C.t + v); break;
         case 'teamHaste': for (const x of Object.values(C.heroes)) x.haste = Math.max(x.haste, C.t + v); break;
         case 'empower': ally.empower += v; break;
         case 'cover': if (ally !== h) { ally.cover = { by: pid, until: C.t + v }; this.ev.push({ k: 'txt', to: tgt, x: 'Covered' }); } break;
