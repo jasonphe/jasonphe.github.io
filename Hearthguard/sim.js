@@ -523,6 +523,8 @@ export class Sim {
     const mult = 1 + 0.25 * combo * (this.has('choir') ? 2 : 1);
     const foes = c.tgt === 'all' ? C.enemies.filter(e => e.hp > 0) : C.enemies.filter(e => e.id === tgt && e.hp > 0);
     const ally = c.tgt === 'ally' ? C.heroes[tgt] || h : h;
+    // Support cards are meant for teammates: on yourself they're half as strong.
+    if (c.share && ally === h) for (const k of ['energy', 'mend', 'guard']) if (fx[k]) fx[k] = Math.ceil(fx[k] / 2);
     const isAttack = ['dmg', 'guardDmg', 'shieldDmg', 'detonate', 'guardBlast', 'zap'].some(k => k in fx);
     const bonus = isAttack ? h.pw.fury + h.empower + (this.has('whet') ? 2 : 0) : 0;
     if (isAttack) h.empower = 0;

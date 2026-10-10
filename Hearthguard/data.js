@@ -29,6 +29,7 @@ export const CLASSES = {
 
 // r: a rarity from RARITIES. tgt: enemy | all | random | ally | self | none.
 // cast is in seconds (0 = instant). ex = exhaust (gone for the rest of the fight).
+// share = a support card that's half as strong when you use it on yourself.
 // up overrides fields when upgraded; otherwise numbers grow by about a third.
 export const CARDS = {
   // ---------- Knight ----------
@@ -146,18 +147,18 @@ export const CARDS = {
   c_prayer: { name: 'Prayer', cls: 'cleric', r: 'common', cost: 3, cast: 2, tgt: 'none', icon: '🙏', fx: { heal: 12 }, combo: { heal: 5 } },
   c_sanct: { name: 'Sanctuary', cls: 'cleric', r: 'common', cost: 2, cast: 1, tgt: 'none', icon: '⛪', fx: { shield: 18 } },
   c_rebuke: { name: 'Rebuke', cls: 'cleric', r: 'common', cost: 1, tgt: 'enemy', icon: '✋', fx: { dmg: 4, interrupt: 1 } },
-  c_bless: { name: 'Blessing', cls: 'cleric', r: 'common', cost: 1, tgt: 'ally', icon: '🌟', fx: { energy: 3 } },
+  c_bless: { name: 'Blessing', cls: 'cleric', r: 'common', cost: 1, tgt: 'ally', share: 1, icon: '🌟', fx: { energy: 3 } },
   c_light: { name: 'Holy Light', cls: 'cleric', r: 'common', cost: 4, cast: 2.5, tgt: 'none', icon: '☀️', fx: { heal: 22 } },
   c_divine: { name: 'Divine Barrier', cls: 'cleric', r: 'common', cost: 4, cast: 1, tgt: 'none', icon: '🔆', fx: { shield: 35 } },
   c_purify: { name: 'Purify', cls: 'cleric', r: 'common', cost: 1, tgt: 'none', icon: '💧', fx: { cleanse: 1, shield: 8 } },
   c_judge: { name: 'Judgment', cls: 'cleric', r: 'common', cost: 3, tgt: 'enemy', icon: '⚖️', fx: { dmg: 23, vuln: 6 } },
-  c_mend: { name: 'Mend Wounds', cls: 'cleric', r: 'common', cost: 2, tgt: 'ally', icon: '🩹', fx: { mend: 25, guard: 10 } },
+  c_mend: { name: 'Mend Wounds', cls: 'cleric', r: 'common', cost: 2, tgt: 'ally', share: 1, icon: '🩹', fx: { mend: 25, guard: 10 } },
   c_hush: { name: 'Hush', cls: 'cleric', r: 'common', cost: 1, tgt: 'enemy', icon: '🤐', fx: { interrupt: 1, weak: 4 } },
   c_holyfire: { name: 'Holy Fire', cls: 'cleric', r: 'common', cost: 2, cast: 1, tgt: 'enemy', icon: '🔥', fx: { dmg: 7, burn: 4 } },
   c_res: { name: 'Resurrection', cls: 'cleric', r: 'rare', cost: 3, cast: 2, tgt: 'none', icon: '🕊️', fx: { revive: 1, heal: 5 } },
   c_hymn: { name: 'Hymn', cls: 'cleric', r: 'rare', cost: 3, cast: 1.5, tgt: 'none', icon: '🎶', fx: { teamEnergy: 1, teamHaste: 3 }, combo: { teamEnergy: 1 } },
   c_consecrate: { name: 'Consecrate', cls: 'cleric', r: 'uncommon', cost: 4, cast: 1, tgt: 'all', icon: '🌅', fx: { dmg: 18, burn: 4 } },
-  c_angel: { name: 'Guardian Angel', cls: 'cleric', r: 'uncommon', cost: 2, tgt: 'ally', icon: '👼', fx: { guard: 28 } },
+  c_angel: { name: 'Guardian Angel', cls: 'cleric', r: 'uncommon', cost: 2, tgt: 'ally', share: 1, icon: '👼', fx: { guard: 28 } },
   c_bene: { name: 'Benediction', cls: 'cleric', r: 'uncommon', cost: 2, tgt: 'none', icon: '🙌', fx: { teamEmpower: 6, shield: 12 } },
   c_smiteevil: { name: 'Smite Evil', cls: 'cleric', r: 'uncommon', cost: 5, cast: 1.5, tgt: 'enemy', icon: '⚡', fx: { dmg: 70 } },
   c_quicken: { name: 'Quickening', cls: 'cleric', r: 'uncommon', cost: 1, tgt: 'none', icon: '⏱️', fx: { hurry: 3, shield: 12 } },
@@ -174,7 +175,7 @@ export const CARDS = {
   c_penance: { name: 'Penance', cls: 'cleric', r: 'common', cost: 2, tgt: 'enemy', icon: '📿', fx: { dmg: 12, heal: 4 } },
   c_dawn: { name: 'Light of Dawn', cls: 'cleric', r: 'common', cost: 3, cast: 1.5, tgt: 'none', icon: '🌅', fx: { heal: 10, teamMend: 8 } },
   c_peal: { name: 'Peal of Silence', cls: 'cleric', r: 'uncommon', cost: 3, cast: 1, tgt: 'all', icon: '🔔', fx: { interrupt: 1 }, up: { cost: 2 } },
-  c_transfuse: { name: 'Transfusion', cls: 'cleric', r: 'rare', cost: 1, tgt: 'ally', icon: '🩸', fx: { selfDmg: 10, mend: 20, energy: 3 } },
+  c_transfuse: { name: 'Transfusion', cls: 'cleric', r: 'rare', cost: 1, tgt: 'ally', share: 1, icon: '🩸', fx: { selfDmg: 10, mend: 20, energy: 3 } },
   c_covenant: { name: 'Covenant', cls: 'cleric', r: 'epic', cost: 3, tgt: 'none', icon: '🤝', fx: { teamGuard: 18, teamEnergy: 1 } },
   c_retri: { name: 'Retribution', cls: 'cleric', r: 'epic', cost: 3, tgt: 'self', icon: '⚔️', ex: 1, power: 1, fx: { retri: 100 } },
   // ---------- Curses ----------
@@ -325,6 +326,7 @@ export function cardText(c) {
   let t = fxText(c.fx, c.tgt);
   // Combo adds to the card's own numbers, so show the totals.
   if (c.combo) t += ` <i>Combo: ${Object.keys(c.combo).map(k => say({ ...c.fx, [k]: (c.fx[k] || 0) + c.combo[k] }, k, c.tgt, c.tgt === 'all')).join(' ')}</i>`;
+  if (c.share) t += ' <i>Half as much on yourself.</i>';
   if (c.ex && !c.power) t += ' <i>Exhaust.</i>';
   return t;
 }

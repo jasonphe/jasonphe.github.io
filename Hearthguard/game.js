@@ -1095,7 +1095,16 @@ function chooseCard(u) {
 }
 
 function autoTarget(c) {
-  if (c.tgt === 'ally') return selfId;
+  if (c.tgt === 'ally') {
+    // Support cards are weaker on yourself, so they go to the teammate who needs them most:
+    // energy to the emptiest, Armor to whoever is taunting, healing to the most hurt.
+    if (!c.share) return selfId;
+    const others = Object.entries(C.heroes).filter(([id, x]) => id !== selfId && !x.down && S.players.find(p => p.id === id)?.on);
+    if (!others.length) return selfId;
+    const taunting = id => C.enemies.some(e => e.hp > 0 && e.taunt?.pid === id);
+    const need = ([id, x]) => 'energy' in c.fx ? x.e / x.emax : 'mend' in c.fx ? x.hp / x.max : (taunting(id) ? 0 : 1) + x.hp / x.max;
+    return others.sort((a, b) => need(a) - need(b))[0][0];
+  }
   if (c.tgt !== 'enemy') return null;
   const alive = aliveEnemies();
   // The most urgent enemy: the one about to land a move.
