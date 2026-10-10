@@ -478,8 +478,8 @@ dialog::backdrop { background: #000b; }
 .unlock { margin: 14px 0; padding: 12px; border: 1px solid var(--gold); border-radius: 14px; background: #e0b84a14; }
 .unlock-note { color: var(--gold); }
 .pace:disabled { opacity: .5; cursor: not-allowed; }
-.cardface.back { justify-content: center; gap: 10px; background: repeating-linear-gradient(45deg, #241b16, #241b16 10px, #1b1410 10px, #1b1410 20px); border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
-.cback { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--rc) 60%, #000); font: 800 2rem 'Cinzel', serif; color: color-mix(in srgb, var(--rc) 70%, #fff); background: #0006; }
+.cardface.back { justify-content: flex-end; background: #1b1410 url(assets/ui/card-back.webp) center / cover; border-color: color-mix(in srgb, var(--rc) 55%, #3a2c22); }
+.cardface.back .ctype { background: #000a; border-radius: 6px; padding: 1px 8px; color: color-mix(in srgb, var(--rc) 70%, #fff); }
 .seat-deck { margin-top: 6px; }
 .embers { margin-left: auto; margin-right: 12px; font-weight: 800; color: #ffb35a; }
 .card-btn.pick.in .cardface { opacity: 1; outline: 3px solid var(--gold); outline-offset: 2px; }
@@ -490,3 +490,9 @@ dialog::backdrop { background: #000b; }
 .card-btn.buyable { cursor: pointer; }
 .card-btn.buyable .lockmark { background: #3a2208e6; color: #ffcf8a; border: 1px solid #ffb35a; }
 .card-btn.buyable:disabled .lockmark { background: #000c; color: #9a8f82; border-color: transparent; }
+
+/* Painted UI icons, sized to the text around them. */
+.ico { display: inline-block; width: 1.25em; height: 1.25em; object-fit: contain; vertical-align: -0.28em; }
+.intent .iicon .ico { width: 1.6em; height: 1.6em; vertical-align: -0.45em; }
+.status .ico { width: 1.35em; height: 1.35em; margin-right: 1px; }
+.ct .ico { width: 1.1em; height: 1.1em; vertical-align: -0.2em; }

@@ -23,10 +23,16 @@ const TICK_MS = 100;
 const PCOLORS = ['#ff8a5b', '#5bc0ff', '#c38cff', '#7ee081'];
 const NODE_ICONS = { fight: '⚔️', elite: '😈', rest: '🔥', shop: '💰', event: '❓', treasure: '🎁' };
 const NODE_NAMES = { fight: 'Fight', elite: 'Elite', rest: 'Campfire', shop: 'Shop', event: 'Unknown', treasure: 'Treasure', boss: 'Boss' };
-const INTENT = {
-  atk: '⚔️', pounce: '🎯', wave: '🌊', quake: '💥', block: '🛡️', buff: '💪', rally: '📯',
-  heal: '💚', summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️',
+// Painted UI icons in assets/ui, each with the emoji shown if its image is missing.
+const ICONS = {
+  atk: '⚔️', pounce: '🎯', wave: '🌊', quake: '💥', block: '🛡️', buff: '💪', rally: '📯', heal: '💚',
+  summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️', burn: '🔥', vuln: '🎯', weak: '🥀', stun: '💫',
+  energy: '⚡', armor: '🪖', barrier: '🔷', embers: '🔶', gold: '🪙', hp: '❤️', floor: '🪜', deck: '🂠',
+  discard: '♻️', cast: '⏱', difficulty: '💀', 'stand-guard': '⚜️', taunt: '😤', interrupt: '✋', revive: '🕊️', lock: '🔒',
 };
+const ico = (name, title = '') => ICONS[name]
+  ? `<img class="ico" src="assets/ui/${name}.webp" alt="${ICONS[name]}"${title ? ` title="${title}"` : ''} draggable="false" onerror="this.replaceWith(this.alt)">`
+  : name;
 
 // ---------- Helpers ----------
 const $ = id => document.getElementById(id);
@@ -329,11 +335,11 @@ function runbarHTML() {
   const floor = S.pos ? Math.min(S.pos.r + 1, ROWS + 1) : 0;
   return `
     <span class="rb-hearth" title="The Hearth: your team's shared life">${hearthPic('rb-icon')} <b>${Math.max(0, Math.ceil(S.hearth))}</b>/${S.hearthMax}</span>
-    <span title="Floor">🪜 ${floor}/${ROWS + 1}</span>
-    ${S.diff ? `<span title="Difficulty">💀 ${DIFFICULTIES[S.diff].name}</span>` : ''}
-    ${m ? `<span title="Your HP">❤️ ${m.hp}/${m.maxHp}</span><span title="Your gold">🪙 ${m.gold}</span>` : ''}
+    <span title="Floor">${ico('floor')} ${floor}/${ROWS + 1}</span>
+    ${S.diff ? `<span title="Difficulty">${ico('difficulty')} ${DIFFICULTIES[S.diff].name}</span>` : ''}
+    ${m ? `<span title="Your HP">${ico('hp')} ${m.hp}/${m.maxHp}</span><span title="Your gold">${ico('gold')} ${m.gold}</span>` : ''}
     <span class="rb-relics">${(S.relics || []).map(r => `<button class="relic" data-relic="${r}" aria-label="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</button>`).join('')}</span>
-    ${m ? `<button class="chip" data-deck="view">🂠 Deck ${m.deck.length}</button>` : ''}`;
+    ${m ? `<button class="chip" data-deck="view">${ico('deck')} Deck ${m.deck.length}</button>` : ''}`;
 }
 
 // A painted image, or the emoji if the image is missing.
@@ -350,14 +356,14 @@ function tgtLabel(c) {
 function cardBackHTML(id) {
   const c = CARDS[id];
   return `<div class="cardface back r-${c.r}"><span class="gem" title="${RARITY_NAMES[c.r]}"></span>
-    <div class="cback">?</div><div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
+    <div class="ctype">${RARITY_NAMES[c.r]}</div></div>`;
 }
 function cardHTML(id, up, extra = '') {
   const c = cardDef(id, up);
   return `<div class="cardface cls-${c.cls} r-${c.r}${c.upgraded ? ' up' : ''}">
     <span class="cost">${c.unplayable ? '–' : c.cost}</span>
     ${RARITY_NAMES[c.r] ? `<span class="gem" title="${RARITY_NAMES[c.r]}"></span>` : ''}
-    ${c.cast ? `<span class="ct" title="Cast time">⏱${c.cast}s</span>` : ''}
+    ${c.cast ? `<span class="ct" title="Cast time">${ico('cast')}${c.cast}s</span>` : ''}
     <div class="cart">${pic(`cards/${c.id}`, c.icon)}</div>
     <div class="cname">${esc(c.name)}</div>
     <div class="ctext">${cardText(c)}</div>
@@ -379,7 +385,7 @@ const SCREENS = {
       const c = CLASSES[p.cls];
       return `<div class="seat" style="--pc:${pColor(p.id)}">
         <div class="seat-icon">${classPic(p.cls)}</div>
-        <div><b>${esc(p.name)}</b>${p.id === hostId ? ' <span class="tag">host</span>' : ''}${p.id === selfId ? ' <span class="tag">you</span>' : ''}<br><small>${c ? c.name : 'choosing…'}${p.id === selfId ? ` · 🔶 ${progress.embers}` : ''}</small>
+        <div><b>${esc(p.name)}</b>${p.id === hostId ? ' <span class="tag">host</span>' : ''}${p.id === selfId ? ' <span class="tag">you</span>' : ''}<br><small>${c ? c.name : 'choosing…'}${p.id === selfId ? ` · ${ico('embers')} ${progress.embers}` : ''}</small>
           ${c ? (p.id === selfId ? '<button class="btn ghost small seat-deck" data-build>Edit deck</button>' : `<button class="btn ghost small seat-deck" data-view-deck="${p.id}">View deck</button>`) : ''}</div>
       </div>`;
     }).join('');
@@ -391,7 +397,7 @@ const SCREENS = {
       ${m ? `<h3>Choose your class</h3>
       <div class="classes">${Object.entries(CLASSES).map(([k, c]) => `
         <button class="class-card ${m.cls === k ? 'on' : ''}" data-cls="${k}" style="--cc:${c.color}">
-          <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>❤️ ${c.hp} HP</small><span>${c.blurb}</span>
+          <span class="class-icon">${classPic(k)}</span><b>${c.name}</b><small>${ico('hp')} ${c.hp} HP</small><span>${c.blurb}</span>
         </button>`).join('')}</div>` : `<p class="note">The party is full, so you're watching this one.</p>`}
       ${diffHTML()}
       ${paceHTML()}
@@ -402,14 +408,14 @@ const SCREENS = {
       <details class="howto" open>
         <summary>How to play</summary>
         <ul>
-          <li><b>No turns.</b> ⚡ Energy refills over time. Play cards whenever you can afford them. Cards marked ⏱ take time to cast, and you can't play anything else while casting.</li>
+          <li><b>No turns.</b> ${ico('energy')} Energy refills over time. Play cards whenever you can afford them. Cards marked ${ico('cast')} take time to cast, and you can't play anything else while casting.</li>
           <li><b>The Hearth</b> ❤️‍🔥 is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
-          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and 🪖 Armor. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
-          <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. 🔒 moves can't be stopped. 🌊 waves ignore taunts.</li>
-          <li>🔷 <b>Barrier</b> soaks hits for the Hearth but fades over time. 🪖 <b>Armor</b> soaks hits for one hero.</li>
+          <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and ${ico('armor')} Armor. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
+          <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. ${ico('lock')} moves can't be stopped. ${ico('wave')} waves ignore taunts.</li>
+          <li>${ico('barrier')} <b>Barrier</b> soaks hits for the Hearth but fades over time. ${ico('armor')} <b>Armor</b> soaks hits for one hero.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
           <li>Stuck with a bad card? <b>↻ Discard</b> it to draw another for 1⚡.</li>
-          <li><b>🔶 Embers:</b> every run earns Embers (more for winning and on harder difficulties). Spend them in <b>Edit deck</b> to unlock cards you've found in runs. Rarer cards need a win on a harder difficulty, and each win opens the next one.</li>
+          <li><b>${ico('embers')} Embers:</b> every run earns Embers (more for winning and on harder difficulties). Spend them in <b>Edit deck</b> to unlock cards you've found in runs. Rarer cards need a win on a harder difficulty, and each win opens the next one.</li>
           <li>Keys: <kbd>1</kbd>–<kbd>5</kbd> pick a card (press again to auto-target), <kbd>X</kbd> discards it, <kbd>Esc</kbd> cancels.</li>
         </ul>
       </details>
@@ -464,7 +470,7 @@ const SCREENS = {
     const relic = S.rewardRelic && RELICS[S.rewardRelic];
     return `<div class="panel center">
       <h2>Victory</h2>
-      <p class="sub">Everyone gains <b>🪙 ${S.rewardGold}</b>.${relic ? ` The team found <b>${relicPic(S.rewardRelic)} ${esc(relic.name)}</b>: ${esc(relic.text)}` : ''}</p>
+      <p class="sub">Everyone gains <b>${ico('gold')} ${S.rewardGold}</b>.${relic ? ` The team found <b>${relicPic(S.rewardRelic)} ${esc(relic.name)}</b>: ${esc(relic.text)}` : ''}</p>
       ${r && !done ? `<h3>Add a card to your deck</h3>
         <div class="card-grid">${r.cards.map(id => `<button class="card-btn" data-reward="${id}">${cardHTML(id, 0)}</button>`).join('')}</div>
         <button class="btn ghost" data-reward-skip>Skip</button>`
@@ -499,12 +505,12 @@ const SCREENS = {
       <p class="sub">Cards go in your own deck. Relics help the whole team.</p>
       ${m && !done ? `
       <h3>Cards</h3>
-      <div class="card-grid">${items.map((it, i) => `<button class="card-btn ${it.sold ? 'sold' : ''}" data-buy="${i}" ${it.sold || m.gold < it.price ? 'disabled' : ''}>${cardHTML(it.id, 0, `<span class="price">🪙 ${it.price}</span>`)}</button>`).join('')}</div>
+      <div class="card-grid">${items.map((it, i) => `<button class="card-btn ${it.sold ? 'sold' : ''}" data-buy="${i}" ${it.sold || m.gold < it.price ? 'disabled' : ''}>${cardHTML(it.id, 0, `<span class="price">${ico('gold')} ${it.price}</span>`)}</button>`).join('')}</div>
       <h3>Relics</h3>
       <div class="relic-row">${S.shop.relics.map((r, i) => `<button class="relic-btn" data-buy-relic="${i}" ${r.sold || m.gold < r.price ? 'disabled' : ''}>
-        <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${esc(RELICS[r.id].text)}</small><span class="price">${r.sold ? 'Sold' : `🪙 ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
+        <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${esc(RELICS[r.id].text)}</small><span class="price">${r.sold ? 'Sold' : `${ico('gold')} ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
       <div class="shop-foot">
-        <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}>🗑️ Remove a card (🪙 ${REMOVE_PRICE})</button>
+        <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}>🗑️ Remove a card (${ico('gold')} ${REMOVE_PRICE})</button>
         <button class="btn" data-done>Leave shop</button>
       </div>` : `<p class="note">Waiting for the others to finish shopping…</p>`}
       ${waitingFor(S.done)}
@@ -617,19 +623,19 @@ addEventListener('scroll', () => tipFor && hideRelicTip(), { passive: true });
 
 // ---------- End-of-run stats ----------
 const STAT_ROWS = [
-  ['dmg', '⚔️', 'Damage dealt'],
-  ['burn', '🔥', 'Burn damage'],
-  ['kills', '💀', 'Kills'],
-  ['tanked', '🛡️', 'Damage tanked'],
-  ['healed', '💚', 'Healing'],
-  ['shield', '🔷', 'Barrier given'],
-  ['guard', '🪖', 'Armor given'],
-  ['interrupts', '✋', 'Interrupts'],
-  ['energyGiven', '⚡', 'Energy given'],
-  ['revives', '🕊️', 'Revives'],
-  ['cards', '🃏', 'Cards played'],
+  ['dmg', 'atk', 'Damage dealt'],
+  ['burn', 'burn', 'Burn damage'],
+  ['kills', 'difficulty', 'Kills'],
+  ['tanked', 'block', 'Damage tanked'],
+  ['healed', 'heal', 'Healing'],
+  ['shield', 'barrier', 'Barrier given'],
+  ['guard', 'armor', 'Armor given'],
+  ['interrupts', 'interrupt', 'Interrupts'],
+  ['energyGiven', 'energy', 'Energy given'],
+  ['revives', 'revive', 'Revives'],
+  ['cards', 'deck', 'Cards played'],
   ['combos', '✨', 'Combos'],
-  ['downs', '😵', 'Times knocked out'],
+  ['downs', 'stun', 'Times knocked out'],
 ];
 // The top player in each of these earns the title.
 const MAX_TITLES = 2;
@@ -665,7 +671,7 @@ function statsBoard() {
         <div><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''}</small></div>
       </div>
       ${titles[p.id] ? `<div class="titles">${titles[p.id].map(t => `<span>${t}</span>`).join('')}</div>` : ''}
-      <dl>${STAT_ROWS.map(([k, icon, label]) => `<div class="${val(p, k) ? '' : 'zero'}"><dt>${icon} ${label}</dt><dd>${val(p, k).toLocaleString()}</dd></div>`).join('')}</dl>
+      <dl>${STAT_ROWS.map(([k, icon, label]) => `<div class="${val(p, k) ? '' : 'zero'}"><dt>${ico(icon)} ${label}</dt><dd>${val(p, k).toLocaleString()}</dd></div>`).join('')}</dl>
     </div>`).join('')}</div>`;
 }
 
@@ -678,8 +684,8 @@ function diffHTML() {
     <div class="paces">${DIFFICULTIES.map((x, i) => {
       const open = i <= progress.best + 1 || i === cur;
       return `<button class="pace ${i === cur ? 'on' : ''}" data-diff="${i}" ${open ? '' : 'disabled'}>
-        <b>${open ? '' : '🔒 '}${x.name}</b><small>${x.blurb}</small>
-        <small>${open ? `🔶 ×${x.embers} · a win lets you buy <span class="rt r-${x.cap}">${RARITY_NAMES[x.cap]}</span> cards` : `Win on ${DIFFICULTIES[i - 1].name} to open`}</small></button>`;
+        <b>${open ? '' : `${ico('lock')} `}${x.name}</b><small>${x.blurb}</small>
+        <small>${open ? `${ico('embers')} ×${x.embers} · a win lets you buy <span class="rt r-${x.cap}">${RARITY_NAMES[x.cap]}</span> cards` : `Win on ${DIFFICULTIES[i - 1].name} to open`}</small></button>`;
     }).join('')}</div>`;
 }
 
@@ -706,7 +712,7 @@ function embersHTML() {
     saveProgress();
   }
   return `<div class="unlock">
-    <h3>+${a.n} 🔶 Embers</h3>
+    <h3>+${a.n} ${ico('embers')} Embers</h3>
     <p class="sub">You have ${progress.embers}. Spend them on new cards with <b>Edit deck</b> in the lobby.</p>
     ${a.tier ? `<p class="unlock-note">🔓 <span class="rt r-${a.tier}">${RARITY_NAMES[a.tier]}</span> cards can now be bought.</p>` : ''}
     ${a.opened ? `<p class="unlock-note">🔓 <b>${a.opened}</b> difficulty is now open.</p>` : ''}
@@ -732,7 +738,7 @@ function renderBuilder() {
   const order = Object.keys(CARDS);
   const problem = deckProblem(draftCls, draft);
   $('buildTitle').textContent = `${CLASSES[draftCls].name} deck`;
-  $('buildEmbers').textContent = `🔶 ${progress.embers}`;
+  $('buildEmbers').innerHTML = `${ico('embers')} ${progress.embers}`;
   $('buildHint').innerHTML = `<b>${draft.length}/${DECK_SIZE}</b> cards, one of each. Click a card to add or remove it.`;
   $('buildSave').disabled = !!problem;
   const pool = order.filter(id => CARDS[id].cls === draftCls).sort((a, b) => rarityIdx(a) - rarityIdx(b) || order.indexOf(a) - order.indexOf(b));
@@ -743,9 +749,9 @@ function renderBuilder() {
       return `<button class="card-btn pick ${inDeck ? 'in' : ''}" data-toggle="${id}" ${!inDeck && draft.length >= DECK_SIZE ? 'disabled' : ''}>${cardHTML(id, 0, inDeck ? '<span class="owned">✓ In deck</span>' : '')}</button>`;
     }
     if (!progress.seen.includes(id)) return `<div class="card-btn static" title="Find this card in a run to reveal it">${cardBackHTML(id)}</div>`;
-    if (!canBuyTier(r)) return `<div class="card-btn static locked">${cardHTML(id, 0)}<span class="lockmark">🔒 Win on ${DIFFICULTIES[buyNeeds(r)].name} to buy</span></div>`;
+    if (!canBuyTier(r)) return `<div class="card-btn static locked">${cardHTML(id, 0)}<span class="lockmark">${ico('lock')} Win on ${DIFFICULTIES[buyNeeds(r)].name} to buy</span></div>`;
     const price = UNLOCK_PRICE[r];
-    return `<button class="card-btn locked buyable" data-unlock-card="${id}" ${progress.embers < price ? 'disabled' : ''}>${cardHTML(id, 0)}<span class="lockmark">🔶 ${price} · Unlock</span></button>`;
+    return `<button class="card-btn locked buyable" data-unlock-card="${id}" ${progress.embers < price ? 'disabled' : ''}>${cardHTML(id, 0)}<span class="lockmark">${ico('embers')} ${price} · Unlock</span></button>`;
   }).join('');
 }
 function toggleCard(id) {
@@ -790,7 +796,7 @@ function viewDeck(pid) {
 }
 
 // Described relative to Normal (the default pace).
-const paceInfo = t => `1⚡ every ${+(1.5 * t).toFixed(2)}s · ${t === DEFAULT_TEMPO ? 'standard speed' : `enemies at ${Math.round(DEFAULT_TEMPO / t * 100)}% speed`}`;
+const paceInfo = t => `1${ico('energy')} every ${+(1.5 * t).toFixed(2)}s · ${t === DEFAULT_TEMPO ? 'standard speed' : `enemies at ${Math.round(DEFAULT_TEMPO / t * 100)}% speed`}`;
 function paceHTML() {
   const cur = S.tempo ?? DEFAULT_TEMPO;
   const name = PACES.find(p => p.v === cur)?.name;
@@ -808,7 +814,7 @@ function reachableClient() {
 
 function partyList() {
   return S.players.map(p => `<div class="pline ${p.on ? '' : 'off'}" style="--pc:${pColor(p.id)}">
-    <span class="pavatar">${classPic(p.cls)}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ❤️ ${p.hp ?? '?'}/${p.maxHp ?? '?'} · ${p.deck.length} cards · 🪙 ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
+    <span class="pavatar">${classPic(p.cls)}</span><b>${esc(p.name)}</b><small>${CLASSES[p.cls]?.name || ''} · ${ico('hp')} ${p.hp ?? '?'}/${p.maxHp ?? '?'} · ${p.deck.length} cards · ${ico('gold')} ${p.gold}${p.on ? '' : ' · away'}</small></div>`).join('');
 }
 
 // ---------- Clicks outside combat ----------
@@ -1113,7 +1119,7 @@ function frame(now) {
   setW(hEl.querySelector('.hp'), hp / max);
   setW(hEl.querySelector('.sh'), sh / max);
   setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
-  setText(hEl.querySelector('.snum'), sh >= 1 ? `🔷 ${Math.floor(sh)}` : '');
+  setHTML(hEl.querySelector('.snum'), sh >= 1 ? `${ico('barrier')} ${Math.floor(sh)}` : '');
   tog(hEl, 'low', hp / max < 0.3);
 
   // Enemies
@@ -1127,11 +1133,11 @@ function frame(now) {
     setW(el.querySelector('.bar .blk'), e.block / e.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}${e.block ? ` 🛡️${e.block}` : ''}`);
     const st = [];
-    if (e.str) st.push(`<span title="Strength: +${e.str} damage">💪${e.str}</span>`);
-    if (e.burn) st.push(`<span title="Burn: takes this much damage next second, then it drops by 1">🔥${e.burn}</span>`);
-    if (e.vuln > t) st.push(`<span title="Vulnerable: takes 50% more damage">🎯${Math.ceil(e.vuln - t)}s</span>`);
-    if (e.weak > t) st.push(`<span title="Weak: deals 30% less damage">🥀${Math.ceil(e.weak - t)}s</span>`);
-    if (e.stun > t) st.push(`<span title="Stunned">💫${Math.ceil(e.stun - t)}s</span>`);
+    if (e.str) st.push(`<span title="Strength: +${e.str} damage">${ico('buff')}${e.str}</span>`);
+    if (e.burn) st.push(`<span title="Burn: takes this much damage next second, then it drops by 1">${ico('burn')}${e.burn}</span>`);
+    if (e.vuln > t) st.push(`<span title="Vulnerable: takes 50% more damage">${ico('vuln')}${Math.ceil(e.vuln - t)}s</span>`);
+    if (e.weak > t) st.push(`<span title="Weak: deals 30% less damage">${ico('weak')}${Math.ceil(e.weak - t)}s</span>`);
+    if (e.stun > t) st.push(`<span title="Stunned">${ico('stun')}${Math.ceil(e.stun - t)}s</span>`);
     setHTML(el.querySelector('.status'), st.join(''));
     const tt = el.querySelector('.taunt-tag');
     if (e.taunt && e.hp > 0) {
@@ -1145,13 +1151,13 @@ function frame(now) {
       const info = intentFor(e, t);
       setHidden(intent, false);
       tog(intent, 'danger', info.danger);
-      setText(intent.querySelector('.iicon'), INTENT[info.a.k]);
+      setHTML(intent.querySelector('.iicon'), ico(info.a.k));
       setText(intent.querySelector('.iname'), info.a.n);
       setText(intent.querySelector('.idmg'), String(info.num));
       setText(intent.querySelector('.itgt'), info.tgt);
       const el2 = e.act.el + (e.stun > t ? 0 : x);
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
-      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? '<span title="Can\'t be interrupted">🔒</span>'
+      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span title="Can't be interrupted">${ico('lock')}</span>`
         : e.act.maxPoise > 1 ? Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('') : '');
     } else setHidden(intent, true);
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
@@ -1168,10 +1174,10 @@ function frame(now) {
     tog(el, 'targetable', selCard?.tgt === 'ally');
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
-    setText(el.querySelector('.guard'), (h.guard ? `🪖 ${Math.round(h.guard)}` : '') + (h.shelter > t ? ' ⚜️' : ''));
+    setHTML(el.querySelector('.guard'), (h.guard ? `${ico('armor')} ${Math.round(h.guard)}` : '') + (h.shelter > t ? ` ${ico('stand-guard', 'Standing guard: Armor soaks hits on the Hearth')}` : ''));
     pips(el.querySelector('.epips'), curEnergy(h), h.emax);
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
-    setText(el.querySelector('.htaunt'), taunts ? `😤×${taunts}` : '');
+    setHTML(el.querySelector('.htaunt'), taunts ? `${ico('taunt')}×${taunts}` : '');
     const hc = el.querySelector('.hcast');
     if (h.ch) {
       setHidden(hc, false);
@@ -1190,7 +1196,7 @@ function frame(now) {
   const e = curEnergy(h);
   pips(meEl.querySelector('.energy .epips'), e, h.emax);
   setText(meEl.querySelector('.enum'), `${Math.floor(e)}/${h.emax}`);
-  setHTML(meEl.querySelector('.piles'), `<span title="Draw pile">🂠 ${h.draw.length}</span><span title="Discard pile">♻️ ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards">↻ free×${h.cycleFree}</span>` : ''}`);
+  setHTML(meEl.querySelector('.piles'), `<span title="Draw pile">${ico('deck')} ${h.draw.length}</span><span title="Discard pile">${ico('discard')} ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards">↻ free×${h.cycleFree}</span>` : ''}`);
   const mc = meEl.querySelector('.mycast');
   if (h.ch) {
     tog(mc, 'hidden', false);
@@ -1224,7 +1230,7 @@ function frame(now) {
 
   const infoU = sel ?? hoverU;
   const infoInst = infoU != null ? handCard(infoU) : null;
-  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `⏱${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
+  const want = infoInst ? (() => { const c = cardDef(infoInst.id, infoInst.up); return `<b>${c.icon} ${esc(c.name)}</b> ${c.cast ? `${ico('cast')}${c.cast}s ` : ''}· ${cardText(c)}${sel != null ? ` <span class="hint">${selHint(c)}</span>` : ''}`; })()
     : h.down ? `<span class="hint">You're down until a Resurrection or the end of this fight.</span>`
       : touch.matches ? `<span class="hint">Tap a card to read it, tap again to play. ↻ discards it and draws another for 1⚡.</span>`
         : `<span class="hint">Click a card to play it. ↻ (or right-click, or X) discards it and draws another for 1⚡.</span>`;
