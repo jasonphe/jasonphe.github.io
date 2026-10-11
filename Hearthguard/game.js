@@ -667,6 +667,13 @@ function showRelicTip(btn) {
   tipFor = btn;
 }
 function hideRelicTip() { $('relicTip').hidden = true; tipFor = null; }
+// The open tooltip's numbers changed (a timer ticked): update its text, leave the rest.
+function refreshTip(btn) {
+  const tip = $('relicTip'), b = tip.querySelector('b'), d = tip.querySelector('span');
+  if (!b || !d) { showRelicTip(btn); return; }
+  b.textContent = btn.dataset.tip;
+  d.innerHTML = iconize(esc(btn.dataset.tipd || ''));
+}
 document.addEventListener('pointerover', e => {
   if (e.pointerType !== 'mouse') return;
   const b = e.target.closest(TIPPABLE);
@@ -1252,21 +1259,21 @@ const INTENT_TIPS = {
 function heroStatuses(pid, h, t) {
   const out = [];
   const left = until => `${Math.ceil(until - t)}s left.`;
-  const tag = (icon, title, desc, label = '') => out.push(`<span class="hs"${tipAttr(title, desc)}>${icon}${label}</span>`);
-  if (h.guard) tag(ico('armor'), `Armor ${Math.round(h.guard)}`, 'Soaks hits on this hero before their HP.', ` ${Math.round(h.guard)}`);
-  if (h.shelter > t) tag(ico('stand-guard'), 'Standing guard', `This hero's Armor also soaks hits on the Hearth. ${left(h.shelter)}`);
-  if (h.vanish > t) tag('👤', 'Cloaked', `Enemies can't hurt this hero. ${left(h.vanish)}`);
-  if (h.cover && h.cover.until > t && C.heroes[h.cover.by] && h.cover.by !== pid) tag('🫸', `Covered by ${pName(h.cover.by)}`, `Hits aimed at this hero go to ${pName(h.cover.by)} instead. ${left(h.cover.until)}`);
-  if (h.haste > t) tag(ico('energy'), 'Hasted', `Regenerates ⚡ twice as fast. ${left(h.haste)}`);
-  if (h.slow > t) tag(ico('slow'), 'Slowed', `Regenerates ⚡ at half speed. ${left(h.slow)}`);
-  if (h.empower) tag(ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
-  if (h.twin) tag('♊', 'Twincast ready', 'The next spell with a cast time resolves twice.');
+  const tag = (k, icon, title, desc, label = '') => out.push({ k, icon, label, tip: title, tipd: desc });
+  if (h.guard) tag('armor', ico('armor'), `Armor ${Math.round(h.guard)}`, 'Soaks hits on this hero before their HP.', ` ${Math.round(h.guard)}`);
+  if (h.shelter > t) tag('shelter', ico('stand-guard'), 'Standing guard', `This hero's Armor also soaks hits on the Hearth. ${left(h.shelter)}`);
+  if (h.vanish > t) tag('vanish', '👤', 'Cloaked', `Enemies can't hurt this hero. ${left(h.vanish)}`);
+  if (h.cover && h.cover.until > t && C.heroes[h.cover.by] && h.cover.by !== pid) tag('cover', '🫸', `Covered by ${pName(h.cover.by)}`, `Hits aimed at this hero go to ${pName(h.cover.by)} instead. ${left(h.cover.until)}`);
+  if (h.haste > t) tag('haste', ico('energy'), 'Hasted', `Regenerates ⚡ twice as fast. ${left(h.haste)}`);
+  if (h.slow > t) tag('slow', ico('slow'), 'Slowed', `Regenerates ⚡ at half speed. ${left(h.slow)}`);
+  if (h.empower) tag('empower', ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
+  if (h.twin) tag('twin', '♊', 'Twincast ready', 'The next spell with a cast time resolves twice.');
   // Powers this hero played that act on themselves; team-wide ones sit on the Hearth.
   for (const [id, up] of h.powers || []) {
     const c = cardDef(id, up);
-    if (c.tgt !== 'none') tag(powerPic(c), c.name, `Active for the rest of the fight. ${powerText(c)}`);
+    if (c.tgt !== 'none') tag(`pw:${id}:${up}`, powerPic(c), c.name, `Active for the rest of the fight. ${powerText(c)}`);
   }
-  return out.join(' ');
+  return out;
 }
 
 // Active powers show as their card art, with the card's text (minus markup) as the tooltip.
@@ -1276,9 +1283,34 @@ function teamPowers() {
   const out = [];
   for (const [pid, h] of Object.entries(C.heroes)) for (const [id, up] of h.powers || []) {
     const c = cardDef(id, up);
-    if (c.tgt === 'none') out.push(`<span class="hs"${tipAttr(c.name, `Played by ${pName(pid)}, active for the rest of the fight. ${powerText(c)}`)}>${powerPic(c)}</span>`);
+    if (c.tgt === 'none') out.push({ k: `pw:${pid}:${id}:${up}`, icon: powerPic(c), tip: c.name, tipd: `Played by ${pName(pid)}, active for the rest of the fight. ${powerText(c)}` });
   }
-  return out.join(' ');
+  return out;
+}
+
+// Status chips (icon + number, each with a tooltip) are updated in place, keyed by `k`:
+// the same chip stays put while its numbers tick, and new chips go on the end, so a
+// hovered tooltip doesn't flicker and chips don't slide around.
+function syncChips(box, items, cls = 'hs') {
+  const have = new Map([...box.children].map(c => [c.dataset.k, c]));
+  for (const it of items) {
+    let c = have.get(it.k);
+    have.delete(it.k);
+    if (!c) {
+      c = document.createElement('span');
+      c.className = cls;
+      c.dataset.k = it.k;
+      c.innerHTML = `${it.icon}<span class="n"></span>`;
+      box.append(c);
+    }
+    setText(c.querySelector('.n'), it.label || '');
+    if (c.dataset.tip !== it.tip || c.dataset.tipd !== it.tipd) {
+      c.dataset.tip = it.tip;
+      c.dataset.tipd = it.tipd;
+      if (tipFor === c) refreshTip(c);
+    }
+  }
+  for (const c of have.values()) { if (tipFor === c) hideRelicTip(); c.remove(); }
 }
 
 // Who would combo with `pid` if their cast landed at fight-time `at`: teammates still
@@ -1317,8 +1349,8 @@ function frame(now) {
   setW(hEl.querySelector('.hp'), hp / max);
   setW(hEl.querySelector('.sh'), sh / max);
   setText(hEl.querySelector('.hnum'), `${Math.ceil(hp)} / ${max}`);
-  setHTML(hEl.querySelector('.hpows'), teamPowers());
-  setHTML(hEl.querySelector('.snum'), sh >= 1 ? `<span${tipAttr(`Barrier ${Math.floor(sh)}`, S.relics?.includes('anchor') ? 'Soaks hits on the Hearth. The Anchor stops it from fading.' : 'Soaks hits on the Hearth, and slowly fades.')}>${ico('barrier')} ${Math.floor(sh)}</span>` : '');
+  syncChips(hEl.querySelector('.hpows'), teamPowers());
+  syncChips(hEl.querySelector('.snum'), sh >= 1 ? [{ k: 'barrier', icon: ico('barrier'), label: ` ${Math.floor(sh)}`, tip: `Barrier ${Math.floor(sh)}`, tipd: S.relics?.includes('anchor') ? 'Soaks hits on the Hearth. The Anchor stops it from fading.' : 'Soaks hits on the Hearth, and slowly fades.' }] : [], '');
   tog(hEl, 'low', hp / max < 0.3);
 
   // Enemies
@@ -1333,14 +1365,15 @@ function frame(now) {
     setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}`);
     const st = [];
     const left = until => `${Math.ceil(until - t)}s left.`;
-    if (e.str) st.push(`<span${tipAttr(`Strength +${e.str}`, `Its attacks deal ${e.str} more damage.`)}>${ico('buff')}${e.str}</span>`);
-    if (e.burn) st.push(`<span${tipAttr(`Burn ${e.burn}`, `Takes ${e.burn} damage each second, then Burn drops by 1. Ignores block.`)}>${ico('burn')}${e.burn}</span>`);
-    if (e.poison) st.push(`<span${tipAttr(`Poison ${e.poison}`, `Takes ${e.poison} damage each second, then Poison drops by 1. Ignores block.`)}>${ico('poison')}${e.poison}</span>`);
-    if (e.vuln > t) st.push(`<span${tipAttr('Vulnerable', `Takes 50% more damage. ${left(e.vuln)}`)}>${ico('vuln')}${Math.ceil(e.vuln - t)}s</span>`);
-    if (e.weak > t) st.push(`<span${tipAttr('Weak', `Deals 30% less damage. ${left(e.weak)}`)}>${ico('weak')}${Math.ceil(e.weak - t)}s</span>`);
-    if (e.stun > t) st.push(`<span${tipAttr('Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`)}>${ico('stun')}${Math.ceil(e.stun - t)}s</span>`);
-    if (e.block) st.push(`<span${tipAttr(`Block ${e.block}`, `Soaks the next ${e.block} damage before its HP. Burn ignores it.`)}>${ico('block')}${e.block}</span>`);
-    setHTML(el.querySelector('.status'), st.join(''));
+    const tag = (k, title, desc, label) => st.push({ k, icon: ico(k), label: String(label), tip: title, tipd: desc });
+    if (e.str) tag('buff', `Strength +${e.str}`, `Its attacks deal ${e.str} more damage.`, e.str);
+    if (e.burn) tag('burn', `Burn ${e.burn}`, `Takes ${e.burn} damage each second, then Burn drops by 1. Ignores block.`, e.burn);
+    if (e.poison) tag('poison', `Poison ${e.poison}`, `Takes ${e.poison} damage each second, then Poison drops by 1. Ignores block.`, e.poison);
+    if (e.vuln > t) tag('vuln', 'Vulnerable', `Takes 50% more damage. ${left(e.vuln)}`, `${Math.ceil(e.vuln - t)}s`);
+    if (e.weak > t) tag('weak', 'Weak', `Deals 30% less damage. ${left(e.weak)}`, `${Math.ceil(e.weak - t)}s`);
+    if (e.stun > t) tag('stun', 'Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`, `${Math.ceil(e.stun - t)}s`);
+    if (e.block) tag('block', `Block ${e.block}`, `Soaks the next ${e.block} damage before its HP. Burn and Poison ignore it.`, e.block);
+    syncChips(el.querySelector('.status'), st, '');
     const tt = el.querySelector('.taunt-tag');
     if (e.taunt && e.hp > 0) {
       setText(tt, `Taunted by ${pName(e.taunt.pid)}`);
@@ -1378,7 +1411,7 @@ function frame(now) {
     tog(el, 'targetable', selCard?.tgt === 'ally');
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
-    setHTML(el.querySelector('.guard'), heroStatuses(pid, h, t));
+    syncChips(el.querySelector('.guard'), heroStatuses(pid, h, t));
     const taunts = C.enemies.filter(e => e.hp > 0 && e.taunt?.pid === pid).length;
     setHTML(el.querySelector('.htaunt'), taunts ? `<span${tipAttr(`Taunting ${taunts}`, `${taunts} enem${taunts > 1 ? 'ies are' : 'y is'} attacking this hero instead of the Hearth.`)}>${ico('taunt')}×${taunts}</span>` : '');
     const hc = el.querySelector('.hcast');
