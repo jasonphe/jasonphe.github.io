@@ -40,13 +40,17 @@ No build step and no dependencies to install. Plain ES modules served as static 
 - **Barrier vs Armor:** **Barrier** shields the Hearth and fades. **Armor** shields one hero. Card keys: `shield` = Barrier, `guard` = Armor.
 - **Taunt:** sends an enemy's attacks (`atk`, `pounce`) to the taunter. `wave` and `quake` moves ignore taunts; only the Ash Wyrm's Flame Breath is a wave now.
 - **Interrupt** breaks poise, and a move is cancelled when its poise hits 0. Only moves with `poise` in their data can be interrupted (they show a poise bar); the rest can only be stunned, taunted or blocked. Signature moves (buffs, heals, summons, hexes, drains, the big hits) have poise; basic attacks don't.
-- **Stun** pauses a wind-up. Stuns don't chain: a stunned enemy resists new stuns, and after it wakes it is "Steadfast" for `STUN_IMMUNE × TEMPO` seconds (`stunEnemy` in `sim.js`).
+- **Stun** pauses a wind-up. Stuns don't chain: a stunned enemy resists new stuns, and after it wakes it is "Steadfast" for `STUN_IMMUNE × TEMPO` seconds (`stunEnemy` in `sim.js`). Elites and bosses take half-length stuns.
 - **Party-size scaling** (tables at the top of `sim.js`, indexed by player count):
   - `HP_SCALE`: enemy HP.
   - `DMG_SCALE`: hits on the Hearth.
   - `HERO_DMG_SCALE`: hits on heroes.
   - `POISE_ADD`: bigger parties carry more interrupts, so moves with poise get this much extra (added, not multiplied, so 3-poise boss moves stay stoppable). Fractions round up at random.
   - `BOSS`: extra HP and damage multipliers for boss fights, so one big hit can't take the whole Hearth.
+  - `WIND_SCALE`: enemies wind up (and recover) faster in bigger parties.
+  - `MINION_CHANCE`: chance a normal or elite fight brings an extra minion (rat, bat or goblin).
+  - Moves with `minP: 3` only come out against parties of 3+: `shatter` (breaks the Hearth's Barrier, then hits it), `sunder` (strips heroes' Armor, then hits each) and `defy` (shakes off taunts; the enemy is Defiant and can't be taunted for a while). None of them can be interrupted. They counter the tricks big parties lean on.
+  - Prefer these mechanical levers over raising HP and damage further. Elites and bosses also take half-length stuns.
   - Tuned together with `tools/bots.mjs` (smart bots, starter and CC decks) so 2, 3 and 4 players lose about the same share of the Hearth per fight (roughly 15–25% in mid-run normal fights, 40–55% in elites) and bosses are winnable. Retune them together.
 - **Combo:** a cast-time spell that lands while a teammate is mid-cast, or within `comboWindow()` after theirs landed, is 25% stronger per partner, plus the card's own `combo` bonus. The UI predicts combos: hand badges, glowing cast bars, a shrinking "Combo window" bar.
 - **Cards:**

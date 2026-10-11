@@ -28,7 +28,7 @@ const ICONS = {
   atk: '⚔️', pounce: '🎯', wave: '🌊', quake: '💥', block: '🛡️', buff: '💪', rally: '📯', heal: '💚',
   summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️', burn: '🔥', poison: '🧪', vuln: '🎯', weak: '🥀', stun: '💫',
   energy: '⚡', armor: '🪖', barrier: '🔷', embers: '🔶', gold: '🪙', hp: '❤️', floor: '🪜', deck: '🂠',
-  discard: '♻️', cast: '⏱', difficulty: '💀', 'stand-guard': '⚜️', taunt: '😤', interrupt: '✋', revive: '🕊️', lock: '🔒',
+  discard: '♻️', cast: '⏱', difficulty: '💀', 'stand-guard': '⚜️', taunt: '😤', interrupt: '✋', revive: '🕊️', lock: '🔒', shatter: '💔', sunder: '🪓', defy: '😠',
 };
 const ico = (name, title = '') => ICONS[name]
   ? `<img class="ico" src="assets/ui/${name}.webp" alt="${ICONS[name]}"${title ? ` title="${title}"` : ''} draggable="false" onerror="this.replaceWith(this.alt)">`
@@ -459,6 +459,7 @@ const SCREENS = {
           <li><b>Interrupt</b> only works on moves with a <b>poise bar</b>: each interrupt breaks one pip, and the move is cancelled when they're all gone. Moves without one can't be stopped, only stunned, taunted or blocked.</li>
           <li><b>Stuns</b> pause a wind-up, but an enemy that's just been stunned shrugs off new stuns for a while (${ico('lock')}). ${ico('wave')} Waves ignore taunts.</li>
           <li>${ico('barrier')} <b>Barrier</b> soaks hits for the Hearth but fades over time. ${ico('armor')} <b>Armor</b> soaks hits for one hero.</li>
+          <li><b>Bigger parties</b> face quicker enemies, extra minions, and moves that shatter Barrier, strip Armor or shrug off taunts.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
           <li>Stuck with a bad card? <b>${ico('discard')} Discard</b> it to draw another for 1${ico('energy')}.</li>
           <li><b>${ico('embers')} Embers:</b> every run earns Embers (more for winning and on harder difficulties). Spend them in <b>Edit deck</b> to unlock cards you've found in runs. Rarer cards need a win on a harder difficulty, and each win opens the next one.</li>
@@ -1231,6 +1232,9 @@ function intentFor(e, t) {
     case 'hex': tgt = `Hexes ${a.v} deck${a.v > 1 ? 's' : ''}`; break;
     case 'drain': tgt = `Everyone −${a.v}⚡`; break;
     case 'slow': tgt = 'Halves ⚡ regen'; break;
+    case 'shatter': num = a.dmg ? n(dmg) : ''; tgt = `Breaks ${a.v >= 1 ? '' : `${Math.round(a.v * 100)}% `}Barrier${a.dmg ? ' → Hearth' : ''}`; danger = !!a.dmg; break;
+    case 'sunder': num = a.dmg ? n(heroDmg) : ''; tgt = `Strips ${a.v >= 1 ? 'all' : `${Math.round(a.v * 100)}% of`} Armor${a.dmg ? ', hits every hero' : ''}`; break;
+    case 'defy': num = a.dmg ? n(dmg) : ''; tgt = `Can't be taunted for ${a.v * TEMPO}s${a.dmg ? ', → Hearth' : ''}`; danger = !!a.dmg; break;
   }
   return { a, num, tgt, danger };
 }
@@ -1254,6 +1258,9 @@ const INTENT_TIPS = {
   hex: 'Shuffles unplayable Hex cards into decks. Discard them to get rid of them.',
   drain: 'Drains energy from every hero.',
   slow: "Halves every hero's energy regen for a while.",
+  shatter: "Breaks the Hearth's Barrier, then hits the Hearth. Only bigger parties see it.",
+  sunder: "Strips every hero's Armor, then hits each of them. Only bigger parties see it.",
+  defy: "Shakes off any taunt and can't be taunted for a while. Only bigger parties see it.",
 };
 
 // Status icons on a hero panel, each with a tooltip.
@@ -1374,6 +1381,7 @@ function frame(now) {
     if (e.weak > t) tag('weak', 'Weak', `Deals 30% less damage. ${left(e.weak)}`, `${Math.ceil(e.weak - t)}s`);
     if (e.stun > t) tag('stun', 'Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`, `${Math.ceil(e.stun - t)}s`);
     else if (e.stunImmune > t) tag('steady', 'Steadfast', `Just shook off a stun, so it can't be stunned again yet. ${left(e.stunImmune)}`, `${Math.ceil(e.stunImmune - t)}s`, ico('lock'));
+    if (e.defiant > t) tag('defy', 'Defiant', `Can't be taunted. ${left(e.defiant)}`, `${Math.ceil(e.defiant - t)}s`);
     if (e.block) tag('block', `Block ${e.block}`, `Soaks the next ${e.block} damage before its HP. Burn and Poison ignore it.`, e.block);
     syncChips(el.querySelector('.status'), st, '');
     const tt = el.querySelector('.taunt-tag');

@@ -20,17 +20,22 @@ const PRICES = { common: 45, uncommon: 70, rare: 110, epic: 160, legendary: 240,
 const REWARD_ODDS = { fight: [['legendary', 0.01], ['epic', 0.04], ['rare', 0.13], ['uncommon', 0.30]], elite: [['legendary', 0.04], ['epic', 0.13], ['rare', 0.28], ['uncommon', 0.35]] };
 const REMOVE_PRICE = 60;
 // Indexed by party size.
-export const HP_SCALE = [1, 0.85, 1.9, 3.3, 5.0];
-export const DMG_SCALE = [1, 1.0, 2.1, 3.0, 3.7];
+export const HP_SCALE = [1, 0.85, 1.9, 3.0, 4.1];
+export const DMG_SCALE = [1, 1.0, 2.1, 2.6, 2.8];
 // Hits on heroes (pounces, taunted attacks, quakes) scale more gently than hits on the
 // Hearth, so a tank can still survive taking them for the party.
-export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.5, 1.9];
+export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.1, 1.25];
 // Bigger parties carry more interrupts, so moves with poise need more of them: this much
 // extra poise by party size, added (not multiplied) so the biggest moves stay stoppable.
 export const POISE_ADD = [0, 0, 0.3, 1, 1.8];
 const HEARTH = [60, 70, 85, 100, 115];
 // Bosses on top of the scaling above, so one big hit can't take the whole Hearth.
 export const BOSS = { hp: 0.85, dmg: 0.72 };
+// Bigger parties also face quicker enemies (wind-ups and the pause between moves are
+// multiplied by this) and normal and elite fights may bring an extra minion (chance by party size).
+export const WIND_SCALE = [1, 1, 1, 0.9, 0.85];
+export const MINION_CHANCE = [0, 0, 0, 0.5, 0.45];
+const MINIONS = ['rat', 'bat', 'goblin'];
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
@@ -345,6 +350,7 @@ export class Sim {
     const dmB = boss ? BOSS.dmg : 1;
     const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult() * dmB, hdm: this.dmgMult(HERO_DMG_SCALE) * dmB, st: {}, wardBy: {} };
     for (const type of group) this.spawn(type, hpM, true);
+    if (kind !== 'boss' && C.enemies.length < 4 && Math.random() < (MINION_CHANCE[S.players.length] || 0)) this.spawn(pick(MINIONS), hpM * 0.7, true);
     for (const p of S.players) {
       const cls = CLASSES[p.cls];
       const emax = BASE_MAX_E + (this.has('pouch') ? 1 : 0);
@@ -543,7 +549,9 @@ export class Sim {
     const C = this.C;
     if (e.hp <= 0) return false;
     if (e.stun > C.t || e.stunImmune > C.t) { this.ev.push({ k: 'txt', to: e.id, x: 'Resisted' }); return false; }
-    e.stun = C.t + secs;
+    // Elites and bosses shake stuns off twice as fast.
+    const d = ENEMIES[e.type];
+    e.stun = C.t + secs * (d.elite || d.boss ? 0.5 : 1);
     e.stunImmune = e.stun + STUN_IMMUNE * TEMPO;
     this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' });
     return true;
@@ -611,13 +619,17 @@ export class Sim {
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
         case 'burn': for (const e of foes) this.addDot(e, 'burn', Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)), pid); break;
         case 'poison': for (const e of foes) this.addDot(e, 'poison', Math.round(v * mult), pid); break;
-        case 'taunt':
-          for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
+        case 'taunt': {
+          // A Defiant enemy can't be taunted for now.
+          const taunted = foes.filter(e => !(e.defiant > C.t));
+          for (const e of foes) if (e.defiant > C.t) this.ev.push({ k: 'txt', to: e.id, x: 'Defiant' });
+          for (const e of taunted) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
           // Rallying Standard: taunting fires up the whole team.
-          if (foes.length && h.pw.rally) for (const [id, x] of Object.entries(C.heroes)) if (!x.down) { const was = x.e; x.e = Math.min(x.emax, x.e + h.pw.rally); if (x !== h) this.stat(pid, 'energyGiven', x.e - was); }
-          if (foes.length && this.has('collar')) { h.guard += 5; this.stat(pid, 'guard', 5); }
-          this.ev.push({ k: 'txt', to: pid, x: 'Taunt!' });
+          if (taunted.length && h.pw.rally) for (const [id, x] of Object.entries(C.heroes)) if (!x.down) { const was = x.e; x.e = Math.min(x.emax, x.e + h.pw.rally); if (x !== h) this.stat(pid, 'energyGiven', x.e - was); }
+          if (taunted.length && this.has('collar')) { h.guard += 5; this.stat(pid, 'guard', 5); }
+          if (taunted.length) this.ev.push({ k: 'txt', to: pid, x: 'Taunt!' });
           break;
+        }
         case 'shield': C.shield += Math.round(v * mult); this.stat(pid, 'shield', Math.round(v * mult)); this.ev.push({ k: 'heal', to: 'shield', v: Math.round(v * mult) }); break;
         case 'guard': ally.guard += Math.round(v * mult); this.stat(pid, 'guard', Math.round(v * mult)); break;
         case 'heal': {
@@ -732,6 +744,28 @@ export class Sim {
         break;
       case 'drain': for (const [id, h] of heroes) { h.e = Math.max(0, h.e - a.v); this.ev.push({ k: 'txt', to: id, x: `−${a.v}⚡`, c: 'bad' }); } break;
       case 'slow': for (const [, h] of heroes) h.slow = Math.max(h.slow, C.t + a.v * TEMPO); break;
+      // Moves that only come out against bigger parties, aimed at their favourite tricks.
+      case 'shatter': {
+        const gone = Math.round(C.shield * (a.v ?? 1));
+        C.shield -= gone;
+        if (gone > 0) this.ev.push({ k: 'txt', to: 'hearth', x: `Barrier −${gone}`, c: 'bad' });
+        if (a.dmg) { this.hitHearth(dmg); this.caltrops(e); }
+        break;
+      }
+      case 'sunder':
+        for (const [id, h] of heroes) {
+          const lost = Math.round(h.guard * (a.v ?? 1));
+          h.guard -= lost;
+          if (lost > 0) this.ev.push({ k: 'txt', to: id, x: `Armor −${lost}`, c: 'bad' });
+          if (a.dmg) this.hitHero(id, heroDmg, e);
+        }
+        break;
+      case 'defy':
+        e.taunt = null;
+        e.defiant = C.t + a.v * TEMPO;
+        this.ev.push({ k: 'txt', to: e.id, x: 'Defiant!', c: 'bad' });
+        if (a.dmg) { this.hitHearth(dmg); this.caltrops(e); }
+        break;
     }
   }
 
@@ -747,12 +781,15 @@ export class Sim {
   nextAction(e) {
     const d = ENEMIES[e.type];
     let i;
-    if (d.pat === 'cycle') { i = e.next % d.acts.length; e.next++; }
-    else { do i = randInt(0, d.acts.length - 1); while (d.acts.length > 1 && i === e.last); }
+    // Some moves only come out against bigger parties (minP = fewest players).
+    const n = this.S.players.length;
+    const idx = d.acts.map((_, j) => j).filter(j => (d.acts[j].minP || 0) <= n);
+    if (d.pat === 'cycle') { i = idx[e.next % idx.length]; e.next++; }
+    else { do i = pick(idx); while (idx.length > 1 && i === e.last); }
     e.last = i;
     const a = d.acts[i];
     const poise = a.poise ? this.poiseFor(a) : 0;   // no poise: can't be interrupted
-    e.act = { i, el: 0, dur: a.w * TEMPO * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
+    e.act = { i, el: 0, dur: a.w * TEMPO * (WIND_SCALE[n] || 1) * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
   }
 
   // ---------- The clock ----------
@@ -812,7 +849,7 @@ export class Sim {
           this.ev.push({ k: 'eact', by: e.id, x: name });
           this.enemyAct(e);
           e.act = null;
-          e.rec = 1 * TEMPO;
+          e.rec = 1 * TEMPO * (WIND_SCALE[S.players.length] || 1);
           if (C.end) return;
         }
       }

@@ -43,6 +43,9 @@ function moveThreat(sim, e, a = ENEMIES[e.type].acts[e.act?.i ?? 0]) {
     case 'drain': return 5 * a.v * n;
     case 'slow': return 5 * n;
     case 'block': return a.v * sim.hpMult() * 0.4;
+    case 'shatter': return C.shield * (a.v ?? 1) * 0.8 + (a.dmg ? base * C.dm : 0);
+    case 'sunder': return heroesUp(sim).reduce((s, [, h]) => s + h.guard * (a.v ?? 1) * 0.5, 0) + (a.dmg ? base * C.hdm * n * 0.4 : 0);
+    case 'defy': return 8 + (a.dmg ? base * C.dm : 0);
     default: return 0;
   }
 }
@@ -61,7 +64,7 @@ function incomingHearth(sim, win) {
   for (const e of alive(sim.C)) {
     if (!e.act || e.stun > sim.C.t || timeLeft(e) > win) continue;
     const a = ENEMIES[e.type].acts[e.act.i];
-    if (['atk', 'wave', 'quake'].includes(a.k) && !(a.k === 'atk' && e.taunt)) sum += moveThreat(sim, e);
+    if (['atk', 'wave', 'quake', 'shatter', 'defy'].includes(a.k) && a.dmg && !(a.k === 'atk' && e.taunt)) sum += ((a.dmg || 0) + e.str) * sim.C.dm;
   }
   return sum;
 }
@@ -124,7 +127,7 @@ function cardValue(sim, pid, c, tgt, claims) {
       case 'taunt': {
         if (h.hp + h.guard < 15) break;
         for (const e of foes) {
-          if (e.taunt && e.taunt.until > t + 2) continue;
+          if ((e.taunt && e.taunt.until > t + 2) || e.defiant > t) continue;
           const acts = ENEMIES[e.type].acts.filter(a => a.k === 'atk' || a.k === 'pounce');
           if (!acts.length) continue;
           const per = acts.reduce((s, a) => s + ((a.dmg || 0) + e.str) * (a.hits || 1) * (a.k === 'atk' ? C.dm - C.hdm * 0.4 : 0), 0) / ENEMIES[e.type].acts.length;

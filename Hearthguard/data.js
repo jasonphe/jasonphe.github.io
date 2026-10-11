@@ -339,26 +339,29 @@ export function cardText(c) {
 //  wave  hits the Hearth and can't be taunted
 //  quake hits the Hearth and every hero
 //  block, buff (+str to self), rally (+str to all), heal, summon, hex, drain (⚡), slow
+//  shatter (breaks v of the Hearth's Barrier, then hits it), sunder (strips v of every
+//  hero's Armor, then hits each), defy (shakes off taunts and can't be taunted for v seconds)
+// minP = only used against parties of at least that many players.
 // w = wind-up seconds. poise = interrupts needed to cancel it; a move without poise can't be
 // interrupted (only stunned, taunted or blocked).
 export const ENEMIES = {
   rat: { name: 'Plague Rat', icon: '🐀', hp: 18, pat: 'random', acts: [{ n: 'Gnaw', k: 'atk', dmg: 4, w: 2.5 }, { n: 'Leap', k: 'pounce', dmg: 5, w: 3 }] },
-  skeleton: { name: 'Skeleton', icon: '💀', hp: 40, pat: 'cycle', acts: [{ n: 'Slash', k: 'atk', dmg: 8, w: 3.5 }, { n: 'Bone Wall', k: 'block', v: 10, w: 2 }, { n: 'Heavy Swing', k: 'atk', dmg: 17, w: 5.5, poise: 2 }] },
-  cultist: { name: 'Cultist', icon: '🧙', hp: 32, pat: 'cycle', acts: [{ n: 'Dark Chant', k: 'buff', v: 3, w: 4, poise: 1 }, { n: 'Shadow Bolt', k: 'atk', dmg: 7, w: 3 }, { n: 'Hex', k: 'hex', v: 1, w: 3.5, poise: 1 }, { n: 'Shadow Bolt', k: 'atk', dmg: 7, w: 3 }] },
+  skeleton: { name: 'Skeleton', icon: '💀', hp: 40, pat: 'cycle', acts: [{ n: 'Slash', k: 'atk', dmg: 8, w: 3.5 }, { n: 'Bone Wall', k: 'block', v: 10, w: 2 }, { n: 'Heavy Swing', k: 'atk', dmg: 17, w: 5.5, poise: 2 }, { n: 'Shield Breaker', k: 'shatter', v: 0.5, dmg: 5, w: 3.5, minP: 3 }] },
+  cultist: { name: 'Cultist', icon: '🧙', hp: 32, pat: 'cycle', acts: [{ n: 'Dark Chant', k: 'buff', v: 3, w: 4, poise: 1 }, { n: 'Shadow Bolt', k: 'atk', dmg: 7, w: 3 }, { n: 'Hex', k: 'hex', v: 1, w: 3.5, poise: 1 }, { n: 'Shadow Bolt', k: 'atk', dmg: 7, w: 3 }, { n: 'Dark Pact', k: 'defy', v: 6, dmg: 5, w: 3, minP: 3 }] },
   goblin: { name: 'Goblin Archer', icon: '👺', hp: 24, pat: 'random', acts: [{ n: 'Volley', k: 'atk', dmg: 3, hits: 3, w: 3.5 }, { n: 'Snipe', k: 'pounce', dmg: 8, w: 3, poise: 1 }] },
-  wolf: { name: 'Dire Wolf', icon: '🐺', hp: 30, pat: 'random', acts: [{ n: 'Bite', k: 'pounce', dmg: 6, w: 2.5 }, { n: 'Howl', k: 'rally', v: 2, w: 3, poise: 1 }, { n: 'Lunge', k: 'atk', dmg: 11, w: 4, poise: 1 }] },
+  wolf: { name: 'Dire Wolf', icon: '🐺', hp: 30, pat: 'random', acts: [{ n: 'Bite', k: 'pounce', dmg: 6, w: 2.5 }, { n: 'Howl', k: 'rally', v: 2, w: 3, poise: 1 }, { n: 'Lunge', k: 'atk', dmg: 11, w: 4, poise: 1 }, { n: 'Snarl', k: 'defy', v: 6, w: 2.5, minP: 3 }] },
   bat: { name: 'Vampire Bat', icon: '🦇', hp: 14, pat: 'random', acts: [{ n: 'Screech', k: 'drain', v: 1, w: 3, poise: 1 }, { n: 'Nip', k: 'atk', dmg: 3, w: 2 }] },
   spider: { name: 'Crypt Spider', icon: '🕷️', hp: 28, pat: 'cycle', acts: [{ n: 'Web', k: 'slow', v: 5, w: 3, poise: 1 }, { n: 'Venom Spray', k: 'atk', dmg: 6, w: 4 }, { n: 'Bite', k: 'atk', dmg: 6, w: 2.5 }] },
-  zombie: { name: 'Ghoul', icon: '🧟', hp: 50, pat: 'cycle', acts: [{ n: 'Claw', k: 'atk', dmg: 10, w: 4.5, poise: 1 }, { n: 'Lurch', k: 'pounce', dmg: 7, w: 3.5 }] },
-  wraith: { name: 'Wraith', icon: '👻', hp: 36, pat: 'cycle', acts: [{ n: 'Soul Rend', k: 'atk', dmg: 9, w: 4.5, poise: 1 }, { n: 'Fade', k: 'block', v: 12, w: 2.5 }, { n: 'Chill', k: 'pounce', dmg: 7, w: 3 }] },
+  zombie: { name: 'Ghoul', icon: '🧟', hp: 50, pat: 'cycle', acts: [{ n: 'Claw', k: 'atk', dmg: 10, w: 4.5, poise: 1 }, { n: 'Lurch', k: 'pounce', dmg: 7, w: 3.5 }, { n: 'Rend', k: 'sunder', v: 1, dmg: 4, w: 4, minP: 3 }] },
+  wraith: { name: 'Wraith', icon: '👻', hp: 36, pat: 'cycle', acts: [{ n: 'Soul Rend', k: 'atk', dmg: 9, w: 4.5, poise: 1 }, { n: 'Fade', k: 'block', v: 12, w: 2.5 }, { n: 'Chill', k: 'pounce', dmg: 7, w: 3 }, { n: 'Shriek', k: 'shatter', v: 1, w: 3, minP: 3 }] },
   // Elites
-  ogre: { name: 'Ogre Brute', icon: '👹', hp: 130, elite: 1, pat: 'cycle', acts: [{ n: 'Roar', k: 'buff', v: 4, w: 3, poise: 1 }, { n: 'Smash', k: 'atk', dmg: 22, w: 6, poise: 2 }, { n: 'Stomp', k: 'quake', dmg: 5, w: 4 }, { n: 'Smash', k: 'atk', dmg: 22, w: 6, poise: 2 }] },
-  necro: { name: 'Necromancer', icon: '🧛', hp: 95, elite: 1, pat: 'cycle', acts: [{ n: 'Raise Dead', k: 'summon', v: 'skeleton', w: 5, poise: 2 }, { n: 'Soul Drain', k: 'atk', dmg: 10, heal: 10, w: 4, poise: 1 }, { n: 'Curse', k: 'hex', v: 2, w: 3.5, poise: 1 }, { n: 'Bone Spear', k: 'pounce', dmg: 13, w: 3.5 }] },
-  gargoyle: { name: 'Gargoyle', icon: '🗿', hp: 110, elite: 1, pat: 'cycle', acts: [{ n: 'Stone Skin', k: 'block', v: 20, w: 3 }, { n: 'Dive', k: 'atk', dmg: 18, w: 5 }, { n: 'Crushing Weight', k: 'atk', dmg: 15, w: 6, poise: 3 }] },
-  dread: { name: 'Dread Knight', icon: '🐴', hp: 120, elite: 1, pat: 'cycle', acts: [{ n: 'Charge', k: 'atk', dmg: 20, w: 4.5, poise: 2 }, { n: 'Dark Cleave', k: 'quake', dmg: 6, w: 4 }, { n: 'Shield Up', k: 'block', v: 15, w: 2.5 }] },
+  ogre: { name: 'Ogre Brute', icon: '👹', hp: 130, elite: 1, pat: 'cycle', acts: [{ n: 'Roar', k: 'buff', v: 4, w: 3, poise: 1 }, { n: 'Smash', k: 'atk', dmg: 22, w: 6, poise: 2 }, { n: 'Stomp', k: 'quake', dmg: 5, w: 4 }, { n: 'Smash', k: 'atk', dmg: 22, w: 6, poise: 2 }, { n: 'Ground Pound', k: 'sunder', v: 1, dmg: 7, w: 4.5, minP: 3 }] },
+  necro: { name: 'Necromancer', icon: '🧛', hp: 95, elite: 1, pat: 'cycle', acts: [{ n: 'Raise Dead', k: 'summon', v: 'skeleton', w: 5, poise: 2 }, { n: 'Soul Drain', k: 'atk', dmg: 10, heal: 10, w: 4, poise: 1 }, { n: 'Curse', k: 'hex', v: 2, w: 3.5, poise: 1 }, { n: 'Bone Spear', k: 'pounce', dmg: 13, w: 3.5 }, { n: 'Bone Storm', k: 'quake', dmg: 6, w: 4.5, minP: 3 }] },
+  gargoyle: { name: 'Gargoyle', icon: '🗿', hp: 110, elite: 1, pat: 'cycle', acts: [{ n: 'Stone Skin', k: 'block', v: 20, w: 3 }, { n: 'Dive', k: 'atk', dmg: 18, w: 5 }, { n: 'Crushing Weight', k: 'atk', dmg: 15, w: 6, poise: 3 }, { n: 'Shatter', k: 'shatter', v: 1, dmg: 10, w: 4, minP: 3 }] },
+  dread: { name: 'Dread Knight', icon: '🐴', hp: 120, elite: 1, pat: 'cycle', acts: [{ n: 'Charge', k: 'atk', dmg: 20, w: 4.5, poise: 2 }, { n: 'Dark Cleave', k: 'quake', dmg: 6, w: 4 }, { n: 'Shield Up', k: 'block', v: 15, w: 2.5 }, { n: 'Defiance', k: 'defy', v: 8, w: 2.5, minP: 3 }] },
   // Bosses
-  king: { name: 'The Hollow King', icon: '👑', hp: 380, boss: 1, pat: 'cycle', acts: [{ n: "Crown's Will", k: 'block', v: 25, w: 3 }, { n: 'Royal Decree', k: 'summon', v: 'skeleton', w: 5, poise: 2 }, { n: 'Executioner', k: 'atk', dmg: 30, w: 7, poise: 3 }, { n: 'Shadow Wave', k: 'quake', dmg: 7, w: 5 }, { n: 'Rally the Dead', k: 'rally', v: 3, w: 3.5, poise: 1 }, { n: 'Executioner', k: 'atk', dmg: 30, w: 7, poise: 3 }] },
-  wyrm: { name: 'Ash Wyrm', icon: '🐉', hp: 420, boss: 1, pat: 'cycle', acts: [{ n: 'Claw', k: 'atk', dmg: 13, w: 3 }, { n: 'Flame Breath', k: 'wave', dmg: 16, w: 6, poise: 3 }, { n: 'Tail Swipe', k: 'quake', dmg: 6, w: 4 }, { n: 'Terrify', k: 'drain', v: 2, w: 3, poise: 1 }, { n: 'Molt', k: 'heal', v: 25, w: 4, poise: 2 }, { n: 'Flame Breath', k: 'wave', dmg: 16, w: 6, poise: 3 }] },
+  king: { name: 'The Hollow King', icon: '👑', hp: 380, boss: 1, pat: 'cycle', acts: [{ n: "Crown's Will", k: 'block', v: 25, w: 3 }, { n: 'Royal Decree', k: 'summon', v: 'skeleton', w: 5, poise: 2 }, { n: 'Executioner', k: 'atk', dmg: 30, w: 7, poise: 3 }, { n: 'Shadow Wave', k: 'quake', dmg: 7, w: 5 }, { n: 'Rally the Dead', k: 'rally', v: 3, w: 3.5, poise: 1 }, { n: 'Executioner', k: 'atk', dmg: 30, w: 7, poise: 3 }, { n: 'Decree of Ruin', k: 'shatter', v: 1, dmg: 12, w: 5, minP: 3 }] },
+  wyrm: { name: 'Ash Wyrm', icon: '🐉', hp: 420, boss: 1, pat: 'cycle', acts: [{ n: 'Claw', k: 'atk', dmg: 13, w: 3 }, { n: 'Flame Breath', k: 'wave', dmg: 16, w: 6, poise: 3 }, { n: 'Tail Swipe', k: 'quake', dmg: 6, w: 4 }, { n: 'Terrify', k: 'drain', v: 2, w: 3, poise: 1 }, { n: 'Molt', k: 'heal', v: 25, w: 4, poise: 2 }, { n: 'Flame Breath', k: 'wave', dmg: 16, w: 6, poise: 3 }, { n: 'Molten Scales', k: 'sunder', v: 1, dmg: 7, w: 4, minP: 3 }] },
 };
 
 export const ENCOUNTERS = {
