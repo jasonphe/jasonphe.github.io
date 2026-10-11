@@ -689,7 +689,8 @@ export class Sim {
     if (c.power) (h.powers ??= []).push([inst.id, inst.up]);
     (c.ex ? h.exh : h.disc).push(inst);
     if (combo) this.stat(pid, 'combos');
-    this.ev.push({ k: 'cast', by: pid, card: c.name, combo });
+    // id, target and atk let the UI pick a pose and aim effects.
+    this.ev.push({ k: 'cast', by: pid, card: c.name, id: inst.id, t: tgt, atk: isAttack ? 1 : 0, combo });
   }
 
   healHearth(n) {

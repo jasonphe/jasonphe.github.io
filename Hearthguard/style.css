@@ -281,6 +281,16 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .art img { width: 100%; height: 100%; min-height: 0; object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 10px #000c); user-select: none; }
 /* Stand-in hero figure: the class bust, faded out at the bottom. */
 .art img.bust { -webkit-mask-image: linear-gradient(#000 72%, #0000); mask-image: linear-gradient(#000 72%, #0000); filter: none; }
+/* Full-body heroes: every pose is stacked in the figure and only the current one shows.
+   Idle breathes gently; each hero starts at a different point so they don't sway together. */
+.art.posed img.pose { position: absolute; inset: 0; visibility: hidden; transform-origin: 50% 100%; }
+.art.posed img.pose.on { visibility: visible; }
+.art.posed img[data-pose="idle"] { animation: breathe 3.2s ease-in-out var(--breathe-delay, 0s) infinite; }
+@keyframes breathe { 50% { transform: scale(1.012, 1.025); } }
+/* Heroes stand on the left, so they lunge right at the enemies. */
+.hero.lunge .art { animation: hero-lunge .4s ease-out; }
+@keyframes hero-lunge { 35% { transform: translateX(18px) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .art.posed img[data-pose="idle"] { animation: none; } }
 .plate { display: grid; gap: 2px; }
 .ename, .hname { font-family: 'Cinzel', serif; font-weight: 800; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .plate .bar { height: 12px; border-radius: 6px; }
@@ -342,7 +352,8 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hname b { border-bottom: 2px solid var(--pc); padding: 0 2px; }
 .hero.mine .hname b { color: var(--gold); }
 .hero.off { opacity: .45; }
-.hero.isdown .art { filter: grayscale(1) brightness(.45); }
+.hero.isdown .art:not(.posed) { filter: grayscale(1) brightness(.45); }
+.hero.isdown .art.posed { filter: saturate(.5) brightness(.7); }
 .hero.isdown .bar, .hero.isdown .guard { opacity: .35; }
 .epips { display: flex; gap: 3px; }
 .epips i { width: 14px; height: 8px; border-radius: 3px; background: #0008; overflow: hidden; border: 1px solid #7a6420; }

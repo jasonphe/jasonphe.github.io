@@ -1199,6 +1199,14 @@ function enemyEl(e) {
   return el;
 }
 
+// Classes with full-body pose art (assets/heroes/<cls>-<pose>.webp). The rest stand in
+// with their bust until their sheet is sliced.
+const HERO_ART = new Set(['knight']);
+const POSES = ['idle', 'attack', 'cast', 'down'];
+// A pose shown briefly after a card lands, by player id: { pose, until } in ms.
+const poseFlash = new Map();
+const POSE_MS = { attack: 450, cast: 600 };
+
 function heroEl(pid) {
   let el = combatDom.heroes.get(pid);
   if (el) return el;
@@ -1207,11 +1215,14 @@ function heroEl(pid) {
   el.className = 'hero' + (pid === selfId ? ' mine' : '');
   el.dataset.id = pid;
   el.style.setProperty('--pc', pColor(pid));
-  // Stand-in figure: the class bust until there's full-body art.
   const cls = CLASSES[p?.cls] ? p.cls : null;
+  // Every pose is in the page from the start, stacked, so swapping one is instant.
+  const art = !cls ? '❔'
+    : HERO_ART.has(cls) ? POSES.map(k => `<img class="pose" data-pose="${k}" src="assets/heroes/${cls}-${k}.webp" alt="" draggable="false">`).join('')
+    : `<img class="bust" src="assets/classes/${cls}.webp" alt="" draggable="false">`;
   el.innerHTML = `
     <div class="fig">
-      <div class="art">${cls ? `<img class="bust" src="assets/classes/${cls}.webp" alt="" draggable="false">` : '❔'}</div>
+      <div class="art${HERO_ART.has(cls) ? ' posed' : ''}" style="--breathe-delay: ${(-Math.random() * 3).toFixed(2)}s">${art}</div>
       <span class="guard"></span>
       <span class="htaunt"></span>
       <div class="down"></div>
@@ -1221,7 +1232,7 @@ function heroEl(pid) {
       <div class="bar"><i class="hp"></i><span></span></div>
       <div class="hcast"><i></i><span></span></div>
     </div>`;
-  if (cls) el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(CLASSES[cls].icon); };
+  if (cls && !HERO_ART.has(cls)) el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(CLASSES[cls].icon); };
   $('heroesEl').append(el);
   combatDom.heroes.set(pid, el);
   return el;
@@ -1448,6 +1459,7 @@ function frame(now) {
     const p = S.players.find(p => p.id === pid);
     tog(el, 'off', !p?.on);
     tog(el, 'isdown', !!h.down);
+    setPose(el, pid, h);
     tog(el, 'targetable', selCard?.tgt === 'ally');
     setW(el.querySelector('.bar .hp'), h.hp / h.max);
     setText(el.querySelector('.bar span'), `${Math.ceil(h.hp)}/${h.max}`);
@@ -1542,6 +1554,17 @@ function frame(now) {
   }
 }
 
+// Down beats everything, then a pose flashed by a card that just landed, then casting.
+function setPose(el, pid, h) {
+  const art = el.querySelector('.art.posed');
+  if (!art) return;
+  const f = poseFlash.get(pid);
+  const pose = h.down ? 'down' : f && f.until > performance.now() ? f.pose : h.ch ? 'cast' : 'idle';
+  if (art.dataset.pose === pose) return;
+  art.dataset.pose = pose;
+  for (const img of art.children) tog(img, 'on', img.dataset.pose === pose);
+}
+
 // ---------- Floating text ----------
 function anchor(to) {
   if (!combatDom) return null;
@@ -1578,10 +1601,15 @@ function handleEvents(list) {
       case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}${ico('barrier')}` : `+${ev.v}`, 'heal', true); break;
       case 'txt': floatText(ev.to, ev.x, ev.c || 'txt'); break;
       case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); break;
-      case 'cast':
+      case 'cast': {
+        // Attacks swing and lunge at the enemy; everything else is a quick skill pose.
+        const pose = ev.atk ? 'attack' : 'cast';
+        poseFlash.set(ev.by, { pose, until: performance.now() + POSE_MS[pose] });
+        if (ev.atk) flash(ev.by, 'lunge');
         floatText(ev.by, ev.card, 'cast');
         if (ev.combo) floatText(ev.by, `COMBO ×${(1 + ev.combo * 0.25 * (S.relics?.includes('choir') ? 2 : 1)).toFixed(2).replace(/0$/, '')}`, 'combo');
         break;
+      }
       case 'down': flash(ev.to, 'hit'); break;
       case 'die': floatText(ev.to, '☠️', 'txt'); break;
     }
