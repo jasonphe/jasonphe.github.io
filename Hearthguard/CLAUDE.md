@@ -14,6 +14,7 @@ No build step and no dependencies to install. Plain ES modules served as static 
 | `sim.js` | The game rules (`Sim` class). Only the host runs it. |
 | `game.js` | Networking, rendering, input, local progress, deck builder, debug menu. |
 | `index.html`, `style.css` | Page shell, dialogs, all styles. |
+| `tools/bots.mjs` | Balance-testing bots (Node only, never loaded by the game). See Testing. |
 | `assets/` | Sliced `.webp` art (see Art). Source `*.png` sheets live here too but are gitignored. |
 | `favicon.ico`, `favicon-32.png`, `apple-touch-icon.png` | Hearthguard's own icons, from the Hearth brazier art. |
 
@@ -37,13 +38,16 @@ No build step and no dependencies to install. Plain ES modules served as static 
 - **Hearth and heroes:** Hearth HP by party size is in `HEARTH`. Hero HP carries over between fights. A knocked-out hero stays down until a Resurrection or the end of the fight. If the whole party is down, the run ends (a "wipe").
 - **Burn vs Poison:** both deal their stack in damage each second (ignoring block), then drop by 1. They stack separately and have separate stats. Mage and cleric cards apply Burn; rogue cards apply Poison. Only Burn has synergies (Detonate, Combustion, Living Flame, Grim Tome). Both go through `addDot`/`dotTick` in `sim.js`.
 - **Barrier vs Armor:** **Barrier** shields the Hearth and fades. **Armor** shields one hero. Card keys: `shield` = Barrier, `guard` = Armor.
-- **Taunt:** sends an enemy's attacks to the taunter. **Interrupt** breaks poise. A move is cancelled when its poise hits 0, and `poise: 99` means unstoppable.
+- **Taunt:** sends an enemy's attacks (`atk`, `pounce`) to the taunter. `wave` and `quake` moves ignore taunts; only the Ash Wyrm's Flame Breath is a wave now.
+- **Interrupt** breaks poise, and a move is cancelled when its poise hits 0. Only moves with `poise` in their data can be interrupted (they show a poise bar); the rest can only be stunned, taunted or blocked. Signature moves (buffs, heals, summons, hexes, drains, the big hits) have poise; basic attacks don't.
+- **Stun** pauses a wind-up. Stuns don't chain: a stunned enemy resists new stuns, and after it wakes it is "Steadfast" for `STUN_IMMUNE × TEMPO` seconds (`stunEnemy` in `sim.js`).
 - **Party-size scaling** (tables at the top of `sim.js`, indexed by player count):
   - `HP_SCALE`: enemy HP.
   - `DMG_SCALE`: hits on the Hearth.
   - `HERO_DMG_SCALE`: hits on heroes.
-  - `POISE_SCALE`: bigger parties carry more interrupts, so moves need more of them. Fractions round up at random.
-  - These were tuned together with bots so every party size loses about 60% of the Hearth per fight and about two-thirds of enemy moves land. Retune them together.
+  - `POISE_ADD`: bigger parties carry more interrupts, so moves with poise get this much extra (added, not multiplied, so 3-poise boss moves stay stoppable). Fractions round up at random.
+  - `BOSS`: extra HP and damage multipliers for boss fights, so one big hit can't take the whole Hearth.
+  - Tuned together with `tools/bots.mjs` (smart bots, starter and CC decks) so 2, 3 and 4 players lose about the same share of the Hearth per fight (roughly 15–25% in mid-run normal fights, 40–55% in elites) and bosses are winnable. Retune them together.
 - **Combo:** a cast-time spell that lands while a teammate is mid-cast, or within `comboWindow()` after theirs landed, is 25% stronger per partner, plus the card's own `combo` bonus. The UI predicts combos: hand badges, glowing cast bars, a shrinking "Combo window" bar.
 - **Cards:**
   - Each card's `fx` keys are applied in order in `Sim.resolve`, and card text is generated from them by `say()` in `data.js`.
@@ -72,7 +76,8 @@ No build step and no dependencies to install. Plain ES modules served as static 
 
 ## Testing
 
-- **Headless:** import `sim.js` in Node (`node` with `import('file:///…/Hearthguard/sim.js')`), build a `Sim`, `join` and `act` players, `startCombat`, `tick`, and assert. This is how new mechanics and balance were checked. For balance, bots that interrupt at every chance give a worst case. Measure how often enemy moves land and how much Hearth damage a fight costs, per party size.
+- **Headless:** import `sim.js` in Node (`node` with `import('file:///…/Hearthguard/sim.js')`), build a `Sim`, `join` and `act` players, `startCombat`, `tick`, and assert. This is how new mechanics are checked.
+- **Balance bots:** `node Hearthguard/tools/bots.mjs [fights] [--parties=solo_knight,2p,4p] [--kinds=normal9,elite,boss] [--decks=cc]`. Smart bots read wind-ups, interrupt only poise moves (sharing them out), taunt big hitters, raise Barrier/Armor before hits, focus fire and react with a short delay. The table reports Hearth lost per fight, fight length, wins, how many enemy moves land or get cancelled, stun uptime, taunted hits, hero damage, downs and timeouts. `--decks=cc` uses interrupt- and stun-heavy decks, which is how strong human parties play. The scaling arrays are exported, so a script can override them in memory to try values. The bots are weaker than good humans, so compare party sizes and before/after rather than chasing absolute numbers.
 - **Browser:** `.claude/launch.json` → `site` (python http.server on port 8766, repo root). Open `http://localhost:8766/Hearthguard/`.
   - The pane caches ES modules hard, so after edits run `fetch(f, {cache: 'reload'})` on the changed files, then reload.
   - `requestAnimationFrame` pauses when the pane isn't drawing, so DOM checks can read stale combat UI. Take a screenshot to force a frame.

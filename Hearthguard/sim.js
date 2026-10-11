@@ -10,6 +10,8 @@ export const baseRegen = () => 1 / 1.5 / TEMPO;  // ⚡ per second
 // How long after a teammate's cast lands that yours still counts as a combo.
 export const comboWindow = () => 1.5 * TEMPO;
 const BASE_MAX_E = 5;
+// After a stun wears off, the enemy can't be stunned again for this long (× TEMPO).
+const STUN_IMMUNE = 6;
 const REVIVE_HP = 0.25;          // share of max HP a knocked-out hero has for the next fight
 const ROWS = 13;                 // map rows before the boss
 const COLS = 5;
@@ -18,14 +20,17 @@ const PRICES = { common: 45, uncommon: 70, rare: 110, epic: 160, legendary: 240,
 const REWARD_ODDS = { fight: [['legendary', 0.01], ['epic', 0.04], ['rare', 0.13], ['uncommon', 0.30]], elite: [['legendary', 0.04], ['epic', 0.13], ['rare', 0.28], ['uncommon', 0.35]] };
 const REMOVE_PRICE = 60;
 // Indexed by party size.
-export const HP_SCALE = [1, 0.85, 1.9, 3.1, 4.8];
-export const DMG_SCALE = [1, 1.0, 2.1, 2.4, 2.7];
+export const HP_SCALE = [1, 0.85, 1.9, 3.3, 5.0];
+export const DMG_SCALE = [1, 1.0, 2.1, 3.0, 3.7];
 // Hits on heroes (pounces, taunted attacks, quakes) scale more gently than hits on the
 // Hearth, so a tank can still survive taking them for the party.
-export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.0, 1.15];
-// Bigger parties carry more interrupts, so enemy moves need more of them (by party size).
-export const POISE_SCALE = [1, 1, 1.15, 1.6, 2.2];
+export const HERO_DMG_SCALE = [1, 0.7, 0.85, 1.5, 1.9];
+// Bigger parties carry more interrupts, so moves with poise need more of them: this much
+// extra poise by party size, added (not multiplied) so the biggest moves stay stoppable.
+export const POISE_ADD = [0, 0, 0.3, 1, 1.8];
 const HEARTH = [60, 70, 85, 100, 115];
+// Bosses on top of the scaling above, so one big hit can't take the whole Hearth.
+export const BOSS = { hp: 0.85, dmg: 0.72 };
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
@@ -335,8 +340,10 @@ export class Sim {
   // ---------- Combat setup ----------
   startCombat(group, kind) {
     const S = this.S;
-    const hpM = this.hpMult() * (kind === 'boss' ? 1 : 1 + 0.04 * (S.pos?.r || 0));
-    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult(), hdm: this.dmgMult(HERO_DMG_SCALE), st: {}, wardBy: {} };
+    const boss = kind === 'boss';
+    const hpM = this.hpMult() * (boss ? BOSS.hp : 1 + 0.04 * (S.pos?.r || 0));
+    const dmB = boss ? BOSS.dmg : 1;
+    const C = this.C = { t: 0, kind, enemies: [], heroes: {}, shield: this.has('banner') ? 12 : 0, ward: 0, wardT: 0, burnT: 0, eid: 1, end: 0, dm: this.dmgMult() * dmB, hdm: this.dmgMult(HERO_DMG_SCALE) * dmB, st: {}, wardBy: {} };
     for (const type of group) this.spawn(type, hpM, true);
     for (const p of S.players) {
       const cls = CLASSES[p.cls];
@@ -517,18 +524,29 @@ export class Sim {
 
   interrupt(e, n, by) {
     if (!e.act) return false;
-    if (e.act.poise >= 99) { this.ev.push({ k: 'txt', to: e.id, x: 'Unstoppable' }); return false; }
+    if (!(e.act.poise > 0) || e.act.poise >= 99) { this.ev.push({ k: 'txt', to: e.id, x: 'Unstoppable' }); return false; }
     e.act.poise -= n;
     if (e.act.poise <= 0) {
       this.ev.push({ k: 'txt', to: e.id, x: 'Interrupted!', c: 'int' });
       this.stat(by, 'interrupts');
       e.act = null;
       e.rec = 1.5 * TEMPO;
-      if (this.has('bell')) e.stun = Math.max(e.stun, this.C.t + 1.5 * TEMPO);
+      if (this.has('bell')) this.stunEnemy(e, 1.5 * TEMPO);
       return true;
     }
     this.ev.push({ k: 'txt', to: e.id, x: `Poise ${e.act.poise}`, c: 'int' });
     return false;
+  }
+
+  // Stuns don't chain: an enemy that's stunned, or just woke up, shrugs off new stuns.
+  stunEnemy(e, secs) {
+    const C = this.C;
+    if (e.hp <= 0) return false;
+    if (e.stun > C.t || e.stunImmune > C.t) { this.ev.push({ k: 'txt', to: e.id, x: 'Resisted' }); return false; }
+    e.stun = C.t + secs;
+    e.stunImmune = e.stun + STUN_IMMUNE * TEMPO;
+    this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' });
+    return true;
   }
 
   // Caltrops: heroes with the power strike back at an enemy that hit the Hearth.
@@ -588,7 +606,7 @@ export class Sim {
         case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
         case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; e.burnBy = {}; this.hitEnemy(e, b * v + bonus, pid); } break;
         case 'interrupt': for (const e of foes) if (this.interrupt(e, v, pid)) cancelled = true; break;
-        case 'stun': for (const e of foes) { e.stun = Math.max(e.stun, C.t + v); this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' }); } break;
+        case 'stun': for (const e of foes) this.stunEnemy(e, v); break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
         case 'burn': for (const e of foes) this.addDot(e, 'burn', Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)), pid); break;
@@ -717,12 +735,12 @@ export class Sim {
     }
   }
 
-  // A move's poise, scaled up for bigger parties. Fractions round up at random, so a
-  // 1-poise move at ×1.6 (3 players) needs 2 interrupts 60% of the time. Unstoppable stays so.
+  // A move's poise, raised for bigger parties. Fractions round up at random, so a 1-poise
+  // move with +0.3 (2 players) needs 2 interrupts 30% of the time. No poise stays none.
   poiseFor(a) {
-    const base = a.poise || 1;
-    if (base >= 99) return base;
-    const x = base * (POISE_SCALE[this.S.players.length] || 1);
+    const base = a.poise || 0;
+    if (!base || base >= 99) return base;
+    const x = base + (POISE_ADD[this.S.players.length] || 0);
     return Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
   }
 
@@ -733,7 +751,7 @@ export class Sim {
     else { do i = randInt(0, d.acts.length - 1); while (d.acts.length > 1 && i === e.last); }
     e.last = i;
     const a = d.acts[i];
-    const poise = this.poiseFor(a);
+    const poise = a.poise ? this.poiseFor(a) : 0;   // no poise: can't be interrupted
     e.act = { i, el: 0, dur: a.w * TEMPO * (this.has('glass') ? 1.1 : 1), poise, maxPoise: poise };
   }
 

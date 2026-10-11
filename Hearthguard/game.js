@@ -456,7 +456,8 @@ const SCREENS = {
           <li><b>No turns.</b> ${ico('energy')} Energy refills over time. Play cards whenever you can afford them. Cards marked ${ico('cast')} take time to cast, and you can't play anything else while casting.</li>
           <li><b>The Hearth</b> ${hearthPic()} is your team's shared life. If it goes out, the run is over. It and your own HP both carry over between fights, so rest at campfires.</li>
           <li>Enemies <b>wind up</b> each move (watch the bar). Attacks hit the Hearth unless someone <b>Taunts</b> that enemy, which sends the hits to the taunter's own HP and ${ico('armor')} Armor. A hero who is knocked out stays down until a Resurrection or the end of the fight. If the whole party is down, the run is over.</li>
-          <li><b>Interrupt</b> cancels a wind-up. Big moves have poise pips, and each interrupt breaks one. ${ico('lock')} moves can't be stopped. ${ico('wave')} waves ignore taunts.</li>
+          <li><b>Interrupt</b> only works on moves with a <b>poise bar</b>: each interrupt breaks one pip, and the move is cancelled when they're all gone. Moves without one can't be stopped, only stunned, taunted or blocked.</li>
+          <li><b>Stuns</b> pause a wind-up, but an enemy that's just been stunned shrugs off new stuns for a while (${ico('lock')}). ${ico('wave')} Waves ignore taunts.</li>
           <li>${ico('barrier')} <b>Barrier</b> soaks hits for the Hearth but fades over time. ${ico('armor')} <b>Armor</b> soaks hits for one hero.</li>
           <li><b>Combo:</b> a cast that finishes while a teammate is casting (or just finished) is 25% stronger for each teammate.</li>
           <li>Stuck with a bad card? <b>${ico('discard')} Discard</b> it to draw another for 1${ico('energy')}.</li>
@@ -1243,7 +1244,7 @@ const setHTML = (el, v) => { if (el.dataset.v !== v) { el.innerHTML = v; el.data
 const INTENT_TIPS = {
   atk: 'An attack on the Hearth, or on whoever has taunted this enemy.',
   pounce: 'An attack on a random hero, or on whoever has taunted this enemy.',
-  wave: 'Hits the Hearth and ignores taunts. Interrupt it or raise Barrier.',
+  wave: 'Hits the Hearth and ignores taunts. Interrupt it if it has a poise bar, or raise Barrier.',
   quake: 'Hits the Hearth and every hero.',
   block: 'Gains block that soaks damage.',
   buff: 'Gains strength: its attacks hit harder for the rest of the fight.',
@@ -1365,13 +1366,14 @@ function frame(now) {
     setText(el.querySelector('.bar span'), `${Math.ceil(e.hp)}/${e.max}`);
     const st = [];
     const left = until => `${Math.ceil(until - t)}s left.`;
-    const tag = (k, title, desc, label) => st.push({ k, icon: ico(k), label: String(label), tip: title, tipd: desc });
+    const tag = (k, title, desc, label, icon = ico(k)) => st.push({ k, icon, label: String(label), tip: title, tipd: desc });
     if (e.str) tag('buff', `Strength +${e.str}`, `Its attacks deal ${e.str} more damage.`, e.str);
     if (e.burn) tag('burn', `Burn ${e.burn}`, `Takes ${e.burn} damage each second, then Burn drops by 1. Ignores block.`, e.burn);
     if (e.poison) tag('poison', `Poison ${e.poison}`, `Takes ${e.poison} damage each second, then Poison drops by 1. Ignores block.`, e.poison);
     if (e.vuln > t) tag('vuln', 'Vulnerable', `Takes 50% more damage. ${left(e.vuln)}`, `${Math.ceil(e.vuln - t)}s`);
     if (e.weak > t) tag('weak', 'Weak', `Deals 30% less damage. ${left(e.weak)}`, `${Math.ceil(e.weak - t)}s`);
     if (e.stun > t) tag('stun', 'Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`, `${Math.ceil(e.stun - t)}s`);
+    else if (e.stunImmune > t) tag('steady', 'Steadfast', `Just shook off a stun, so it can't be stunned again yet. ${left(e.stunImmune)}`, `${Math.ceil(e.stunImmune - t)}s`, ico('lock'));
     if (e.block) tag('block', `Block ${e.block}`, `Soaks the next ${e.block} damage before its HP. Burn and Poison ignore it.`, e.block);
     syncChips(el.querySelector('.status'), st, '');
     const tt = el.querySelector('.taunt-tag');
@@ -1394,8 +1396,8 @@ function frame(now) {
       setHTML(intent.querySelector('.itgt'), iconize(esc(info.tgt)));
       const el2 = e.act.el + (e.stun > t ? 0 : x);
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
-      setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span${tipAttr('Unstoppable', "This move can't be interrupted. Block it with Barrier, Armor or a taunt.")}>${ico('lock')}</span>`
-        : e.act.maxPoise > 1 ? `<span class="pips"${tipAttr(`Poise ${e.act.poise}/${e.act.maxPoise}`, `Takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel this move. Each interrupt breaks one pip.`)}>${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
+      // Only moves with poise can be interrupted; the pips are the cue.
+      setHTML(intent.querySelector('.poise'), e.act.maxPoise > 0 && e.act.maxPoise < 99 ? `<span class="pips"${tipAttr(`Poise ${e.act.poise}/${e.act.maxPoise}`, `Takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel this move. Each interrupt breaks one pip. Moves without a poise bar can't be interrupted.`)}>${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
     } else tog(intent, 'vacant', true);
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
   }
