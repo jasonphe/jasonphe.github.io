@@ -1201,7 +1201,7 @@ function enemyEl(e) {
 
 // Classes with full-body pose art (assets/heroes/<cls>-<pose>.webp). The rest stand in
 // with their bust until their sheet is sliced.
-const HERO_ART = new Set(['knight']);
+const HERO_ART = new Set(['knight', 'mage', 'rogue', 'cleric']);
 const POSES = ['idle', 'attack', 'cast', 'down'];
 // A pose shown briefly after a card lands, by player id: { pose, until } in ms.
 const poseFlash = new Map();
@@ -1589,6 +1589,163 @@ function flash(to, cls) {
   a.classList.remove(cls); void a.offsetWidth; a.classList.add(cls);
 }
 
+// ---------- Effects ----------
+// Painted sprites in assets/vfx (black keyed to transparency when sliced). A card's effect
+// comes from what it does and who plays it; projectiles fly from caster to target, then
+// burst. Each sprite is a short-lived <img> moved with transforms only, which phones handle
+// cheaply, and there's a cap on how many can be on screen at once.
+const VFX = ['slash', 'impact', 'fireball', 'frost', 'arcane', 'lightning', 'dagger', 'poison', 'holy',
+  'barrier', 'armor', 'heal', 'shout', 'stun', 'smoke', 'claw', 'shadow', 'curse'];
+const VFX_MAX = 24;
+const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
+// Decode the sprites up front, so the first Fireball doesn't stutter.
+const vfxImgs = VFX.map(n => { const i = new Image(); i.src = `assets/vfx/${n}.webp`; return i; });
+
+// Where an effect lands on a unit: the middle of its figure (or the Hearth's brazier), and
+// how big that figure is, so effects scale with the stage.
+function fxSpot(to) {
+  if (!combatDom) return null;
+  const el = to === 'hearth' || to === 'shield' ? $('hearthEl').querySelector('.hearth-icon')
+    : combatDom.enemies.get(to)?.querySelector('.fig') || combatDom.heroes.get(to)?.querySelector('.fig');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  if (!r.width) return null;
+  return { x: r.left + r.width / 2, y: r.top + r.height * 0.55, size: Math.max(56, Math.min(r.height, 170)) };
+}
+
+function fxSprite(name, x, y, size, rot = 0, flip = false) {
+  const layer = $('fxLayer');
+  if (layer.childElementCount >= VFX_MAX) return null;
+  const img = document.createElement('img');
+  img.className = 'vfx';
+  img.src = `assets/vfx/${name}.webp`;
+  img.alt = '';
+  img.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px`;
+  layer.append(img);
+  img.dataset.base = `translate(-50%, -50%) rotate(${rot}rad) scaleX(${flip ? -1 : 1})`;
+  return img;
+}
+const fxDone = img => () => img.remove();
+
+// A burst in place: pops in, swells a little and fades.
+function fxBurst(name, to, { scale = 1, delay = 0, rise = 0, flip = false, dur = 520 } = {}) {
+  const p = fxSpot(to);
+  if (!p) return;
+  const img = fxSprite(name, p.x, p.y, p.size * scale, 0, flip);
+  if (!img) return;
+  const b = img.dataset.base;
+  img.animate([
+    { transform: `${b} translateY(0) scale(.55)`, opacity: 0 },
+    { transform: `${b} translateY(${-rise * 0.4}px) scale(1.05)`, opacity: 1, offset: 0.3 },
+    { transform: `${b} translateY(${-rise}px) scale(1.15)`, opacity: 0 },
+  ], { duration: dur, delay, easing: 'ease-out', fill: 'both' }).onfinish = fxDone(img);
+}
+
+// A projectile from one unit to another, pointed along its path, then `then()` on arrival.
+// Sprites are painted heading right (or left, with `left`), and turned to face the target.
+function fxShot(name, from, to, { scale = 0.8, delay = 0, left = false, then } = {}) {
+  const a = fxSpot(from), b = fxSpot(to);
+  if (!a || !b) return;
+  if (calmMotion.matches) { setTimeout(() => then?.(), delay); return; }
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const rot = Math.atan2(dy, dx) + (left ? Math.PI : 0);
+  const img = fxSprite(name, a.x, a.y, Math.min(a.size, b.size) * scale, rot);
+  if (!img) { setTimeout(() => then?.(), delay); return; }
+  const base = `translate(-50%, -50%)`, turn = `rotate(${rot}rad)`;
+  const dur = Math.min(420, 160 + Math.hypot(dx, dy) * 0.6);
+  const anim = img.animate([
+    { transform: `${base} translate(0, 0) ${turn} scale(.6)`, opacity: 0 },
+    { transform: `${base} translate(${dx * 0.15}px, ${dy * 0.15}px) ${turn} scale(1)`, opacity: 1, offset: 0.15 },
+    { transform: `${base} translate(${dx}px, ${dy}px) ${turn} scale(1)`, opacity: 1 },
+  ], { duration: dur, delay, easing: 'ease-in', fill: 'both' });
+  anim.onfinish = () => { img.remove(); then?.(); };
+}
+
+// The mage's element, from the spell's name or what it does.
+function mageElement(c) {
+  if (/frost|ice|blizzard|nova/i.test(c.name)) return 'frost';
+  if (/lightning|torrent/i.test(c.name) || 'zap' in c.fx) return 'lightning';
+  if (/fire|flame|pyro|meteor|inferno|ignite|scorch|combust|detonat/i.test(c.name) || 'burn' in c.fx || 'detonate' in c.fx) return 'fireball';
+  return 'arcane';
+}
+const HARMFUL = ['dmg', 'guardDmg', 'shieldDmg', 'detonate', 'guardBlast', 'zap', 'burn', 'poison', 'interrupt', 'stun', 'weak', 'vuln', 'exec', 'caltrops'];
+const SUPPORT_BURST = { energy: 'holy', teamEnergy: 'holy', haste: 'holy', teamHaste: 'holy', empower: 'holy', teamEmpower: 'holy', regen: 'holy', teamRegen: 'holy', cleanse: 'holy', beacon: 'holy' };
+
+function castFx(ev) {
+  const c = CARDS[ev.id] && cardDef(ev.id);
+  if (!c || !combatDom) return;
+  const fx = c.fx, by = ev.by;
+  const alive = aliveEnemies().map(e => e.id);
+  const foes = c.tgt === 'enemy' ? [ev.t] : c.tgt === 'all' || c.tgt === 'random' ? alive : [];
+  const ally = c.tgt === 'ally' && ev.t ? ev.t : by;
+  // Attacks and debuffs on enemies.
+  if (foes.length && HARMFUL.some(k => k in fx)) {
+    // What lands on a target once the hit arrives: the extra effects on top of the hit.
+    const after = (id, hit) => {
+      if (hit) fxBurst(hit, id, { scale: hit === 'slash' ? 1.05 : 0.8 });
+      if ('poison' in fx) fxBurst('poison', id, { scale: 0.75, delay: 80 });
+      if ('interrupt' in fx) fxBurst('impact', id, { scale: 0.6 });
+      if ('stun' in fx) fxBurst('stun', id, { scale: 0.7, delay: 150, rise: 18, dur: 900 });
+    };
+    const hits = 'dmg' in fx || 'zap' in fx || 'guardDmg' in fx || 'shieldDmg' in fx || 'guardBlast' in fx || 'exec' in fx || 'detonate' in fx;
+    foes.slice(0, 5).forEach((id, i) => {
+      const delay = i * 70;
+      if (c.cls === 'mage') {
+        const el = mageElement(c);
+        fxShot(el, by, id, { delay, scale: el === 'lightning' ? 1 : 0.8, then: () => after(id, el === 'fireball' ? 'impact' : null) });
+      } else if (c.cls === 'rogue') {
+        if (hits) fxShot('dagger', by, id, { delay, scale: 0.7, then: () => after(id, null) });
+        else setTimeout(() => after(id, null), delay);
+      } else if (c.cls === 'cleric') {
+        setTimeout(() => { fxBurst('holy', id, { scale: 0.9 }); after(id, null); }, delay + 120);
+      } else {
+        // Knights hit in melee: the slash appears on the target as the lunge lands.
+        setTimeout(() => after(id, hits ? 'slash' : null), delay + 120);
+      }
+    });
+  }
+  // Defence and support.
+  if ('shield' in fx || 'ward' in fx || 'invuln' in fx) fxBurst('barrier', 'hearth', { scale: 1.4, dur: 800 });
+  if ('heal' in fx) fxBurst('heal', 'hearth', { scale: 1.1, rise: 26, dur: 900 });
+  if ('guard' in fx || 'guardSelf' in fx || 'aegis' in fx || 'bastion' in fx || 'shelter' in fx) fxBurst('armor', 'guardSelf' in fx ? by : ally, { scale: 0.8 });
+  if ('teamGuard' in fx) for (const id of Object.keys(C.heroes)) fxBurst('armor', id, { scale: 0.7 });
+  if ('mend' in fx || 'revive' in fx) fxBurst('heal', ally, { scale: 0.9, rise: 22, dur: 900 });
+  if ('teamMend' in fx) for (const id of Object.keys(C.heroes)) fxBurst('heal', id, { scale: 0.8, rise: 22, dur: 900 });
+  if ('taunt' in fx || 'rally' in fx) fxBurst('shout', by, { scale: 1.1 });
+  if ('vanish' in fx || ('cover' in fx && c.cls === 'rogue')) fxBurst('smoke', by, { scale: 1.1, dur: 800 });
+  const buff = Object.keys(fx).find(k => SUPPORT_BURST[k]);
+  if (buff) {
+    const team = buff.startsWith('team');
+    for (const id of team ? Object.keys(C.heroes) : [ally]) fxBurst(SUPPORT_BURST[buff], id, { scale: 0.55, rise: 16 });
+  }
+}
+
+// Enemies that strike from range, and what they throw. Everyone else claws in melee.
+const ENEMY_SHOT = { cultist: 'shadow', necro: 'shadow', wraith: 'shadow', king: 'shadow', goblin: 'dagger', wyrm: 'fireball' };
+function enemyFx(ev) {
+  const e = C?.enemies.find(x => x.id === ev.by);
+  if (!e || !combatDom) return;
+  const heroes = Object.keys(C.heroes);
+  const shot = ENEMY_SHOT[e.type];
+  // Projectiles painted heading right (fireball, dagger) are flipped to head left; shadow already does.
+  const hit = (to, scale = 1) => shot
+    ? fxShot(shot, e.id, to, { scale: 0.7 * scale, left: shot === 'shadow', then: () => fxBurst('impact', to, { scale: 0.5 }) })
+    : fxBurst('claw', to, { scale: 0.9 * scale, delay: 120 });
+  switch (ev.kk) {
+    case 'atk': case 'pounce': if (ev.to) hit(ev.to); break;
+    case 'wave': fxShot(shot || 'fireball', e.id, 'hearth', { scale: 1.1, left: shot === 'shadow', then: () => fxBurst('impact', 'hearth', { scale: 0.9 }) }); break;
+    case 'quake': fxBurst('impact', 'hearth', { scale: 1.1 }); for (const id of heroes) fxBurst('impact', id, { scale: 0.7, delay: 80 }); break;
+    case 'shatter': fxBurst('impact', 'hearth', { scale: 1 }); break;
+    case 'sunder': for (const id of heroes) fxBurst('claw', id, { scale: 0.8 }); break;
+    case 'block': fxBurst('armor', e.id, { scale: 0.8 }); break;
+    case 'buff': case 'defy': fxBurst('shout', e.id, { scale: 1, flip: true }); break;
+    case 'rally': for (const x of aliveEnemies()) fxBurst('shout', x.id, { scale: 0.8, flip: true }); break;
+    case 'heal': fxBurst('heal', e.id, { scale: 0.9, rise: 22, dur: 900 }); break;
+    case 'summon': fxBurst('smoke', e.id, { scale: 1.1, dur: 800 }); break;
+    case 'hex': case 'drain': case 'slow': for (const id of heroes) fxBurst('curse', id, { scale: 0.75, dur: 800 }); break;
+  }
+}
+
 function handleEvents(list) {
   for (const ev of list) {
     switch (ev.k) {
@@ -1600,12 +1757,13 @@ function handleEvents(list) {
         break;
       case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}${ico('barrier')}` : `+${ev.v}`, 'heal', true); break;
       case 'txt': floatText(ev.to, ev.x, ev.c || 'txt'); break;
-      case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); break;
+      case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); enemyFx(ev); break;
       case 'cast': {
         // Attacks swing and lunge at the enemy; everything else is a quick skill pose.
         const pose = ev.atk ? 'attack' : 'cast';
         poseFlash.set(ev.by, { pose, until: performance.now() + POSE_MS[pose] });
         if (ev.atk) flash(ev.by, 'lunge');
+        castFx(ev);
         floatText(ev.by, ev.card, 'cast');
         if (ev.combo) floatText(ev.by, `COMBO ×${(1 + ev.combo * 0.25 * (S.relics?.includes('choir') ? 2 : 1)).toFixed(2).replace(/0$/, '')}`, 'combo');
         break;

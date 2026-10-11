@@ -404,6 +404,8 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 
 /* ---------- Floating text & toasts ---------- */
 #fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+/* Effect sprites (castFx / enemyFx in game.js): positioned in screen coordinates, moved only with transforms. */
+.vfx { position: absolute; object-fit: contain; pointer-events: none; user-select: none; }
 .float {
   position: fixed; transform: translate(-50%, 0); font-weight: 800; font-size: 1.3rem; text-shadow: 0 2px 4px #000, 0 0 2px #000;
   animation: floatup 1.2s ease-out forwards; white-space: nowrap;

@@ -703,8 +703,10 @@ export class Sim {
   }
 
   // ---------- Enemy actions ----------
+  // Returns whom an attack went at (a hero id or 'hearth'), for the UI's effects.
   enemyAct(e) {
     const C = this.C, d = ENEMIES[e.type], a = d.acts[e.act.i];
+    let to = null;
     const weak = e.weak > C.t ? 0.7 : 1;
     const base = ((a.dmg || 0) + e.str) * weak;
     const dmg = Math.round(base * C.dm);
@@ -716,12 +718,14 @@ export class Sim {
       case 'atk':
         for (let i = 0; i < (a.hits || 1); i++) taunter ? this.hitHero(taunter, heroDmg, e) : this.hitHearth(dmg);
         if (!taunter) this.caltrops(e);
+        to = taunter || 'hearth';
         if (a.heal) e.hp = Math.min(e.max, e.hp + Math.round(a.heal * scale));
         break;
       case 'pounce': {
         const id = taunter || pick(heroes)?.[0];
         if (id) this.hitHero(id, heroDmg, e);
         else { this.hitHearth(dmg); this.caltrops(e); }
+        to = id || 'hearth';
         break;
       }
       case 'wave': this.hitHearth(dmg); this.caltrops(e); break;
@@ -768,6 +772,7 @@ export class Sim {
         if (a.dmg) { this.hitHearth(dmg); this.caltrops(e); }
         break;
     }
+    return to;
   }
 
   // A move's poise, raised for bigger parties. Fractions round up at random, so a 1-poise
@@ -846,9 +851,11 @@ export class Sim {
       } else {
         e.act.el += dt;
         if (e.act.el >= e.act.dur) {
-          const name = ENEMIES[e.type].acts[e.act.i].n;
-          this.ev.push({ k: 'eact', by: e.id, x: name });
-          this.enemyAct(e);
+          const a = ENEMIES[e.type].acts[e.act.i];
+          const at = this.ev.length;
+          const to = this.enemyAct(e);
+          // Before the move's own events (hits, texts), with its kind and whom it hit, for effects.
+          this.ev.splice(at, 0, { k: 'eact', by: e.id, x: a.n, kk: a.k, to });
           e.act = null;
           e.rec = 1 * TEMPO * (WIND_SCALE[S.players.length] || 1);
           if (C.end) return;
