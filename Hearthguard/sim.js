@@ -88,7 +88,7 @@ export class Sim {
       if (key) p.key = key;
       if (this.C?.heroes[old]) { this.C.heroes[id] = this.C.heroes[old]; delete this.C.heroes[old]; }
       if (this.C?.st?.[old]) { this.C.st[id] = this.C.st[old]; delete this.C.st[old]; }
-      for (const e of this.C?.enemies || []) if (e.burnBy?.[old]) { e.burnBy[id] = e.burnBy[old]; delete e.burnBy[old]; }
+      for (const e of this.C?.enemies || []) for (const m of [e.burnBy, e.poisonBy]) if (m?.[old]) { m[id] = m[old]; delete m[old]; }
       if (this.C?.wardBy?.[old]) { this.C.wardBy[id] = this.C.wardBy[old]; delete this.C.wardBy[old]; }
       for (const e of this.C?.enemies || []) if (e.taunt?.pid === old) e.taunt.pid = id;
       for (const m of [S.votes, S.done, S.reward, S.shop?.items, S.shop?.removed, S.event?.votes]) {
@@ -358,7 +358,7 @@ export class Sim {
     const C = this.C, d = ENEMIES[type];
     const hp = Math.round(d.hp * (hpM ?? this.hpMult()));
     C.enemies.push({
-      id: 'e' + C.eid++, type, hp, max: hp, block: 0, str: 0, vuln: 0, weak: 0, stun: 0, burn: 0, burnBy: {},
+      id: 'e' + C.eid++, type, hp, max: hp, block: 0, str: 0, vuln: 0, weak: 0, stun: 0, burn: 0, burnBy: {}, poison: 0, poisonBy: {},
       taunt: null, act: null, next: 0, last: -1,
       rec: (opening ? rand(1.5, 3) + (this.has('lantern') ? 3 : 0) : 1.5) * TEMPO,
     });
@@ -412,6 +412,33 @@ export class Sim {
 
   // ---------- Damage ----------
   // Returns the HP damage done. `by` (a player id) gets credit for the damage and the kill.
+  // Burn and Poison work the same way but stack separately: only Burn has synergies
+  // (Detonate, Living Flame, Grim Tome). `kind + 'By'` tracks who applied how much.
+  addDot(e, kind, n, by) {
+    if (!(n > 0)) return;
+    e[kind] = (e[kind] || 0) + n;
+    const by_ = (e[kind + 'By'] ??= {});
+    by_[by] = (by_[by] || 0) + n;
+  }
+  // One tick: damage equal to the stack, ignoring block, then the stack drops by one.
+  // Returns true if it killed the enemy.
+  dotTick(e, kind) {
+    if (!(e[kind] > 0) || e.hp <= 0) return false;
+    const amt = e[kind] + (kind === 'burn' && this.has('tome') ? 1 : 0);
+    e[kind]--;
+    const blk = e.block; e.block = 0;
+    const owners = Object.entries(e[kind + 'By'] || {});
+    const total = owners.reduce((sum, [, n]) => sum + n, 0) || 1;
+    const dealt = this.hitEnemy(e, amt);
+    e.block = blk;
+    // It counts toward each owner's total damage as well as its own stat.
+    for (const [id, n] of owners) { this.stat(id, kind, dealt * n / total); this.stat(id, 'dmg', dealt * n / total); }
+    if (e.hp <= 0 && owners.length) this.stat(owners.reduce((a, c) => (c[1] > a[1] ? c : a))[0], 'kills');
+    // The stack dropped by one; shrink everyone's share to match.
+    for (const [id, n] of owners) e[kind + 'By'][id] = e[kind] ? n * e[kind] / (e[kind] + 1) : 0;
+    return e.hp <= 0;
+  }
+
   hitEnemy(e, amt, by) {
     if (e.hp <= 0) return 0;
     amt = Math.round(amt * (e.vuln > this.C.t ? 1.5 : 1));
@@ -509,7 +536,7 @@ export class Sim {
     for (const [id, x] of Object.entries(this.C.heroes)) {
       if (!x.pw.caltrops || x.down || e.hp <= 0) continue;
       this.hitEnemy(e, x.pw.caltrops, id);
-      if (e.hp > 0) { e.burn += 2; e.burnBy[id] = (e.burnBy[id] || 0) + 2; }
+      if (e.hp > 0) this.addDot(e, 'poison', 2, id);
     }
   }
 
@@ -564,7 +591,8 @@ export class Sim {
         case 'stun': for (const e of foes) { e.stun = Math.max(e.stun, C.t + v); this.ev.push({ k: 'txt', to: e.id, x: 'Stunned' }); } break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;
         case 'weak': for (const e of foes) e.weak = Math.max(e.weak, C.t + v); break;
-        case 'burn': for (const e of foes) { const n = Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)); e.burn += n; e.burnBy[pid] = (e.burnBy[pid] || 0) + n; } break;
+        case 'burn': for (const e of foes) this.addDot(e, 'burn', Math.round(v * mult * (1 + (h.pw.pyro || 0) / 100)), pid); break;
+        case 'poison': for (const e of foes) this.addDot(e, 'poison', Math.round(v * mult), pid); break;
         case 'taunt':
           for (const e of foes) e.taunt = { pid, until: C.t + v + (this.has('lode') ? 2 * TEMPO : 0) };
           // Rallying Standard: taunting fires up the whole team.
@@ -625,7 +653,7 @@ export class Sim {
       }
     }
     // Living Flame: attacks also set their targets alight.
-    if (isAttack && h.pw.pyro && !('burn' in fx)) for (const e of foes.filter(e => e.hp > 0)) { e.burn += 3; e.burnBy[pid] = (e.burnBy[pid] || 0) + 3; }
+    if (isAttack && h.pw.pyro && !('burn' in fx)) for (const e of foes.filter(e => e.hp > 0)) this.addDot(e, 'burn', 3, pid);
     if (again) return;   // Twincast's repeat: the card is already in a pile
     // Powers last the rest of the fight; remember which were played so the UI can show them.
     if (c.power) (h.powers ??= []).push([inst.id, inst.up]);
@@ -746,28 +774,14 @@ export class Sim {
       if (C.beaconT >= WARD_EVERY) { C.beaconT -= WARD_EVERY; this.healHearth(C.beacon); }
     }
 
-    // Burn ticks once a second.
+    // Burn and Poison tick once a second.
     C.burnT += dt;
     const burnTick = C.burnT >= 1;
     if (burnTick) C.burnT -= 1;
 
     for (const e of C.enemies) {
       if (e.hp <= 0) continue;
-      if (burnTick && e.burn > 0) {
-        const b = e.burn + (this.has('tome') ? 1 : 0);
-        e.burn--;
-        const blk = e.block; e.block = 0;           // Burn ignores block
-        const owners = Object.entries(e.burnBy || {});
-        const total = owners.reduce((sum, [, n]) => sum + n, 0) || 1;
-        const dealt = this.hitEnemy(e, b);
-        e.block = blk;
-        // Burn counts toward each owner's total damage as well as its own stat.
-        for (const [id, n] of owners) { this.stat(id, 'burn', dealt * n / total); this.stat(id, 'dmg', dealt * n / total); }
-        if (e.hp <= 0 && owners.length) this.stat(owners.reduce((a, c) => (c[1] > a[1] ? c : a))[0], 'kills');
-        // The stack drops by one; shrink everyone's share to match.
-        for (const [id, n] of owners) e.burnBy[id] = e.burn ? n * e.burn / (e.burn + 1) : 0;
-        if (e.hp <= 0) continue;
-      }
+      if (burnTick && (this.dotTick(e, 'burn') || this.dotTick(e, 'poison'))) continue;
       if (e.taunt && (t >= e.taunt.until || !C.heroes[e.taunt.pid] || C.heroes[e.taunt.pid].down)) e.taunt = null;
       if (e.stun > t) continue;
       if (!e.act) {

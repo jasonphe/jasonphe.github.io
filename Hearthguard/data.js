@@ -112,32 +112,32 @@ export const CARDS = {
   r_hamstring: { name: 'Hamstring', cls: 'rogue', r: 'common', cost: 2, tgt: 'enemy', icon: '🦵', fx: { dmg: 8, weak: 5 } },
   r_twin: { name: 'Twin Blades', cls: 'rogue', r: 'common', cost: 2, tgt: 'enemy', icon: '⚔️', fx: { dmg: 8, hits: 2 } },
   r_quick: { name: 'Quick Slash', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🔪', fx: { dmg: 4, empower: 4 } },
-  r_venom: { name: 'Envenom', cls: 'rogue', r: 'common', cost: 3, tgt: 'enemy', icon: '🧪', fx: { dmg: 6, burn: 6 } },
+  r_venom: { name: 'Envenom', cls: 'rogue', r: 'common', cost: 3, tgt: 'enemy', icon: '🧪', fx: { dmg: 6, poison: 6 } },
   r_expose: { name: 'Expose', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🎯', fx: { vuln: 6 } },
   r_feint: { name: 'Feint', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🌀', fx: { interrupt: 1, cycleFree: 1 } },
   r_flurry: { name: 'Flurry', cls: 'rogue', r: 'common', cost: 3, tgt: 'enemy', icon: '🌪️', fx: { dmg: 6, hits: 4 } },
   r_distract: { name: 'Distract', cls: 'rogue', r: 'common', cost: 2, tgt: 'enemy', icon: '🪃', fx: { taunt: 4, guard: 15 } },
   r_fan: { name: 'Fan of Knives', cls: 'rogue', r: 'common', cost: 3, tgt: 'all', icon: '🪭', fx: { dmg: 18 } },
-  r_evade: { name: 'Evasion', cls: 'rogue', r: 'common', cost: 2, tgt: 'self', icon: '🤸', fx: { guard: 24 } },
+  r_evade: { name: 'Evasion', cls: 'rogue', r: 'common', cost: 1, tgt: 'self', icon: '🤸', fx: { vanish: 3 } },
   r_backstab: { name: 'Backstab', cls: 'rogue', r: 'uncommon', cost: 3, tgt: 'enemy', icon: '🔪', fx: { dmg: 30, exec: 20 } },
   r_bomb: { name: 'Smoke Bomb', cls: 'rogue', r: 'uncommon', cost: 3, tgt: 'all', icon: '💣', fx: { weak: 7, shield: 20 } },
   r_adren: { name: 'Adrenaline', cls: 'rogue', r: 'rare', cost: 1, tgt: 'self', icon: '💉', fx: { haste: 5 } },
   r_garrote: { name: 'Garrote', cls: 'rogue', r: 'uncommon', cost: 2, tgt: 'enemy', icon: '🪢', fx: { dmg: 6, interrupt: 1, stun: 3 } },
   r_dance: { name: 'Dance of Blades', cls: 'rogue', r: 'rare', cost: 4, tgt: 'enemy', icon: '💃', fx: { dmg: 9, hits: 5 } },
-  r_toxin: { name: 'Toxin Vial', cls: 'rogue', r: 'uncommon', cost: 4, tgt: 'enemy', icon: '⚗️', fx: { burn: 9 } },
+  r_toxin: { name: 'Toxin Vial', cls: 'rogue', r: 'uncommon', cost: 4, tgt: 'enemy', icon: '⚗️', fx: { poison: 9 } },
   r_cheap: { name: 'Cheap Shot', cls: 'rogue', r: 'uncommon', cost: 1, tgt: 'enemy', icon: '👊', fx: { stun: 2, weak: 5 } },
   r_pick: { name: 'Pickpocket', cls: 'rogue', r: 'uncommon', cost: 1, tgt: 'enemy', icon: '👛', fx: { dmg: 8, gold: 6 } },
   r_assassin: { name: 'Assassinate', cls: 'rogue', r: 'epic', cost: 5, cast: 1.5, tgt: 'enemy', icon: '☠️', fx: { dmg: 55, exec: 36 }, combo: { dmg: 18 } },
   r_prep: { name: 'Preparation', cls: 'rogue', r: 'rare', cost: 1, tgt: 'self', icon: '🎒', ex: 1, fx: { energy: 3, cycleFree: 3 } },
   r_shadow: { name: 'Shadow Dance', cls: 'rogue', r: 'epic', cost: 3, tgt: 'self', icon: '🌑', ex: 1, power: 1, fx: { fury: 4, regen: 15 } },
 
-  r_crimson: { name: 'Crimson Fan', cls: 'rogue', r: 'epic', cost: 3, tgt: 'all', icon: '🩸', fx: { dmg: 14, burn: 4 } },
+  r_crimson: { name: 'Crimson Fan', cls: 'rogue', r: 'epic', cost: 3, tgt: 'all', icon: '🩸', fx: { dmg: 14, poison: 4 } },
   r_vanish: { name: 'Vanish', cls: 'rogue', r: 'legendary', cost: 2, tgt: 'self', icon: '👤', fx: { vanish: 4, empower: 25 } },
   r_clone: { name: 'Shadow Clone', cls: 'rogue', r: 'legendary', cost: 4, tgt: 'self', icon: '👥', ex: 1, power: 1, fx: { echo: 50 } },
   r_cuts: { name: 'Thousand Cuts', cls: 'rogue', r: 'mythic', cost: 4, tgt: 'self', icon: '✴️', ex: 1, power: 1, fx: { cuts: 4 } },
 
   r_shiv: { name: 'Shiv', cls: 'rogue', r: 'common', cost: 0, tgt: 'enemy', icon: '🔪', fx: { dmg: 4, cycleFree: 1 } },
-  r_dart: { name: 'Poisoned Dart', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🎯', fx: { dmg: 2, burn: 3 } },
+  r_dart: { name: 'Poisoned Dart', cls: 'rogue', r: 'common', cost: 1, tgt: 'enemy', icon: '🎯', fx: { dmg: 2, poison: 3 } },
   r_cloak: { name: 'Cloak', cls: 'rogue', r: 'uncommon', cost: 2, tgt: 'ally', icon: '🧥', fx: { vanish: 4, empower: 10 } },
   r_coup: { name: 'Coup de Grâce', cls: 'rogue', r: 'rare', cost: 2, tgt: 'enemy', icon: '🗡️', fx: { dmg: 14, exec: 20, killEnergy: 3 } },
   r_caltrops: { name: 'Caltrops', cls: 'rogue', r: 'rare', cost: 2, tgt: 'self', icon: '⭐', ex: 1, power: 1, fx: { caltrops: 6 } },
@@ -221,7 +221,7 @@ export const DIFFICULTIES = [
 // What a card costs to play right now, after powers like Archmage Ascendant.
 export const costFor = (c, h) => Math.max(0, c.cost - (h?.pw?.discount || 0));
 
-const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'thorns', 'ward', 'aegis', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen', 'zap', 'pyro', 'echo', 'cuts', 'teamMend', 'beacon', 'teamRegen', 'guardSelf', 'bastion', 'refund', 'killEnergy', 'caltrops', 'teamGuard', 'retri'];
+const UPG_SCALE = ['dmg', 'shield', 'guard', 'heal', 'mend', 'burn', 'poison', 'thorns', 'ward', 'aegis', 'fury', 'empower', 'teamEmpower', 'detonate', 'exec', 'gold', 'focus', 'regen', 'zap', 'pyro', 'echo', 'cuts', 'teamMend', 'beacon', 'teamRegen', 'guardSelf', 'bastion', 'refund', 'killEnergy', 'caltrops', 'teamGuard', 'retri'];
 const UPG_TIME = ['taunt', 'stun', 'vuln', 'weak', 'haste', 'teamHaste', 'vanish', 'invuln', 'shelter', 'cover', 'selfSlow'];
 
 // The card definition as it plays, with the upgrade applied.
@@ -268,6 +268,7 @@ const say = (fx, k, tgt, all) => {
     case 'vuln': return `Vulnerable${all ? ' to ALL' : ''} ${v}s.`;
     case 'weak': return `Weaken${all ? ' ALL' : ''} ${v}s.`;
     case 'burn': return `Apply <b>${v}</b> Burn${all ? ' to ALL' : ''}.`;
+    case 'poison': return `Apply <b>${v}</b> Poison${all ? ' to ALL' : ''}.`;
     case 'taunt': return `<b>Taunt</b>${all ? ' ALL enemies' : ''} for ${v}s.`;
     case 'shield': return `Give the Hearth <b>${v}</b> Barrier.`;
     case 'guard': return ally ? `Give an ally <b>${v}</b> Armor.` : `Gain <b>${v}</b> Armor.`;
@@ -313,7 +314,7 @@ const say = (fx, k, tgt, all) => {
     case 'refund': return `If it cancels the move, gain <b>${v}</b> ⚡.`;
     case 'twin': return 'Your next spell with a cast time resolves twice.';
     case 'killEnergy': return `If it kills, gain <b>${v}</b> ⚡.`;
-    case 'caltrops': return `<b>Power:</b> whenever an enemy hits the Hearth, it takes ${v} damage and 2 Burn.`;
+    case 'caltrops': return `<b>Power:</b> whenever an enemy hits the Hearth, it takes ${v} damage and 2 Poison.`;
     case 'teamGuard': return `Everyone gains <b>${v}</b> Armor.`;
     case 'retri': return `<b>Power:</b> whenever you heal the Hearth, deal ${v}% of it to a random enemy.`;
     default: return '';

@@ -26,7 +26,7 @@ const NODE_NAMES = { fight: 'Fight', elite: 'Elite', rest: 'Campfire', shop: 'Sh
 // Painted UI icons in assets/ui, each with the emoji shown if its image is missing.
 const ICONS = {
   atk: '⚔️', pounce: '🎯', wave: '🌊', quake: '💥', block: '🛡️', buff: '💪', rally: '📯', heal: '💚',
-  summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️', burn: '🔥', vuln: '🎯', weak: '🥀', stun: '💫',
+  summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️', burn: '🔥', poison: '🧪', vuln: '🎯', weak: '🥀', stun: '💫',
   energy: '⚡', armor: '🪖', barrier: '🔷', embers: '🔶', gold: '🪙', hp: '❤️', floor: '🪜', deck: '🂠',
   discard: '♻️', cast: '⏱', difficulty: '💀', 'stand-guard': '⚜️', taunt: '😤', interrupt: '✋', revive: '🕊️', lock: '🔒',
 };
@@ -366,7 +366,7 @@ function runbarHTML() {
     ${S.diff ? `<span title="Difficulty: ${DIFFICULTIES[S.diff].name}">${ico('difficulty')}<span class="rb-txt"> ${DIFFICULTIES[S.diff].name}</span></span>` : ''}
     ${m ? `<span title="Your HP">${ico('hp')} ${m.hp}<span class="rb-max">/${m.maxHp}</span></span><span title="Your gold">${ico('gold')} ${m.gold}</span>` : ''}
     <span class="rb-relics">${(S.relics || []).map(r => `<button class="relic" data-relic="${r}" aria-label="${esc(RELICS[r].name)}: ${esc(RELICS[r].text)}">${relicPic(r)}</button>`).join('')}</span>
-    ${m ? `<button class="chip" data-deck="view" title="Your deck">${ico('deck')}<span class="rb-txt"> Deck</span> ${m.deck.length}</button>` : ''}`;
+    ${m ? `<button class="chip" data-deck="view" title="Your deck">${ico('deck')}<span class="rb-txt"> Deck</span></button>` : ''}`;
 }
 
 // A painted image, or the emoji if the image is missing.
@@ -688,6 +688,7 @@ addEventListener('scroll', () => tipFor && hideRelicTip(), { passive: true });
 const STAT_ROWS = [
   ['dmg', 'atk', 'Total damage dealt'],
   ['burn', 'burn', 'Burn damage'],
+  ['poison', 'poison', 'Poison damage'],
   ['kills', 'difficulty', 'Kills'],
   ['tanked', 'block', 'Damage tanked'],
   ['healed', 'heal', 'Healing'],
@@ -703,7 +704,7 @@ const STAT_ROWS = [
 // The top player in each of these earns the title.
 const MAX_TITLES = 2;
 const TITLES = [
-  ['dmg', 'Slayer'], ['burn', 'Pyromaniac'], ['kills', 'Executioner'], ['tanked', 'Bulwark'],
+  ['dmg', 'Slayer'], ['burn', 'Pyromaniac'], ['poison', 'Venomancer'], ['kills', 'Executioner'], ['tanked', 'Bulwark'],
   ['healed', 'Lifeline'], ['shield', 'Warden'], ['interrupts', 'Silencer'], ['energyGiven', 'Battery'],
   ['combos', 'Conductor'], ['downs', 'Floor Inspector'],
 ];
@@ -1334,6 +1335,7 @@ function frame(now) {
     const left = until => `${Math.ceil(until - t)}s left.`;
     if (e.str) st.push(`<span${tipAttr(`Strength +${e.str}`, `Its attacks deal ${e.str} more damage.`)}>${ico('buff')}${e.str}</span>`);
     if (e.burn) st.push(`<span${tipAttr(`Burn ${e.burn}`, `Takes ${e.burn} damage each second, then Burn drops by 1. Ignores block.`)}>${ico('burn')}${e.burn}</span>`);
+    if (e.poison) st.push(`<span${tipAttr(`Poison ${e.poison}`, `Takes ${e.poison} damage each second, then Poison drops by 1. Ignores block.`)}>${ico('poison')}${e.poison}</span>`);
     if (e.vuln > t) st.push(`<span${tipAttr('Vulnerable', `Takes 50% more damage. ${left(e.vuln)}`)}>${ico('vuln')}${Math.ceil(e.vuln - t)}s</span>`);
     if (e.weak > t) st.push(`<span${tipAttr('Weak', `Deals 30% less damage. ${left(e.weak)}`)}>${ico('weak')}${Math.ceil(e.weak - t)}s</span>`);
     if (e.stun > t) st.push(`<span${tipAttr('Stunned', `Can't act, and its wind-up is paused. ${left(e.stun)}`)}>${ico('stun')}${Math.ceil(e.stun - t)}s</span>`);

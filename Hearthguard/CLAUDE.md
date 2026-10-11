@@ -35,6 +35,7 @@ No build step and no dependencies to install. Plain ES modules served as static 
 
 - **Pace (`TEMPO`):** the host picks Fast (1.5), Normal (2, default) or Relaxed (2.5). Energy regen (`baseRegen()`), enemy wind-ups, the combo window and every duration in seconds scale together. Durations are multiplied by `TEMPO` in `cardDef` (`UPG_TIME` keys) and in timed relic text. When adding anything timed, scale it with `TEMPO` or it'll drift out of step.
 - **Hearth and heroes:** Hearth HP by party size is in `HEARTH`. Hero HP carries over between fights. A knocked-out hero stays down until a Resurrection or the end of the fight. If the whole party is down, the run ends (a "wipe").
+- **Burn vs Poison:** both deal their stack in damage each second (ignoring block), then drop by 1. They stack separately and have separate stats. Mage and cleric cards apply Burn; rogue cards apply Poison. Only Burn has synergies (Detonate, Combustion, Living Flame, Grim Tome). Both go through `addDot`/`dotTick` in `sim.js`.
 - **Barrier vs Armor:** **Barrier** shields the Hearth and fades. **Armor** shields one hero. Card keys: `shield` = Barrier, `guard` = Armor.
 - **Taunt:** sends an enemy's attacks to the taunter. **Interrupt** breaks poise. A move is cancelled when its poise hits 0, and `poise: 99` means unstoppable.
 - **Party-size scaling** (tables at the top of `sim.js`, indexed by player count):
@@ -59,7 +60,7 @@ No build step and no dependencies to install. Plain ES modules served as static 
 ## Art
 
 - **Style** (reuse in every prompt): *dark fantasy game illustration in a hand-painted gouache style, bold dark ink outlines, chunky readable silhouettes, warm orange-amber firelight rim lighting against deep umber, charcoal and slate-blue shadows, textured brush strokes, muted palette with one saturated accent, no text/labels/watermarks.* Class glow colors: Knight gold `#e0b84a`, Mage blue-violet `#7c8cff`, Rogue emerald `#4fd18b`, Cleric rose `#f2a1c7`, Hex purple `#8b3bbf`.
-- **How it's made:** the user generates sprite sheets in ChatGPT and saves them in `assets/`. Cutouts (enemies, classes, relics, icons) go on flat `#00FF00` green. Card art and scenes are full paintings.
+- **How it's made:** the user generates sprite sheets in ChatGPT and saves them in `assets/`. Cutouts (enemies, classes, relics, icons) go on flat `#00FF00` green. A subject that is itself green (the poison icon) goes on flat `#FF00FF` magenta instead, keyed the same way with red and blue swapped for green. Card art and scenes are full paintings.
 - **Slicing:** each sheet is cut into `assets/<folder>/<id>.webp`, named after the game's id. The grid lines are found by looking for the darkest line near each even split. Each cell is inset a few pixels.
   - **Green sheets:** green is keyed out (alpha from how much G exceeds max(R,B)) and the cutout is trimmed to what's left.
   - **Leftover green tint:** remove it **fully** on sheets with no intended green (relics, icons). Remove it **only on semi-transparent edges** where green is intended (Rogue cloak, rat, necromancer fire), or those greens get washed out.
