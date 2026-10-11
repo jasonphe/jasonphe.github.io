@@ -128,7 +128,7 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 .relic-icon .pic { width: 72px; height: 72px; filter: drop-shadow(0 4px 8px #000a); }
 .seat-icon .pic { width: 52px; height: 52px; border: 2px solid var(--pc); }
 .class-icon .pic { width: 100%; height: 150px; border-radius: 10px; object-position: center 15%; }
-.havatar .pic, .pavatar .pic { width: 28px; height: 28px; border: 2px solid var(--pc); }
+.pavatar .pic { width: 28px; height: 28px; border: 2px solid var(--pc); }
 .legend .pic { width: 1.5em; height: 1.5em; }
 .scene { width: fit-content; max-width: 100%; margin: 0 auto 10px; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 10px 30px #000a; font-size: 3rem; }
 .scene .pic { width: auto; height: auto; max-width: 100%; max-height: min(42vh, 400px); display: block; }
@@ -253,76 +253,107 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hearth.low { box-shadow: 0 0 0 2px var(--danger), 0 0 30px #ff5a4a55; }
 .hearth.hit { animation: shake .3s; }
 
-.enemies { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; min-height: 230px; align-items: flex-end; }
-.enemy {
-  position: relative; width: 190px; background: linear-gradient(180deg, #2a1a1a, #1a1210); border: 2px solid #5a3030;
-  border-radius: 14px; padding: 8px; text-align: center; transition: opacity .4s, transform .2s, box-shadow .15s;
+/* ---------- The stage: heroes on the left, enemies on the right ---------- */
+/* Each side lays its units out in a formation by how many there are (data-n, set from
+   game.js). Units are a figure standing on a ground shadow, with a slim plate below. */
+.stage {
+  --fig: 150px;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: end;
+  padding: 6px 4px 14px;
+  background: radial-gradient(ellipse 70% 26% at 50% 96%, #0000008c, transparent 70%);
 }
-.enemy.elite { border-color: #a0602a; }
-.enemy.boss { width: 240px; border-color: #b33; box-shadow: 0 0 30px #b333; }
-.enemy.dead { opacity: 0; transform: scale(.85); pointer-events: none; }
-.enemy.targetable { cursor: crosshair; box-shadow: 0 0 0 3px var(--gold), 0 0 24px #e0b84a66; }
-.enemy.targetable:hover { transform: translateY(-3px); }
-.enemy.stunned .art { filter: grayscale(.6) brightness(.8); }
-.enemy.hit { animation: shake .3s; }
-.enemy.lunge .art { animation: lunge .35s; }
-.art { font-size: 3.4rem; line-height: 1.1; margin: 4px 0; height: 130px; display: grid; place-items: end center; }
+.side { display: grid; gap: 10px 12px; align-items: end; justify-items: center; grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr)); }
+.side[data-n="2"] { --cols: 2; }
+.side[data-n="3"] { --cols: 3; }
+.side[data-n="4"], .side[data-n="5"], .side[data-n="6"] { --cols: 4; }
+/* A staggered line, like a party standing in formation. `translate` stays separate from
+   the transform that hit and lunge animations use. */
+.side > :nth-child(even) { translate: 0 14px; }
+
+.enemy, .hero { position: relative; width: 100%; max-width: 190px; display: grid; gap: 3px; text-align: center; transition: opacity .4s, transform .2s; }
+.fig { position: relative; height: var(--fig); }
+/* The ground shadow; it lights up when this unit can be targeted. */
+.fig::before {
+  content: ''; position: absolute; left: 8%; right: 8%; bottom: -6px; height: 16px; border-radius: 50%;
+  background: radial-gradient(closest-side, #000c, #0000);
+}
+.art { position: relative; height: 100%; display: grid; place-items: end center; font-size: 3.4rem; line-height: 1; }
 .art img { width: 100%; height: 100%; min-height: 0; object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 10px #000c); user-select: none; }
-.enemy.boss .art { font-size: 4.4rem; height: 180px; }
-.ename { font-family: 'Cinzel', serif; font-weight: 800; font-size: .9rem; margin-bottom: 4px; }
-/* Statuses sit over the bottom of the enemy's art and stack upward, so they never push
-   the layout around. */
-.enemy .status { position: relative; z-index: 1; display: flex; gap: 3px 6px; justify-content: flex-start; flex-wrap: wrap-reverse; align-content: flex-start; height: 22px; margin: -24px 0 2px; font-size: .85rem; font-weight: 800; pointer-events: none; }
-.enemy .status > span { pointer-events: auto; }
-.enemy .status > span { display: inline-flex; align-items: center; background: #1c1613d9; border-radius: 6px; padding: 0 3px; }
+/* Stand-in hero figure: the class bust, faded out at the bottom. */
+.art img.bust { -webkit-mask-image: linear-gradient(#000 72%, #0000); mask-image: linear-gradient(#000 72%, #0000); filter: none; }
+.plate { display: grid; gap: 2px; }
+.ename, .hname { font-family: 'Cinzel', serif; font-weight: 800; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate .bar { height: 12px; border-radius: 6px; }
+.plate .bar span { font-size: .66rem; }
+
+.enemy.elite .ename { color: #e0a060; }
+.enemy.boss { max-width: 300px; }
+.enemy.boss .fig { height: calc(var(--fig) * 1.45); }
+.enemy.boss .ename { color: #ff8a7a; }
+.enemy.dead { opacity: 0; transform: scale(.85); pointer-events: none; }
+.enemy.targetable { cursor: crosshair; }
+.enemy.targetable .fig::before { background: radial-gradient(closest-side, #ffd76a, #e0b84a88 60%, #0000); animation: ring 1s ease-in-out infinite; }
+.hero.targetable { cursor: pointer; }
+.hero.targetable .fig::before { background: radial-gradient(closest-side, #8be08b, #4fd18b88 60%, #0000); animation: ring 1s ease-in-out infinite; }
+.hero.mine .fig::before { background: radial-gradient(closest-side, var(--pc), #0000); opacity: .8; }
+@keyframes ring { 50% { opacity: .55; } }
+.enemy.stunned .art { filter: grayscale(.6) brightness(.8); }
+.enemy.hit, .hero.hit { animation: shake .3s; }
+.enemy.lunge .art { animation: lunge .35s; }
+
+/* Statuses sit over the bottom of the figure and stack upward, so they never push the
+   layout around. */
+.fig .status, .fig .guard {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap-reverse; justify-content: center;
+  gap: 2px 4px; font-size: .8rem; font-weight: 800; pointer-events: none;
+}
+.fig .guard { color: var(--guard); }
+.fig .status > span, .fig .guard > span { pointer-events: auto; display: inline-flex; align-items: center; background: #1c1613d9; border-radius: 6px; padding: 0 3px; }
 .status span { cursor: help; }
 /* Fixed-width digits, so a chip doesn't change width as its number ticks down. */
-.enemy .status, .guard, .snum { font-variant-numeric: tabular-nums; }
-.taunt-tag { position: absolute; top: -10px; right: 8px; font-size: .7rem; font-weight: 800; color: #111; border-radius: 6px; padding: 1px 6px; }
-.intent { background: #0007; border: 1px solid #6a4a3a; border-radius: 10px; padding: 5px 6px; text-align: left; }
-/* Between moves the intent box keeps its space, so the panel doesn't jump. */
+.fig .status, .fig .guard, .snum { font-variant-numeric: tabular-nums; }
+.taunt-tag {
+  position: absolute; top: 0; left: 50%; translate: -50% 0; z-index: 2; max-width: 100%; display: inline-flex; align-items: center; gap: 2px;
+  font-size: .7rem; font-weight: 800; color: #111; border-radius: 6px; padding: 0 5px 0 2px; white-space: nowrap;
+}
+.taunt-tag span { overflow: hidden; text-overflow: ellipsis; }
+.htaunt { position: absolute; top: 0; right: 0; z-index: 2; font-size: .8rem; font-weight: 800; background: #1c1613d9; border-radius: 6px; }
+.htaunt:empty { display: none; }
+
+/* The enemy's next move, in a bubble over its head. Tap or hover it for the details. */
+.intent { width: 100%; background: #000b; border: 1px solid #6a4a3a; border-radius: 10px; padding: 3px 6px 5px; text-align: left; cursor: help; }
+/* Between moves the intent box keeps its space, so the stage doesn't jump. */
 .intent.vacant { visibility: hidden; }
-.intent.danger { border-color: var(--danger); background: #3a0f0a99; }
-.iline { display: flex; gap: 6px; align-items: center; min-height: 1.6rem; font-weight: 800; font-size: .9rem; white-space: nowrap; }
+.intent.danger { border-color: var(--danger); background: #3a0f0acc; }
+.iline { display: flex; gap: 5px; align-items: center; min-height: 1.4rem; font-weight: 800; font-size: .85rem; white-space: nowrap; }
 .iname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.irow { display: flex; align-items: center; gap: 6px; min-height: 1.15rem; }
-.iname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .idmg { color: #ff9c7a; font-size: 1.05rem; }
-.itgt { flex: 1; min-width: 0; font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.itgt { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .intent.danger .itgt { color: #ffb4a6; }
-.wind { height: 7px; border-radius: 4px; background: #0009; overflow: hidden; margin-top: 4px; }
+.wrow { display: flex; align-items: center; gap: 5px; margin-top: 3px; }
+.wind { flex: 1; height: 7px; border-radius: 4px; background: #0009; overflow: hidden; }
 .wind i { display: block; height: 100%; background: linear-gradient(90deg, #ffb03a, #ff4e1f); }
 .poise { display: flex; gap: 3px; flex: none; }
-.poise i { width: 14px; height: 6px; border-radius: 2px; background: #fff2; border: 1px solid var(--int); }
+.poise:empty { display: none; }
+.poise .pips { display: flex; gap: 2px; }
+.poise i { width: 12px; height: 7px; border-radius: 2px; background: #fff2; border: 1px solid var(--int); }
 .poise i.on { background: var(--int); }
 
-.heroes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.hero {
-  position: relative; width: 200px; background: var(--panel); border: 1px solid var(--line); border-top: 4px solid var(--pc);
-  border-radius: 12px; padding: 8px; display: grid; gap: 5px;
-}
-.hero.mine { box-shadow: 0 0 0 1px var(--pc); }
+.hname b { border-bottom: 2px solid var(--pc); padding: 0 2px; }
+.hero.mine .hname b { color: var(--gold); }
 .hero.off { opacity: .45; }
-.hero.targetable { cursor: pointer; box-shadow: 0 0 0 3px var(--good); }
-.hero.isdown .bar, .hero.isdown .hrow { opacity: .35; }
-.hero.hit { animation: shake .3s; }
-.hname { display: flex; gap: 6px; align-items: center; font-size: .92rem; }
-.hname b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.htaunt { font-size: .8rem; font-weight: 800; }
-/* Statuses and powers stay on one line (swipe or scroll if there are many) so the panel
-   keeps its height. */
-.hrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; height: 28px; }
-.guard { flex: 1; min-width: 0; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; align-items: center; gap: 3px 4px; font-weight: 800; color: var(--guard); font-size: .85rem; }
+.hero.isdown .art { filter: grayscale(1) brightness(.45); }
+.hero.isdown .bar, .hero.isdown .guard { opacity: .35; }
 .epips { display: flex; gap: 3px; }
 .epips i { width: 14px; height: 8px; border-radius: 3px; background: #0008; overflow: hidden; border: 1px solid #7a6420; }
 .epips i b { display: block; height: 100%; background: #b8951e; }
 .epips i.full b { background: var(--energy); box-shadow: 0 0 6px var(--energy); }
 .epips.big i { width: 30px; height: 16px; border-radius: 5px; }
-.hcast { position: relative; height: 16px; border-radius: 4px; background: #0008; overflow: hidden; }
+.hcast { position: relative; height: 15px; border-radius: 4px; background: #0008; overflow: hidden; }
 .hcast.vacant { visibility: hidden; }
 .hcast i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #6a5acd, #b58cff); }
-.hcast span { position: relative; font-size: .72rem; font-weight: 800; padding-left: 5px; }
-.down { position: absolute; inset: auto 6px 6px auto; color: var(--danger); font-weight: 800; font-size: .85rem; }
+.hcast span { position: relative; display: block; font-size: .66rem; font-weight: 800; padding: 0 4px; line-height: 15px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.down { position: absolute; left: 50%; top: 40%; translate: -50% 0; z-index: 2; color: var(--danger); font-weight: 800; font-size: .85rem; text-shadow: 0 1px 3px #000; }
 .down:empty { display: none; }
 
 .me { position: sticky; bottom: 0; background: linear-gradient(180deg, #1c1613f5, #120e0cfc); border: 1px solid var(--line); border-radius: 16px; padding: 10px 12px 12px; }
@@ -355,8 +386,9 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 @media (pointer: coarse) { .key { display: none; } }
 
 @keyframes shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
-@keyframes lunge { 40% { transform: translateY(12px) scale(1.15); } }
-@keyframes zoomin { from { opacity: 0; transform: translateX(-50%) translateY(24px) scale(.7); } }
+/* Enemies stand on the right, so they lunge left at the party. */
+@keyframes lunge { 40% { transform: translateX(-14px) scale(1.1); } }
+@keyframes zoomin { from { opacity: 0; transform: translateY(24px) scale(.7); } }
 @keyframes drawin { from { transform: translateY(30px); opacity: 0; } }
 
 /* ---------- Floating text & toasts ---------- */
@@ -404,30 +436,45 @@ dialog::backdrop { background: #000b; }
   .map-wrap { grid-template-columns: 1fr; }
   .map-side { position: static; }
   .map-scroll { max-height: 70vh; }
-  .enemies { gap: 8px; min-height: 0; }
-  .enemy { width: calc(50% - 4px); max-width: 180px; padding: 6px; }
-  .enemy.boss { width: 100%; max-width: 260px; }
-  .art { font-size: 2.4rem; height: 92px; }
-  .enemy.boss .art { font-size: 3.2rem; height: 130px; }
-  .heroes { gap: 6px; }
+  /* The stage: up to four a side, two per row, with the details a tap away. */
+  #combat { gap: 8px; }
+  .hearth { padding: 6px 10px; gap: 8px; }
+  .hearth-icon .pic { width: 40px; height: 40px; }
+  /* Figures grow on taller phones, which have room to spare under the hand. */
+  .stage { --fig: clamp(76px, 12svh, 120px); gap: 8px; padding: 0 0 12px; }
+  .side { gap: 6px; }
+  .side[data-n="3"], .side[data-n="4"] { --cols: 2; }
+  .side[data-n="5"], .side[data-n="6"] { --cols: 3; }
+  .side[data-n="3"] > :last-child { grid-column: 1 / -1; width: 50%; }
+  .side > :nth-child(even) { translate: 0 10px; }
+  .art { font-size: 2.4rem; }
+  .enemy.boss .fig { height: calc(var(--fig) * 1.6); }
+  .ename, .hname { font-size: .7rem; }
+  .intent { padding: 2px 4px 4px; border-radius: 8px; }
+  .iline { justify-content: center; min-height: 1.2rem; font-size: .8rem; gap: 3px; }
+  .iline .iname, .itgt { display: none; }
+  .idmg { font-size: .95rem; }
+  .poise i { width: 7px; height: 6px; }
+  .fig .status, .fig .guard { font-size: .7rem; gap: 1px 2px; }
   .me-top { flex-wrap: nowrap; gap: 8px; }
   .mycast { min-width: 0; }
   .piles { gap: 6px; flex: none; }
-  .hero .pic.pw-pic { width: 22px; height: 22px; }
-  .hero { width: calc(50% - 3px); padding: 6px; }
+  .hero .pic.pw-pic { width: 18px; height: 18px; }
   .hand { gap: 5px; }
   .hand-card { flex: 1; min-width: 0; }
   .hand-card .cardface { width: 100%; min-height: 136px; padding: 6px 3px 32px; }
   .hand-card .ctext, .hand-card .ctype { display: none; }
   .hand-card .cname { font-size: .74rem; }
   .hand-card .cart { height: 56px; font-size: 1.5rem; margin-top: 4px; }
-  /* The selected card pops up above the hand, with its text. */
+  /* The selected card pops up above the hand, with its text, over the side of the stage
+     it doesn't target: over the heroes, or over the enemies for cards played on an ally. */
   .hand { position: relative; margin-top: 16px; }
   .zoom:not([hidden]) {
-    display: block; position: absolute; bottom: calc(100% + 38px); left: 50%; z-index: 20;
-    width: min(196px, 58vw); padding: 0; background: none; border: 0; transform: translateX(-50%);
+    display: block; position: absolute; bottom: calc(100% + 38px); left: 0; z-index: 20;
+    width: min(180px, calc(50vw - 30px)); padding: 0; background: none; border: 0;
     filter: drop-shadow(0 14px 26px #000e); animation: zoomin .16s ease-out;
   }
+  .zoom.right:not([hidden]) { left: auto; right: 0; }
   .zoom .cardface { width: 100%; min-height: 0; }
   .zoom .cart { height: 88px; }
   .zoom .cname { font-size: 1rem; }

@@ -1029,8 +1029,10 @@ function buildCombat() {
         <div class="bar big"><i class="hp"></i><i class="sh"></i></div>
       </div>
     </div>
-    <div class="enemies" id="enemiesEl"></div>
-    <div class="heroes" id="heroesEl"></div>
+    <div class="stage" id="stageEl">
+      <div class="side heroes" id="heroesEl" data-n="0"></div>
+      <div class="side enemies" id="enemiesEl" data-n="0"></div>
+    </div>
     <div class="me" id="meEl">
       <div class="me-top">
         <div class="energy" title="Energy"><div class="epips big"></div><span class="enum"></span></div>
@@ -1066,11 +1068,12 @@ function buildCombat() {
   root.addEventListener('click', e => { if (!e.target.closest('.hand, .mycast')) sel = null; });
   $('enemiesEl').addEventListener('click', e => {
     const en = e.target.closest('.enemy');
-    if (en && selDef()?.tgt === 'enemy') playSel(en.dataset.id);
+    // Tapping a target plays the card; without a card, the tap opens the intent's details.
+    if (en && selDef()?.tgt === 'enemy') { e.stopPropagation(); playSel(en.dataset.id); }
   });
   $('heroesEl').addEventListener('click', e => {
     const h = e.target.closest('.hero');
-    if (h && selDef()?.tgt === 'ally') playSel(h.dataset.id);
+    if (h && selDef()?.tgt === 'ally') { e.stopPropagation(); playSel(h.dataset.id); }
   });
   sel = null;
 }
@@ -1177,12 +1180,16 @@ function enemyEl(e) {
   const d = ENEMIES[e.type];
   el.innerHTML = `
     <div class="intent"><div class="iline"><span class="iicon"></span><span class="iname"></span><span class="idmg"></span></div>
-      <div class="irow"><div class="itgt"></div><div class="poise"></div></div><div class="wind"><i></i></div></div>
-    <div class="art"><img src="assets/enemies/${e.type}.webp" alt="" draggable="false"></div>
-    <div class="status"></div>
-    <div class="ename">${esc(d.name)}</div>
-    <div class="bar"><i class="hp"></i><i class="blk"></i><span></span></div>
-    <div class="taunt-tag"></div>`;
+      <div class="itgt"></div><div class="wrow"><div class="wind"><i></i></div><div class="poise"></div></div></div>
+    <div class="fig">
+      <div class="art"><img src="assets/enemies/${e.type}.webp" alt="" draggable="false"></div>
+      <div class="status"></div>
+      <div class="taunt-tag"></div>
+    </div>
+    <div class="plate">
+      <div class="ename">${esc(d.name)}</div>
+      <div class="bar"><i class="hp"></i><i class="blk"></i><span></span></div>
+    </div>`;
   // Fall back to the emoji if there's no painting for this enemy.
   el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(d.icon); };
   if (d.boss) el.classList.add('boss');
@@ -1200,12 +1207,21 @@ function heroEl(pid) {
   el.className = 'hero' + (pid === selfId ? ' mine' : '');
   el.dataset.id = pid;
   el.style.setProperty('--pc', pColor(pid));
+  // Stand-in figure: the class bust until there's full-body art.
+  const cls = CLASSES[p?.cls] ? p.cls : null;
   el.innerHTML = `
-    <div class="hname"><span class="havatar">${classPic(p?.cls)}</span><b>${esc(p?.name)}</b><span class="htaunt"></span></div>
-    <div class="bar"><i class="hp"></i><span></span></div>
-    <div class="hrow"><span class="guard"></span></div>
-    <div class="hcast"><i></i><span></span></div>
-    <div class="down"></div>`;
+    <div class="fig">
+      <div class="art">${cls ? `<img class="bust" src="assets/classes/${cls}.webp" alt="" draggable="false">` : '❔'}</div>
+      <span class="guard"></span>
+      <span class="htaunt"></span>
+      <div class="down"></div>
+    </div>
+    <div class="plate">
+      <div class="hname"><b>${esc(p?.name)}</b></div>
+      <div class="bar"><i class="hp"></i><span></span></div>
+      <div class="hcast"><i></i><span></span></div>
+    </div>`;
+  if (cls) el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(CLASSES[cls].icon); };
   $('heroesEl').append(el);
   combatDom.heroes.set(pid, el);
   return el;
@@ -1338,6 +1354,8 @@ const comboLabel = n => `×${comboMult(n).toFixed(2).replace(/0$/, '')}`;
 
 const setW = (el, frac) => { const w = `${Math.round(clamp01(frac) * 400) / 4}%`; if (el.style.width !== w) el.style.width = w; };
 const setHidden = (el, v) => { if (el.hidden !== v) el.hidden = v; };
+// How many units stand on a side of the stage; the CSS lays out the formation from it.
+const setCount = (el, n) => { if (el.dataset.n !== String(n)) el.dataset.n = n; };
 const tog = (el, cls, on) => { if (el.classList.contains(cls) !== on) el.classList.toggle(cls, on); };
 
 // About 30 fps is plenty for bars and timers, at half the work of drawing every frame.
@@ -1387,7 +1405,7 @@ function frame(now) {
     syncChips(el.querySelector('.status'), st, '');
     const tt = el.querySelector('.taunt-tag');
     if (e.taunt && e.hp > 0) {
-      setText(tt, `Taunted by ${pName(e.taunt.pid)}`);
+      setHTML(tt, `${ico('taunt')}<span>${esc(pName(e.taunt.pid))}</span>`);
       const td = `Its attacks hit ${pName(e.taunt.pid)} (and their Armor) instead of the Hearth. ${Math.max(0, Math.ceil(e.taunt.until - t))}s left.`;
       if (tt.dataset.tipd !== td) { tt.dataset.tip = 'Taunted'; tt.dataset.tipd = td; }
       const bg = pColor(e.taunt.pid);
@@ -1399,18 +1417,29 @@ function frame(now) {
       const info = intentFor(e, t);
       tog(intent, 'vacant', false);
       tog(intent, 'danger', info.danger);
-      setHTML(intent.querySelector('.iicon'), `<span${tipAttr(info.a.n, INTENT_TIPS[info.a.k] || '')}>${ico(info.a.k)}</span>`);
+      setHTML(intent.querySelector('.iicon'), ico(info.a.k));
+      const poiseTip = e.act.maxPoise > 0 && e.act.maxPoise < 99 ? ` Poise ${e.act.poise}/${e.act.maxPoise}: takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel.` : " Can't be interrupted.";
+      const itip = `${info.num ? `${info.num} ` : ''}${info.tgt}. ${INTENT_TIPS[info.a.k] || ''}${poiseTip}`;
+      if (intent.dataset.tip !== info.a.n || intent.dataset.tipd !== itip) {
+        intent.dataset.tip = info.a.n;
+        intent.dataset.tipd = itip;
+        if (tipFor === intent) refreshTip(intent);
+      }
       setText(intent.querySelector('.iname'), info.a.n);
       setText(intent.querySelector('.idmg'), String(info.num));
       setHTML(intent.querySelector('.itgt'), iconize(esc(info.tgt)));
       const el2 = e.act.el + (e.stun > t ? 0 : x);
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
       // Only moves with poise can be interrupted; the pips are the cue.
-      setHTML(intent.querySelector('.poise'), e.act.maxPoise > 0 && e.act.maxPoise < 99 ? `<span class="pips"${tipAttr(`Poise ${e.act.poise}/${e.act.maxPoise}`, `Takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel this move. Each interrupt breaks one pip. Moves without a poise bar can't be interrupted.`)}>${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
-    } else tog(intent, 'vacant', true);
+      setHTML(intent.querySelector('.poise'), e.act.maxPoise > 0 && e.act.maxPoise < 99 ? `<span class="pips">${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
+    } else {
+      tog(intent, 'vacant', true);
+      if (tipFor === intent) hideRelicTip();
+    }
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
   }
   for (const [id, el] of combatDom.enemies) if (!seen.has(id)) { el.remove(); combatDom.enemies.delete(id); }
+  setCount($('enemiesEl'), combatDom.enemies.size);
 
   // Heroes
   const selCard = sel != null && handCard(sel) ? cardDef(handCard(sel).id, handCard(sel).up) : null;
@@ -1444,6 +1473,8 @@ function frame(now) {
     setText(dn, h.down ? 'Down' : '');
     if (h.down && !dn.dataset.tip) { dn.dataset.tip = 'Knocked out'; dn.dataset.tipd = "Can't act until a Resurrection or the end of the fight."; }
   }
+
+  setCount($('heroesEl'), combatDom.heroes.size);
 
   // My hand
   const h = myHero();
@@ -1498,6 +1529,7 @@ function frame(now) {
   const zInst = sel != null ? handCard(sel) : null;
   setHidden(zoom, !zInst);
   if (zInst) {
+    tog(zoom, 'right', cardDef(zInst.id, zInst.up).tgt === 'ally');
     const slot = combatDom.hand.find(s => s.u === sel)?.el;
     setHTML(zoom, cardHTML(zInst.id, zInst.up));
     if (slot) {
