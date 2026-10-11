@@ -29,6 +29,7 @@ const ICONS = {
   summon: '💀', hex: '🧿', drain: '🪫', slow: '🕸️', burn: '🔥', poison: '🧪', vuln: '🎯', weak: '🥀', stun: '💫',
   energy: '⚡', armor: '🪖', barrier: '🔷', embers: '🔶', gold: '🪙', hp: '❤️', floor: '🪜', deck: '🂠',
   discard: '♻️', cast: '⏱', difficulty: '💀', 'stand-guard': '⚜️', taunt: '😤', interrupt: '✋', revive: '🕊️', lock: '🔒', shatter: '💔', sunder: '🪓', defy: '😠',
+  cloaked: '👤', cover: '🫸', twin: '♊', combo: '✨',
 };
 const ico = (name, title = '') => ICONS[name]
   ? `<img class="ico" src="assets/ui/${name}.webp" alt="${ICONS[name]}"${title ? ` title="${title}"` : ''} draggable="false" onerror="this.replaceWith(this.alt)">`
@@ -707,7 +708,7 @@ const STAT_ROWS = [
   ['energyGiven', 'energy', 'Energy given'],
   ['revives', 'revive', 'Revives'],
   ['cards', 'deck', 'Cards played'],
-  ['combos', '✨', 'Combos'],
+  ['combos', 'combo', 'Combos'],
   ['downs', 'stun', 'Times knocked out'],
 ];
 // The top player in each of these earns the title.
@@ -1270,12 +1271,12 @@ function heroStatuses(pid, h, t) {
   const tag = (k, icon, title, desc, label = '') => out.push({ k, icon, label, tip: title, tipd: desc });
   if (h.guard) tag('armor', ico('armor'), `Armor ${Math.round(h.guard)}`, 'Soaks hits on this hero before their HP.', ` ${Math.round(h.guard)}`);
   if (h.shelter > t) tag('shelter', ico('stand-guard'), 'Standing guard', `This hero's Armor also soaks hits on the Hearth. ${left(h.shelter)}`);
-  if (h.vanish > t) tag('vanish', '👤', 'Cloaked', `Enemies can't hurt this hero. ${left(h.vanish)}`);
-  if (h.cover && h.cover.until > t && C.heroes[h.cover.by] && h.cover.by !== pid) tag('cover', '🫸', `Covered by ${pName(h.cover.by)}`, `Hits aimed at this hero go to ${pName(h.cover.by)} instead. ${left(h.cover.until)}`);
+  if (h.vanish > t) tag('vanish', ico('cloaked'), 'Cloaked', `Enemies can't hurt this hero. ${left(h.vanish)}`);
+  if (h.cover && h.cover.until > t && C.heroes[h.cover.by] && h.cover.by !== pid) tag('cover', ico('cover'), `Covered by ${pName(h.cover.by)}`, `Hits aimed at this hero go to ${pName(h.cover.by)} instead. ${left(h.cover.until)}`);
   if (h.haste > t) tag('haste', ico('energy'), 'Hasted', `Regenerates ⚡ twice as fast. ${left(h.haste)}`);
   if (h.slow > t) tag('slow', ico('slow'), 'Slowed', `Regenerates ⚡ at half speed. ${left(h.slow)}`);
   if (h.empower) tag('empower', ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
-  if (h.twin) tag('twin', '♊', 'Twincast ready', 'The next spell with a cast time resolves twice.');
+  if (h.twin) tag('twin', ico('twin'), 'Twincast ready', 'The next spell with a cast time resolves twice.');
   // Powers this hero played that act on themselves; team-wide ones sit on the Hearth.
   for (const [id, up] of h.powers || []) {
     const c = cardDef(id, up);
