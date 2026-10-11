@@ -270,22 +270,29 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .art img { width: 100%; height: 100%; min-height: 0; object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 10px #000c); user-select: none; }
 .enemy.boss .art { font-size: 4.4rem; height: 180px; }
 .ename { font-family: 'Cinzel', serif; font-weight: 800; font-size: .9rem; margin-bottom: 4px; }
-.status { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; min-height: 20px; font-size: .85rem; font-weight: 800; margin-top: 4px; }
+/* Statuses sit over the bottom of the enemy's art and stack upward, so they never push
+   the layout around. */
+.status { position: relative; z-index: 1; display: flex; gap: 3px 6px; justify-content: center; flex-wrap: wrap-reverse; align-content: flex-start; height: 22px; margin: -24px 0 2px; font-size: .85rem; font-weight: 800; pointer-events: none; }
+.status > span { pointer-events: auto; }
+.status > span { display: inline-flex; align-items: center; background: #1c1613d9; border-radius: 6px; padding: 0 3px; }
 .status span { cursor: help; }
 .taunt-tag { position: absolute; top: -10px; right: 8px; font-size: .7rem; font-weight: 800; color: #111; border-radius: 6px; padding: 1px 6px; }
 .intent { background: #0007; border: 1px solid #6a4a3a; border-radius: 10px; padding: 5px 6px; text-align: left; }
+/* Between moves the intent box keeps its space, so the panel doesn't jump. */
+.intent.vacant { visibility: hidden; }
 .intent.danger { border-color: var(--danger); background: #3a0f0a99; }
-.iline { display: flex; gap: 6px; align-items: center; font-weight: 800; font-size: .9rem; }
+.iline { display: flex; gap: 6px; align-items: center; min-height: 1.6rem; font-weight: 800; font-size: .9rem; white-space: nowrap; }
+.iname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.irow { display: flex; align-items: center; gap: 6px; min-height: 1.15rem; }
 .iname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .idmg { color: #ff9c7a; font-size: 1.05rem; }
-.itgt { font-size: .74rem; color: var(--muted); }
+.itgt { flex: 1; min-width: 0; font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .intent.danger .itgt { color: #ffb4a6; }
 .wind { height: 7px; border-radius: 4px; background: #0009; overflow: hidden; margin-top: 4px; }
 .wind i { display: block; height: 100%; background: linear-gradient(90deg, #ffb03a, #ff4e1f); }
-.poise { display: flex; gap: 3px; margin-top: 3px; min-height: 0; }
+.poise { display: flex; gap: 3px; flex: none; }
 .poise i { width: 14px; height: 6px; border-radius: 2px; background: #fff2; border: 1px solid var(--int); }
 .poise i.on { background: var(--int); }
-.poise:empty { display: none; }
 
 .heroes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .hero {
@@ -300,14 +307,17 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hname { display: flex; gap: 6px; align-items: center; font-size: .92rem; }
 .hname b { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .htaunt { font-size: .8rem; font-weight: 800; }
-.hrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.guard { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; font-weight: 800; color: var(--guard); font-size: .85rem; }
+/* Statuses and powers stay on one line (swipe or scroll if there are many) so the panel
+   keeps its height. */
+.hrow { display: flex; justify-content: space-between; align-items: center; gap: 6px; height: 28px; }
+.guard { flex: 1; min-width: 0; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; align-items: center; gap: 3px 4px; font-weight: 800; color: var(--guard); font-size: .85rem; }
 .epips { display: flex; gap: 3px; }
 .epips i { width: 14px; height: 8px; border-radius: 3px; background: #0008; overflow: hidden; border: 1px solid #7a6420; }
 .epips i b { display: block; height: 100%; background: #b8951e; }
 .epips i.full b { background: var(--energy); box-shadow: 0 0 6px var(--energy); }
 .epips.big i { width: 30px; height: 16px; border-radius: 5px; }
 .hcast { position: relative; height: 16px; border-radius: 4px; background: #0008; overflow: hidden; }
+.hcast.vacant { visibility: hidden; }
 .hcast i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #6a5acd, #b58cff); }
 .hcast span { position: relative; font-size: .72rem; font-weight: 800; padding-left: 5px; }
 .down { position: absolute; inset: auto 6px 6px auto; color: var(--danger); font-weight: 800; font-size: .85rem; }
@@ -320,7 +330,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .enum { font-weight: 800; color: var(--energy); font-size: 1.1rem; }
 .mycast { position: relative; flex: 1; min-width: 160px; height: 24px; border-radius: 6px; background: #0008; overflow: hidden; display: flex; align-items: center; }
 .mycast i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #6a5acd, #b58cff); }
-.mycast span { position: relative; padding-left: 8px; font-weight: 800; font-size: .85rem; flex: 1; }
+.mycast span { position: relative; padding-left: 8px; font-weight: 800; font-size: .85rem; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mycast .x { position: relative; background: #0006; border: 0; height: 100%; padding: 0 10px; }
 .piles { display: flex; gap: 10px; color: var(--muted); font-weight: 700; margin-left: auto; font-size: .9rem; }
 .hand { display: flex; gap: 10px; justify-content: center; margin-top: 22px; }
@@ -398,6 +408,10 @@ dialog::backdrop { background: #000b; }
   .art { font-size: 2.4rem; height: 92px; }
   .enemy.boss .art { font-size: 3.2rem; height: 130px; }
   .heroes { gap: 6px; }
+  .me-top { flex-wrap: nowrap; gap: 8px; }
+  .mycast { min-width: 0; }
+  .piles { gap: 6px; flex: none; }
+  .hero .pic.pw-pic { width: 22px; height: 22px; }
   .hero { width: calc(50% - 3px); padding: 6px; }
   .hand { gap: 5px; }
   .hand-card { flex: 1; min-width: 0; }

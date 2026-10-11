@@ -1167,11 +1167,11 @@ function enemyEl(e) {
   const d = ENEMIES[e.type];
   el.innerHTML = `
     <div class="intent"><div class="iline"><span class="iicon"></span><span class="iname"></span><span class="idmg"></span></div>
-      <div class="itgt"></div><div class="wind"><i></i></div><div class="poise"></div></div>
+      <div class="irow"><div class="itgt"></div><div class="poise"></div></div><div class="wind"><i></i></div></div>
     <div class="art"><img src="assets/enemies/${e.type}.webp" alt="" draggable="false"></div>
+    <div class="status"></div>
     <div class="ename">${esc(d.name)}</div>
     <div class="bar"><i class="hp"></i><i class="blk"></i><span></span></div>
-    <div class="status"></div>
     <div class="taunt-tag"></div>`;
   // Fall back to the emoji if there's no painting for this enemy.
   el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(d.icon); };
@@ -1353,7 +1353,7 @@ function frame(now) {
     const intent = el.querySelector('.intent');
     if (e.act && e.hp > 0) {
       const info = intentFor(e, t);
-      setHidden(intent, false);
+      tog(intent, 'vacant', false);
       tog(intent, 'danger', info.danger);
       setHTML(intent.querySelector('.iicon'), `<span${tipAttr(info.a.n, INTENT_TIPS[info.a.k] || '')}>${ico(info.a.k)}</span>`);
       setText(intent.querySelector('.iname'), info.a.n);
@@ -1363,7 +1363,7 @@ function frame(now) {
       setW(intent.querySelector('.wind i'), el2 / e.act.dur);
       setHTML(intent.querySelector('.poise'), e.act.maxPoise >= 99 ? `<span${tipAttr('Unstoppable', "This move can't be interrupted. Block it with Barrier, Armor or a taunt.")}>${ico('lock')}</span>`
         : e.act.maxPoise > 1 ? `<span class="pips"${tipAttr(`Poise ${e.act.poise}/${e.act.maxPoise}`, `Takes ${e.act.poise} more interrupt${e.act.poise > 1 ? 's' : ''} to cancel this move. Each interrupt breaks one pip.`)}>${Array.from({ length: e.act.maxPoise }, (_, i) => `<i class="${i < e.act.poise ? 'on' : ''}"></i>`).join('')}</span>` : '');
-    } else setHidden(intent, true);
+    } else tog(intent, 'vacant', true);
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
   }
   for (const [id, el] of combatDom.enemies) if (!seen.has(id)) { el.remove(); combatDom.enemies.delete(id); }
@@ -1384,15 +1384,15 @@ function frame(now) {
     const hc = el.querySelector('.hcast');
     const windowLeft = !h.ch && pid !== selfId && !h.down ? h.lastCh + comboWindow() - t : 0;
     if (h.ch) {
-      setHidden(hc, false);
+      tog(hc, 'vacant', false);
       const c = cardDef(h.ch.inst.id, h.ch.inst.up);
       setText(hc.querySelector('span'), `${c.icon} ${c.name}`);
       setW(hc.querySelector('i'), (h.ch.el + x * (1 + h.pw.focus / 100)) / h.ch.dur);
     } else if (windowLeft > 0) {
-      setHidden(hc, false);
+      tog(hc, 'vacant', false);
       setText(hc.querySelector('span'), 'Combo window');
       setW(hc.querySelector('i'), windowLeft / comboWindow());
-    } else setHidden(hc, true);
+    } else tog(hc, 'vacant', true);
     // A teammate's cast (or the window after it) is a chance to combo.
     tog(hc, 'combo-open', pid !== selfId && (!!h.ch || windowLeft > 0));
     tog(hc, 'window', windowLeft > 0);
