@@ -1314,9 +1314,9 @@ function heroStatuses(pid, h, t) {
   if (h.empower) tag('empower', ico('buff'), `Empowered +${h.empower}`, `This hero's next attack deals ${h.empower} more damage.`, ` +${h.empower}`);
   if (h.twin) tag('twin', ico('twin'), 'Twincast ready', 'The next spell with a cast time resolves twice.');
   // Powers this hero played that act on themselves; team-wide ones sit on the Hearth.
-  for (const [id, up] of h.powers || []) {
+  for (const [[id, up], n] of countPowers(h.powers)) {
     const c = cardDef(id, up);
-    if (c.tgt !== 'none') tag(`pw:${id}:${up}`, powerPic(c), c.name, `Active for the rest of the fight. ${powerText(c)}`);
+    if (c.tgt !== 'none') tag(`pw:${id}:${up}`, powerPic(c), c.name, `Active for the rest of the fight.${n > 1 ? ` Played ${n} times, so it stacks.` : ''} ${powerText(c)}`, n > 1 ? `×${n}` : '');
   }
   return out;
 }
@@ -1326,11 +1326,18 @@ const powerPic = c => pic(`cards/${c.id}`, c.icon, 'pw-pic');
 const powerText = c => cardText(c).replace(/<[^>]+>/g, '').replace(/(^|\. )Power: (.)/g, (m, a, ch) => a + ch.toUpperCase());
 function teamPowers() {
   const out = [];
-  for (const [pid, h] of Object.entries(C.heroes)) for (const [id, up] of h.powers || []) {
+  for (const [pid, h] of Object.entries(C.heroes)) for (const [[id, up], n] of countPowers(h.powers)) {
     const c = cardDef(id, up);
-    if (c.tgt === 'none') out.push({ k: `pw:${pid}:${id}:${up}`, icon: powerPic(c), tip: c.name, tipd: `Played by ${pName(pid)}, active for the rest of the fight. ${powerText(c)}` });
+    if (c.tgt === 'none') out.push({ k: `pw:${pid}:${id}:${up}`, icon: powerPic(c), label: n > 1 ? `×${n}` : '', tip: c.name, tipd: `Played by ${pName(pid)}, active for the rest of the fight.${n > 1 ? ` Played ${n} times, so it stacks.` : ''} ${powerText(c)}` });
   }
   return out;
+}
+// A run can hold two copies of a Power, and playing both lists it twice: count repeats so
+// each Power shows as one chip (×2), never two chips with the same key.
+function countPowers(list = []) {
+  const n = new Map();
+  for (const [id, up] of list) n.set(`${id}:${up}`, (n.get(`${id}:${up}`) || 0) + 1);
+  return [...n].map(([k, count]) => { const [id, up] = k.split(':'); return [[id, Number(up)], count]; });
 }
 
 // Status chips (icon + number, each with a tooltip) are updated in place, keyed by `k`:
@@ -1338,7 +1345,11 @@ function teamPowers() {
 // hovered tooltip doesn't flicker and chips don't slide around.
 function syncChips(box, items, cls = 'hs') {
   const have = new Map([...box.children].map(c => [c.dataset.k, c]));
+  const done = new Set();
   for (const it of items) {
+    // Keys must be unique: a repeat would be "new" every frame and pile up chips.
+    if (done.has(it.k)) continue;
+    done.add(it.k);
     let c = have.get(it.k);
     have.delete(it.k);
     if (!c) {
@@ -1603,9 +1614,11 @@ function floatText(to, text, cls, html = false) {
   const f = document.createElement('div');
   f.className = `float ${cls || ''}`;
   if (html) f.innerHTML = text; else f.textContent = text;
-  f.style.left = `${r.left + r.width / 2 + (Math.random() * 30 - 15)}px`;
   f.style.top = `${r.top + r.height * 0.35}px`;
   $('fxLayer').append(f);
+  // Keep it on screen: text past the edge can make phones widen the page.
+  const half = f.offsetWidth / 2;
+  f.style.left = `${Math.max(6 + half, Math.min(innerWidth - 6 - half, r.left + r.width / 2 + (Math.random() * 30 - 15)))}px`;
   setTimeout(() => f.remove(), 1200);
 }
 function flash(to, cls) {

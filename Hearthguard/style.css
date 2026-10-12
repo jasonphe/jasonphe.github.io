@@ -233,7 +233,9 @@ input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 /* ---------- Combat ---------- */
 body[data-phase="combat"] #main { padding-bottom: 8px; }
 body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), url(assets/bg/combat.webp) center / cover fixed, var(--bg); }
-#combat { display: grid; gap: 12px; }
+/* One column, never wider than the screen: a long line inside (a cast name, a row of
+   Powers) must shrink or clip, not widen the whole layout and make phones zoom out. */
+#combat { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .bar { position: relative; height: 14px; border-radius: 7px; background: #0008; overflow: hidden; border: 1px solid #0009; }
 .bar i { position: absolute; top: 0; bottom: 0; left: 0; transition: width .12s linear; }
 .bar .hp { background: linear-gradient(#ff7d6a, #c5301d); }
@@ -244,8 +246,11 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hearth { display: flex; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; }
 .hearth-icon { font-size: 2.2rem; animation: flicker 2s infinite; }
 .hearth-icon .pic { width: 64px; height: 64px; filter: drop-shadow(0 0 12px #ff7a3d88); }
-.hearth-body { flex: 1; }
-.hearth-label { display: flex; gap: 12px; align-items: baseline; margin-bottom: 4px; }
+.hearth-body { flex: 1; min-width: 0; }
+/* A fixed height, so Barrier and Power icons (taller than the text) appearing don't nudge
+   everything below. */
+.hearth-label { display: flex; gap: 12px; align-items: center; height: 28px; margin-bottom: 4px; min-width: 0; white-space: nowrap; }
+.hearth-label > b, .hnum, .snum { flex: none; }
 .hearth-label b { font-family: 'Cinzel', serif; color: #ff9c7a; }
 .hnum { font-weight: 800; }
 .snum { color: var(--shield); font-weight: 800; }
@@ -418,7 +423,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 @keyframes drawin { from { transform: translateY(30px); opacity: 0; } }
 
 /* ---------- Floating text & toasts ---------- */
-#fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+#fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
 /* Effect sprites (castFx / enemyFx in game.js): positioned in screen coordinates, moved only with transforms. */
 .vfx { position: absolute; object-fit: contain; pointer-events: none; user-select: none; }
 .float {
@@ -624,7 +629,9 @@ dialog::backdrop { background: #000b; }
 .hs { display: inline-flex; align-items: center; }
 /* Active powers: the card's art in a small gold ring. */
 .pic.pw-pic { width: 26px; height: 26px; object-fit: cover; border-radius: 50%; border: 1.5px solid var(--gold); box-shadow: 0 0 6px #e0b84a66; }
-.hpows { display: inline-flex; gap: 4px; align-self: center; }
+/* Team Powers stay on the Hearth's line; past the edge they scroll rather than wrap. */
+.hpows { display: inline-flex; gap: 4px; align-self: center; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.hpows::-webkit-scrollbar { display: none; }
 .hpows:empty { display: none; }
 .poise .pips { display: inline-flex; gap: 3px; }
 #relicTip.status { max-width: min(280px, calc(100vw - 16px)); }

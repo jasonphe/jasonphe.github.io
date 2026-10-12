@@ -612,7 +612,8 @@ export class Sim {
         case 'teamRegen': C.teamRegen = (C.teamRegen || 0) + v; break;
         case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); break;
         case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
-        case 'detonate': for (const e of foes) { const b = e.burn; e.burn = 0; e.burnBy = {}; this.hitEnemy(e, b * v + bonus, pid); } break;
+        // The Burn stays: Detonate is a bonus hit on top of it, never worth less than waiting.
+        case 'detonate': for (const e of foes) this.hitEnemy(e, e.burn * v + bonus, pid); break;
         case 'interrupt': for (const e of foes) if (this.interrupt(e, v, pid)) cancelled = true; break;
         case 'stun': for (const e of foes) this.stunEnemy(e, v); break;
         case 'vuln': for (const e of foes) e.vuln = Math.max(e.vuln, C.t + v); break;

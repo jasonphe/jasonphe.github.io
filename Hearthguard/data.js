@@ -262,7 +262,7 @@ const say = (fx, k, tgt, all) => {
     case 'guardDmg': return 'Deal damage equal to your Armor.';
     case 'shieldDmg': return "Deal damage equal to the Hearth's Barrier.";
     case 'exec': return `+<b>${v}</b> if the target is under 40% HP.`;
-    case 'detonate': return all ? `Deal <b>${v}×</b> each enemy's Burn to it, then clear it.` : `Deal <b>${v}×</b> the target's Burn, then clear it.`;
+    case 'detonate': return all ? `Deal <b>${v}×</b> each enemy's Burn to it. The Burn stays.` : `Deal <b>${v}×</b> the target's Burn. The Burn stays.`;
     case 'interrupt': return `<b>Interrupt</b>${all ? ' ALL' : ''}${v > 1 ? ` (breaks ${v} poise)` : ''}.`;
     case 'stun': return `Stun${all ? ' ALL' : ''} ${v}s.`;
     case 'vuln': return `Vulnerable${all ? ' to ALL' : ''} ${v}s.`;
