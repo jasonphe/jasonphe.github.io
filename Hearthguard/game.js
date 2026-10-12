@@ -1179,11 +1179,14 @@ function enemyEl(e) {
   el.className = 'enemy';
   el.dataset.id = e.id;
   const d = ENEMIES[e.type];
+  const posed = ENEMY_ART.has(e.type);
+  const art = posed ? ENEMY_POSES.map(k => `<img class="pose" data-pose="${k}" src="assets/enemies/${e.type}-${k}.webp" alt="" draggable="false">`).join('')
+    : `<img src="assets/enemies/${e.type}.webp" alt="" draggable="false">`;
   el.innerHTML = `
     <div class="intent"><div class="iline"><span class="iicon"></span><span class="iname"></span><span class="idmg"></span></div>
       <div class="itgt"></div><div class="wrow"><div class="wind"><i></i></div><div class="poise"></div></div></div>
     <div class="fig">
-      <div class="art"><img src="assets/enemies/${e.type}.webp" alt="" draggable="false"></div>
+      <div class="art${posed ? ' posed' : ''}" style="--breathe-delay: ${(-Math.random() * 3).toFixed(2)}s">${art}</div>
       <div class="status"></div>
       <div class="taunt-tag"></div>
     </div>
@@ -1192,7 +1195,7 @@ function enemyEl(e) {
       <div class="bar"><i class="hp"></i><i class="blk"></i><span></span></div>
     </div>`;
   // Fall back to the emoji if there's no painting for this enemy.
-  el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(d.icon); };
+  if (!posed) el.querySelector('.art img').onerror = ev => { ev.target.replaceWith(d.icon); };
   if (d.boss) el.classList.add('boss');
   if (d.elite) el.classList.add('elite');
   $('enemiesEl').append(el);
@@ -1204,6 +1207,11 @@ function enemyEl(e) {
 // with their bust until their sheet is sliced.
 const HERO_ART = new Set(['knight', 'mage', 'rogue', 'cleric']);
 const POSES = ['idle', 'attack', 'cast', 'down'];
+// Enemies with pose art (assets/enemies/<type>-<pose>.webp); the rest animate their one
+// painting. Attacks wind up and strike; every other move is a skill.
+const ENEMY_ART = new Set([]);
+const ENEMY_POSES = ['idle', 'windup', 'attack', 'skill'];
+const ENEMY_ATTACKS = new Set(['atk', 'pounce', 'wave', 'quake', 'sunder', 'shatter']);
 // A pose shown briefly after a card lands, by player id: { pose, until } in ms.
 const poseFlash = new Map();
 const POSE_MS = { attack: 450, cast: 600 };
@@ -1449,6 +1457,15 @@ function frame(now) {
       if (tipFor === intent) hideRelicTip();
     }
     tog(el, 'targetable', sel != null && e.hp > 0 && cardDef(handCard(sel)?.id || 'hex').tgt === 'enemy');
+    // How far the move has wound up drives the lean (in steps, to keep style writes rare).
+    const kind = e.act && e.hp > 0 ? ENEMIES[e.type].acts[e.act.i].k : null;
+    const move = kind ? (ENEMY_ATTACKS.has(kind) ? 'atk' : 'skill') : '';
+    const prog = kind ? clamp01((e.act.el + (e.stun > t ? 0 : x)) / e.act.dur) : 0;
+    const wind = String(Math.round(prog * 20) / 20);
+    if (el.style.getPropertyValue('--wind') !== wind) el.style.setProperty('--wind', wind);
+    if ((el.dataset.move || '') !== move) el.dataset.move = move;
+    tog(el, 'imminent', move === 'atk' && prog > 0.75 && !(e.stun > t));
+    setEnemyPose(el, e, move, e.stun > t);
   }
   for (const [id, el] of combatDom.enemies) if (!seen.has(id)) { el.remove(); combatDom.enemies.delete(id); }
   setCount($('enemiesEl'), combatDom.enemies.size);
@@ -1557,11 +1574,18 @@ function frame(now) {
 
 // Down beats everything, then a pose flashed by a card that just landed, then casting.
 function setPose(el, pid, h) {
-  const art = el.querySelector('.art.posed');
-  if (!art) return;
   const f = poseFlash.get(pid);
-  const pose = h.down ? 'down' : f && f.until > performance.now() ? f.pose : h.ch ? 'cast' : 'idle';
-  if (art.dataset.pose === pose) return;
+  showPose(el, h.down ? 'down' : f && f.until > performance.now() ? f.pose : h.ch ? 'cast' : 'idle');
+}
+// Enemies: a pose flashed by the move that just landed, then winding up (attacks) or
+// readying a skill, then idle. A stunned enemy's wind-up is frozen, so it stands idle.
+function setEnemyPose(el, e, move, stunned) {
+  const f = poseFlash.get(e.id);
+  showPose(el, f && f.until > performance.now() ? f.pose : move && !stunned ? (move === 'atk' ? 'windup' : 'skill') : 'idle');
+}
+function showPose(el, pose) {
+  const art = el.querySelector('.art.posed');
+  if (!art || art.dataset.pose === pose) return;
   art.dataset.pose = pose;
   for (const img of art.children) tog(img, 'on', img.dataset.pose === pose);
 }
@@ -1948,7 +1972,7 @@ function castFx(ev) {
 
 // Enemy moves that strike from range, by name, and what they throw. Every other attack
 // claws in melee, right on its target.
-const ENEMY_SHOT = { 'Shadow Bolt': 'shadow', 'Soul Drain': 'shadow', 'Bone Spear': 'shadow', Chill: 'shadow', Volley: 'dagger', Snipe: 'dagger', 'Flame Breath': 'fireball' };
+const ENEMY_SHOT = { 'Venom Spray': 'poison', 'Shadow Bolt': 'shadow', 'Soul Drain': 'shadow', 'Bone Spear': 'shadow', Chill: 'shadow', Volley: 'dagger', Snipe: 'dagger', 'Flame Breath': 'fireball' };
 function enemyFx(ev) {
   const e = C?.enemies.find(x => x.id === ev.by);
   if (!e || !combatDom) return;
@@ -1995,7 +2019,15 @@ function handleEvents(list) {
         floatText(ev.to, ev.x, ev.c || 'txt');
         if (ev.x === 'Revived!') fxBurst('pillar', ev.to, { scale: 1.4, at: 'stand', dur: 1100 });
         break;
-      case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); enemyFx(ev); break;
+      case 'eact': {
+        // Attacks lunge at the party; other moves rear up.
+        const atk = ENEMY_ATTACKS.has(ev.kk);
+        poseFlash.set(ev.by, { pose: atk ? 'attack' : 'skill', until: performance.now() + (atk ? 500 : 600) });
+        floatText(ev.by, ev.x, 'eact');
+        flash(ev.by, atk ? 'lunge' : 'rear');
+        enemyFx(ev);
+        break;
+      }
       case 'cast': {
         // Attacks swing and lunge at the enemy; everything else is a quick skill pose.
         const pose = ev.atk ? 'attack' : 'cast';

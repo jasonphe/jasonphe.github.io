@@ -281,7 +281,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .art img { width: 100%; height: 100%; min-height: 0; object-fit: contain; object-position: bottom; filter: drop-shadow(0 6px 10px #000c); user-select: none; }
 /* Stand-in hero figure: the class bust, faded out at the bottom. */
 .art img.bust { -webkit-mask-image: linear-gradient(#000 72%, #0000); mask-image: linear-gradient(#000 72%, #0000); filter: none; }
-/* Full-body heroes: every pose is stacked in the figure and only the current one shows.
+/* Full-body heroes and enemies with pose art: every pose is stacked in the figure and only the current one shows.
    Idle breathes gently; each hero starts at a different point so they don't sway together. */
 .art.posed img.pose { position: absolute; inset: 0; visibility: hidden; transform-origin: 50% 100%; }
 .art.posed img.pose.on { visibility: visible; }
@@ -307,9 +307,24 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .hero.targetable .fig::before { background: radial-gradient(closest-side, #8be08b, #4fd18b88 60%, #0000); animation: ring 1s ease-in-out infinite; }
 .hero.mine .fig::before { background: radial-gradient(closest-side, var(--pc), #0000); opacity: .8; }
 @keyframes ring { 50% { opacity: .55; } }
+/* Enemies come alive: they breathe, lean back as a move winds up (--wind, 0 to 1, set from
+   game.js), flare red under their feet just before an attack lands, lunge at the party
+   when it does, and rear up for skills. Hits knock a unit back with a flash. */
+.enemy .art { transform-origin: 50% 100%; transform: translateX(calc(var(--wind, 0) * 9px)) rotate(calc(var(--wind, 0) * 3deg)) scale(calc(1 + var(--wind, 0) * .04)); transition: transform .15s linear; }
+.enemy[data-move="skill"] .art { transform: translateY(calc(var(--wind, 0) * -6px)) scale(calc(1 + var(--wind, 0) * .06)); }
+.enemy .art:not(.posed) img { transform-origin: 50% 100%; animation: breathe 3.4s ease-in-out var(--breathe-delay, 0s) infinite; }
+.enemy.imminent:not(.targetable) .fig::before { background: radial-gradient(closest-side, #ff6a3a, #ff3a1a88 60%, #0000); animation: ring .45s ease-in-out infinite; }
 .enemy.stunned .art { filter: grayscale(.6) brightness(.8); }
-.enemy.hit, .hero.hit { animation: shake .3s; }
-.enemy.lunge .art { animation: lunge .35s; }
+.enemy.stunned .art img { animation: daze 1.4s ease-in-out infinite; }
+@keyframes daze { 25% { transform: rotate(-3deg); } 75% { transform: rotate(3deg); } }
+.enemy.lunge .art { animation: lunge .4s ease-out; }
+.enemy.rear .art { animation: rear .5s ease-out; }
+@keyframes rear { 35% { transform: translateY(-10px) scale(1.08); } }
+.enemy.hit .fig { animation: knock-right .28s ease-out; }
+.hero.hit .fig { animation: knock-left .28s ease-out; }
+@keyframes knock-right { 25% { transform: translateX(7px); filter: brightness(1.9); } }
+@keyframes knock-left { 25% { transform: translateX(-7px); filter: brightness(1.9); } }
+@media (prefers-reduced-motion: reduce) { .enemy .art:not(.posed) img, .enemy.stunned .art img { animation: none; } }
 
 /* Statuses sit over the bottom of the figure and stack upward, so they never push the
    layout around. */
@@ -398,7 +413,7 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 
 @keyframes shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
 /* Enemies stand on the right, so they lunge left at the party. */
-@keyframes lunge { 40% { transform: translateX(-14px) scale(1.1); } }
+@keyframes lunge { 30% { transform: translateX(-24px) scale(1.12); } }
 @keyframes zoomin { from { opacity: 0; transform: translateY(24px) scale(.7); } }
 @keyframes drawin { from { transform: translateY(30px); opacity: 0; } }
 
