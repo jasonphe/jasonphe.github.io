@@ -290,6 +290,10 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
    Idle breathes gently; each hero starts at a different point so they don't sway together. */
 .art.posed img.pose { position: absolute; inset: 0; visibility: hidden; transform-origin: 50% 100%; }
 .art.posed img.pose.on { visibility: visible; }
+/* Hero poses are sized by height, not squeezed into the box: a pose set built wide enough
+   for a lunge keeps the hero full size, and the sword just reaches past the figure's box.
+   Sprites ignore taps, so an overhanging sword never catches a tap meant for a neighbour. */
+.hero .art.posed img.pose { inset: 0 auto 0 50%; width: auto; max-width: none; height: 100%; translate: -50% 0; pointer-events: none; }
 .art.posed img[data-pose="idle"] { animation: breathe 3.2s ease-in-out var(--breathe-delay, 0s) infinite; }
 @keyframes breathe { 50% { transform: scale(1.012, 1.025); } }
 /* Heroes stand on the left, so they lunge right at the enemies. */
