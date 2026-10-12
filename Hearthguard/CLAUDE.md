@@ -80,7 +80,8 @@ No build step and no dependencies to install. Plain ES modules served as static 
 - **Enemy motion and poses:** every enemy breathes and leans back as a move winds up. `--wind` (0–1, in steps of 0.05) and `data-move` (`atk`/`skill`) are set in `frame()`. Attacks (`ENEMY_ATTACKS`) flare red under the enemy's feet in the last quarter of the wind-up (`.imminent`) and lunge when they land; other moves rear up. Hits knock units back with a flash (`.hit .fig`), and stunned enemies sway.
   - **Pose art:** enemies listed in `ENEMY_ART` swap poses (`ENEMY_POSES`: idle, windup / attack, skill), which are sliced from a 2×2 `assets/enemies-<id>.png` to `assets/enemies/<id>-<pose>.webp` with the hero slicer (`--poses idle,windup,attack,skill`).
   - **Backgrounds:** green, magenta or cyan, whichever the creature doesn't use. Necromancer is cyan (purple robes and green fire), and the green or blue creatures are magenta.
-  - **Prompts:** in `enemy-pose-prompts.md`.
+  - **Prompts:** in `enemy-pose-prompts.md`. They describe each enemy from scratch, so nothing needs attaching.
+  - **Slicing:** slice with `--main` so the idle pose also replaces `assets/enemies/<id>.webp` (the stand-in and the boss icon on the map). Slice with `--flip` for a sheet that came back facing right.
 - **Effects:** seven 3×3 sheets painted on black are sliced to `assets/vfx/<name>.webp`, 256px. The sheets are `vfx-1`, `vfx-2`, `vfx-knight`, `vfx-rogue`, `vfx-mage`, `vfx-cleric` and `vfx-shared`; the names per set are in `VFX_SETS`.
   - **Keying:** black becomes alpha. Alpha is the brightest channel and the colour is un-premultiplied, so sprites need no blend modes. Painted objects (shields, banner, knives, vial, caltrops, coins, thorns) are cut "solid": they only fade near black, so dark tones stay opaque.
   - **Direction:** projectiles head right, except `shadow`, which heads left. Ground decals (`fissure`, `caltrops`, `frostnova`, `consecrate`, `powerrune`) are painted flattened.

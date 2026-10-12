@@ -1209,7 +1209,7 @@ const HERO_ART = new Set(['knight', 'mage', 'rogue', 'cleric']);
 const POSES = ['idle', 'attack', 'cast', 'down'];
 // Enemies with pose art (assets/enemies/<type>-<pose>.webp); the rest animate their one
 // painting. Attacks wind up and strike; every other move is a skill.
-const ENEMY_ART = new Set([]);
+const ENEMY_ART = new Set(['rat', 'skeleton', 'cultist', 'wolf', 'bat', 'spider', 'zombie', 'wraith', 'ogre', 'necro', 'gargoyle', 'dread', 'king', 'wyrm']);
 const ENEMY_POSES = ['idle', 'windup', 'attack', 'skill'];
 const ENEMY_ATTACKS = new Set(['atk', 'pounce', 'wave', 'quake', 'sunder', 'shatter']);
 // A pose shown briefly after a card lands, by player id: { pose, until } in ms.
