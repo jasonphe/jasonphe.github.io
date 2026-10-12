@@ -306,7 +306,10 @@ body[data-phase="combat"] { background: linear-gradient(#120e0c66, #120e0cdd), u
 .plate .bar span { font-size: .66rem; }
 
 .enemy.elite .ename { color: #e0a060; }
-.enemy.boss { max-width: 300px; }
+/* A boss stands alone on its side, so in boss fights that side gets more of the stage: the
+   Ash Wyrm and the Hollow King's swing are wide. */
+.stage:has(.enemy.boss) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); }
+.enemy.boss { max-width: 360px; }
 .enemy.boss .fig { height: calc(var(--fig) * 1.45); }
 .enemy.boss .ename { color: #ff8a7a; }
 .enemy.dead { opacity: 0; transform: scale(.85); pointer-events: none; }
