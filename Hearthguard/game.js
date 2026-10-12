@@ -1627,17 +1627,18 @@ function fxSprite(name, x, y, size, rot = 0, flip = false) {
 }
 const fxDone = img => () => img.remove();
 
-// A burst in place: pops in, swells a little and fades.
-function fxBurst(name, to, { scale = 1, delay = 0, rise = 0, flip = false, dur = 520 } = {}) {
+// A burst in place: pops in, swells a little and fades. `thrust` drives it a few pixels
+// forward as it appears, like a stab; `dy` and `rot` vary repeated hits.
+function fxBurst(name, to, { scale = 1, delay = 0, rise = 0, flip = false, dur = 520, thrust = 0, dy = 0, rot = 0 } = {}) {
   const p = fxSpot(to);
   if (!p) return;
-  const img = fxSprite(name, p.x, p.y, p.size * scale, 0, flip);
+  const img = fxSprite(name, p.x, p.y + dy, p.size * scale, rot, flip);
   if (!img) return;
   const b = img.dataset.base;
   img.animate([
-    { transform: `${b} translateY(0) scale(.55)`, opacity: 0 },
-    { transform: `${b} translateY(${-rise * 0.4}px) scale(1.05)`, opacity: 1, offset: 0.3 },
-    { transform: `${b} translateY(${-rise}px) scale(1.15)`, opacity: 0 },
+    { transform: `${b} translate(${-thrust}px, 0) scale(.55)`, opacity: 0 },
+    { transform: `${b} translate(0, ${-rise * 0.4}px) scale(1.05)`, opacity: 1, offset: 0.3 },
+    { transform: `${b} translate(0, ${-rise}px) scale(1.15)`, opacity: 0 },
   ], { duration: dur, delay, easing: 'ease-out', fill: 'both' }).onfinish = fxDone(img);
 }
 
@@ -1668,6 +1669,7 @@ function mageElement(c) {
   if (/fire|flame|pyro|meteor|inferno|ignite|scorch|combust|detonat/i.test(c.name) || 'burn' in c.fx || 'detonate' in c.fx) return 'fireball';
   return 'arcane';
 }
+const ROGUE_THROWN = /fan of knives|crimson fan|dart/i;
 const HARMFUL = ['dmg', 'guardDmg', 'shieldDmg', 'detonate', 'guardBlast', 'zap', 'burn', 'poison', 'interrupt', 'stun', 'weak', 'vuln', 'exec', 'caltrops'];
 const SUPPORT_BURST = { energy: 'holy', teamEnergy: 'holy', haste: 'holy', teamHaste: 'holy', empower: 'holy', teamEmpower: 'holy', regen: 'holy', teamRegen: 'holy', cleanse: 'holy', beacon: 'holy' };
 
@@ -1694,8 +1696,15 @@ function castFx(ev) {
         const el = mageElement(c);
         fxShot(el, by, id, { delay, scale: el === 'lightning' ? 1 : 0.8, then: () => after(id, el === 'fireball' ? 'impact' : null) });
       } else if (c.cls === 'rogue') {
-        if (hits) fxShot('dagger', by, id, { delay, scale: 0.7, then: () => after(id, null) });
-        else setTimeout(() => after(id, null), delay);
+        // Thrown cards fly; every other rogue attack is a stab that appears on the target,
+        // once per hit (up to three).
+        if (hits && ROGUE_THROWN.test(c.name)) fxShot('dagger', by, id, { delay, scale: 0.7, then: () => after(id, null) });
+        else {
+          if (hits) for (let k = 0; k < Math.min(3, fx.hits || 1); k++) {
+            fxBurst('dagger', id, { scale: 0.75, delay: delay + 100 + k * 110, thrust: 26, dy: [0, -10, 10][k], rot: [0, 0.25, -0.2][k], dur: 360 });
+          }
+          setTimeout(() => after(id, null), delay + 100);
+        }
       } else if (c.cls === 'cleric') {
         setTimeout(() => { fxBurst('holy', id, { scale: 0.9 }); after(id, null); }, delay + 120);
       } else {
@@ -1720,13 +1729,14 @@ function castFx(ev) {
   }
 }
 
-// Enemies that strike from range, and what they throw. Everyone else claws in melee.
-const ENEMY_SHOT = { cultist: 'shadow', necro: 'shadow', wraith: 'shadow', king: 'shadow', goblin: 'dagger', wyrm: 'fireball' };
+// Enemy moves that strike from range, by name, and what they throw. Every other attack
+// claws in melee, right on its target.
+const ENEMY_SHOT = { 'Shadow Bolt': 'shadow', 'Soul Drain': 'shadow', 'Bone Spear': 'shadow', Chill: 'shadow', Volley: 'dagger', Snipe: 'dagger', 'Flame Breath': 'fireball' };
 function enemyFx(ev) {
   const e = C?.enemies.find(x => x.id === ev.by);
   if (!e || !combatDom) return;
   const heroes = Object.keys(C.heroes);
-  const shot = ENEMY_SHOT[e.type];
+  const shot = ENEMY_SHOT[ev.x];
   // Projectiles painted heading right (fireball, dagger) are flipped to head left; shadow already does.
   const hit = (to, scale = 1) => shot
     ? fxShot(shot, e.id, to, { scale: 0.7 * scale, left: shot === 'shadow', then: () => fxBurst('impact', to, { scale: 0.5 }) })
