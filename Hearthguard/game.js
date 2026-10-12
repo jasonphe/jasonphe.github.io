@@ -1215,6 +1215,17 @@ const ENEMY_ATTACKS = new Set(['atk', 'pounce', 'wave', 'quake', 'sunder', 'shat
 // A pose shown briefly after a card lands, by player id: { pose, until } in ms.
 const poseFlash = new Map();
 const POSE_MS = { attack: 450, cast: 600 };
+// Multi-frame attacks: per class, motions made of frames (assets/heroes/<cls>-<frame>.webp)
+// played in order when an attack lands, in place of the single attack pose. Each frame holds
+// for MOVE_MS: anticipation, impact, follow-through. The card's effect waits for the impact
+// frame (MOVE_HIT ms), so the slash or bash lands on the hit.
+const HERO_MOVES = { knight: { slash: ['slash1', 'slash2', 'slash3'], bash: ['bash1', 'bash2', 'bash3'] } };
+const MOVE_MS = [110, 150, 220];
+const MOVE_HIT = MOVE_MS[0];
+// The Knight's shield attacks bash; his other attacks slash.
+const SHIELD_ATTACKS = new Set(['k_bash', 'k_slam', 'k_bulwark', 'k_charge', 'k_parry', 'k_toss', 'k_titan']);
+const motionFor = (cls, id) => cls === 'knight' ? (SHIELD_ATTACKS.has(id) ? 'bash' : 'slash') : null;
+const heroPoses = cls => [...POSES, ...Object.values(HERO_MOVES[cls] || {}).flat()];
 
 function heroEl(pid) {
   let el = combatDom.heroes.get(pid);
@@ -1227,7 +1238,7 @@ function heroEl(pid) {
   const cls = CLASSES[p?.cls] ? p.cls : null;
   // Every pose is in the page from the start, stacked, so swapping one is instant.
   const art = !cls ? '❔'
-    : HERO_ART.has(cls) ? POSES.map(k => `<img class="pose" data-pose="${k}" src="assets/heroes/${cls}-${k}.webp" alt="" draggable="false">`).join('')
+    : HERO_ART.has(cls) ? heroPoses(cls).map(k => `<img class="pose" data-pose="${k}" src="assets/heroes/${cls}-${k}.webp" alt="" draggable="false">`).join('')
     : `<img class="bust" src="assets/classes/${cls}.webp" alt="" draggable="false">`;
   el.innerHTML = `
     <div class="fig">
@@ -1585,14 +1596,21 @@ function frame(now) {
 
 // Down beats everything, then a pose flashed by a card that just landed, then casting.
 function setPose(el, pid, h) {
-  const f = poseFlash.get(pid);
-  showPose(el, h.down ? 'down' : f && f.until > performance.now() ? f.pose : h.ch ? 'cast' : 'idle');
+  showPose(el, h.down ? 'down' : flashedPose(poseFlash.get(pid)) || (h.ch ? 'cast' : 'idle'));
+}
+// The pose a flash shows now: a single pose until it runs out, or the current frame of a
+// multi-frame motion. Null once it's over.
+function flashedPose(f, now = performance.now()) {
+  if (!f) return null;
+  if (!f.seq) return f.until > now ? f.pose : null;
+  let t = now - f.t0;
+  for (let i = 0; i < f.seq.length; i++) if ((t -= MOVE_MS[i] ?? 200) < 0) return f.seq[i];
+  return null;
 }
 // Enemies: a pose flashed by the move that just landed, then winding up (attacks) or
 // readying a skill, then idle. A stunned enemy's wind-up is frozen, so it stands idle.
 function setEnemyPose(el, e, move, stunned) {
-  const f = poseFlash.get(e.id);
-  showPose(el, f && f.until > performance.now() ? f.pose : move && !stunned ? (move === 'atk' ? 'windup' : 'skill') : 'idle');
+  showPose(el, flashedPose(poseFlash.get(e.id)) || (move && !stunned ? (move === 'atk' ? 'windup' : 'skill') : 'idle'));
 }
 function showPose(el, pose) {
   const art = el.querySelector('.art.posed');
@@ -2042,11 +2060,14 @@ function handleEvents(list) {
         break;
       }
       case 'cast': {
-        // Attacks swing and lunge at the enemy; everything else is a quick skill pose.
+        // Attacks swing and lunge at the enemy (frame by frame, if the class has a motion
+        // for this card); everything else is a quick skill pose.
+        const cls = S.players.find(p => p.id === ev.by)?.cls;
+        const frames = ev.atk && HERO_MOVES[cls]?.[motionFor(cls, ev.id)];
         const pose = ev.atk ? 'attack' : 'cast';
-        poseFlash.set(ev.by, { pose, until: performance.now() + POSE_MS[pose] });
+        poseFlash.set(ev.by, frames ? { seq: frames, t0: performance.now() } : { pose, until: performance.now() + POSE_MS[pose] });
         if (ev.atk) flash(ev.by, 'lunge');
-        castFx(ev);
+        if (frames) setTimeout(() => castFx(ev), MOVE_HIT); else castFx(ev);
         floatText(ev.by, ev.card, 'cast');
         if (ev.combo) floatText(ev.by, `COMBO ×${(1 + ev.combo * 0.25 * (S.relics?.includes('choir') ? 2 : 1)).toFixed(2).replace(/0$/, '')}`, 'combo');
         break;
