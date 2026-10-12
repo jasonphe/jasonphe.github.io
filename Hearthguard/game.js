@@ -1045,6 +1045,7 @@ function buildCombat() {
   screenKey = '';
   const root = $('combat');
   combatDom = { root, enemies: new Map(), heroes: new Map(), hand: [] };
+  preloadVfx(S.players.map(p => p.cls));
   for (let i = 0; i < HAND; i++) {
     const b = document.createElement('button');
     b.className = 'hand-card';
@@ -1590,19 +1591,36 @@ function flash(to, cls) {
 }
 
 // ---------- Effects ----------
-// Painted sprites in assets/vfx (black keyed to transparency when sliced). A card's effect
-// comes from what it does and who plays it; projectiles fly from caster to target, then
-// burst. Each sprite is a short-lived <img> moved with transforms only, which phones handle
-// cheaply, and there's a cap on how many can be on screen at once.
-const VFX = ['slash', 'impact', 'fireball', 'frost', 'arcane', 'lightning', 'dagger', 'poison', 'holy',
-  'barrier', 'armor', 'heal', 'shout', 'stun', 'smoke', 'claw', 'shadow', 'curse'];
-const VFX_MAX = 24;
+// Painted sprites in assets/vfx (black keyed to transparency when sliced). Most cards have
+// a recipe in CARD_FX; the rest get their class's default hit. Status overlays (poison,
+// stun, weak, energy, powers…) are added from the card's fx keys either way. Melee hits
+// appear on the target; only spells and thrown things fly. Each sprite is a short-lived
+// <img> moved with transforms only, which phones handle cheaply, capped at VFX_MAX at once.
+const VFX_SETS = {
+  base: ['slash', 'impact', 'fireball', 'frost', 'arcane', 'lightning', 'dagger', 'poison', 'holy',
+    'barrier', 'armor', 'heal', 'shout', 'stun', 'smoke', 'claw', 'shadow', 'curse', 'fissure'],
+  shared: ['energy', 'empower', 'weaken', 'vulnerable', 'haste', 'thorns', 'powerrune', 'soul', 'killblow'],
+  knight: ['smash', 'cleave', 'shieldbash', 'fissure', 'sunder', 'banner', 'challenge', 'ward', 'shieldtoss'],
+  rogue: ['assassinate', 'xslash', 'garrote', 'knives', 'vial', 'deathmark', 'shadowstep', 'caltrops', 'coins'],
+  mage: ['meteor', 'flamewave', 'explosion', 'frostnova', 'blizzard', 'missiles', 'timerune', 'manasurge', 'brokenrune'],
+  cleric: ['pillar', 'lightsword', 'wings', 'holyfire', 'consecrate', 'bell', 'hymn', 'lanternflare', 'bloodlight'],
+};
+const VFX_MAX = 28;
 const calmMotion = matchMedia('(prefers-reduced-motion: reduce)');
-// Decode the sprites up front, so the first Fireball doesn't stutter.
-const vfxImgs = VFX.map(n => { const i = new Image(); i.src = `assets/vfx/${n}.webp`; return i; });
+// Decode the sprites a fight can use up front (the party's classes), so the first Fireball
+// doesn't stutter and phones don't download sets nobody plays.
+const vfxKept = new Map();
+function preloadVfx(classes) {
+  for (const n of [...VFX_SETS.base, ...VFX_SETS.shared, ...classes.flatMap(c => VFX_SETS[c] || [])]) {
+    if (vfxKept.has(n)) continue;
+    const i = new Image();
+    i.src = `assets/vfx/${n}.webp`;
+    vfxKept.set(n, i);
+  }
+}
 
-// Where an effect lands on a unit: the middle of its figure (or the Hearth's brazier), and
-// how big that figure is, so effects scale with the stage.
+// Where an effect lands on a unit: its figure (or the Hearth's brazier), and how big that
+// figure is, so effects scale with the stage.
 function fxSpot(to) {
   if (!combatDom) return null;
   const el = to === 'hearth' || to === 'shield' ? $('hearthEl').querySelector('.hearth-icon')
@@ -1610,56 +1628,89 @@ function fxSpot(to) {
   if (!el) return null;
   const r = el.getBoundingClientRect();
   if (!r.width) return null;
-  return { x: r.left + r.width / 2, y: r.top + r.height * 0.55, size: Math.max(56, Math.min(r.height, 170)) };
+  return { x: r.left + r.width / 2, y: r.top + r.height * 0.55, bottom: r.bottom, size: Math.max(56, Math.min(r.height, 170)) };
 }
+// `at`: 'mid' centres on the figure, 'feet' lays a flat decal on the ground under it,
+// 'stand' stands the sprite on the ground (pillars, flames, auras that rise).
+const fxY = (p, s, at) => at === 'feet' ? p.bottom - s * 0.16 : at === 'stand' ? p.bottom - s * 0.46 : p.y;
 
-function fxSprite(name, x, y, size, rot = 0, flip = false) {
+function fxSprite(name, x, y, size, rot = 0, flip = false, filter = '') {
   const layer = $('fxLayer');
   if (layer.childElementCount >= VFX_MAX) return null;
   const img = document.createElement('img');
   img.className = 'vfx';
   img.src = `assets/vfx/${name}.webp`;
   img.alt = '';
-  img.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px`;
+  img.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px${filter ? `;filter:${filter}` : ''}`;
   layer.append(img);
   img.dataset.base = `translate(-50%, -50%) rotate(${rot}rad) scaleX(${flip ? -1 : 1})`;
   return img;
 }
-const fxDone = img => () => img.remove();
 
 // A burst in place: pops in, swells a little and fades. `thrust` drives it a few pixels
 // forward as it appears, like a stab; `dy` and `rot` vary repeated hits.
-function fxBurst(name, to, { scale = 1, delay = 0, rise = 0, flip = false, dur = 520, thrust = 0, dy = 0, rot = 0 } = {}) {
+function fxBurst(name, to, { scale = 1, delay = 0, rise = 0, flip = false, dur = 520, thrust = 0, dy = 0, rot = 0, at = 'mid', filter = '' } = {}) {
   const p = fxSpot(to);
   if (!p) return;
-  const img = fxSprite(name, p.x, p.y + dy, p.size * scale, rot, flip);
+  const s = p.size * scale;
+  const img = fxSprite(name, p.x, fxY(p, s, at) + dy, s, rot, flip, filter);
   if (!img) return;
   const b = img.dataset.base;
   img.animate([
     { transform: `${b} translate(${-thrust}px, 0) scale(.55)`, opacity: 0 },
     { transform: `${b} translate(0, ${-rise * 0.4}px) scale(1.05)`, opacity: 1, offset: 0.3 },
     { transform: `${b} translate(0, ${-rise}px) scale(1.15)`, opacity: 0 },
-  ], { duration: dur, delay, easing: 'ease-out', fill: 'both' }).onfinish = fxDone(img);
+  ], { duration: dur, delay, easing: 'ease-out', fill: 'both' }).onfinish = () => img.remove();
 }
 
 // A projectile from one unit to another, pointed along its path, then `then()` on arrival.
 // Sprites are painted heading right (or left, with `left`), and turned to face the target.
-function fxShot(name, from, to, { scale = 0.8, delay = 0, left = false, then } = {}) {
+function fxShot(name, from, to, { scale = 0.8, delay = 0, left = false, filter = '', then } = {}) {
   const a = fxSpot(from), b = fxSpot(to);
   if (!a || !b) return;
   if (calmMotion.matches) { setTimeout(() => then?.(), delay); return; }
   const dx = b.x - a.x, dy = b.y - a.y;
   const rot = Math.atan2(dy, dx) + (left ? Math.PI : 0);
-  const img = fxSprite(name, a.x, a.y, Math.min(a.size, b.size) * scale, rot);
+  const img = fxSprite(name, a.x, a.y, Math.min(a.size, b.size) * scale, rot, false, filter);
   if (!img) { setTimeout(() => then?.(), delay); return; }
   const base = `translate(-50%, -50%)`, turn = `rotate(${rot}rad)`;
   const dur = Math.min(420, 160 + Math.hypot(dx, dy) * 0.6);
-  const anim = img.animate([
+  img.animate([
     { transform: `${base} translate(0, 0) ${turn} scale(.6)`, opacity: 0 },
     { transform: `${base} translate(${dx * 0.15}px, ${dy * 0.15}px) ${turn} scale(1)`, opacity: 1, offset: 0.15 },
     { transform: `${base} translate(${dx}px, ${dy}px) ${turn} scale(1)`, opacity: 1 },
-  ], { duration: dur, delay, easing: 'ease-in', fill: 'both' });
-  anim.onfinish = () => { img.remove(); then?.(); };
+  ], { duration: dur, delay, easing: 'ease-in', fill: 'both' }).onfinish = () => { img.remove(); then?.(); };
+}
+
+// Something falling onto a unit from off to the side and above (a meteor, a sword of light).
+function fxDrop(name, to, { scale = 1, delay = 0, from = [-160, -260], at = 'mid', then } = {}) {
+  const p = fxSpot(to);
+  if (!p) return;
+  if (calmMotion.matches) { setTimeout(() => then?.(), delay); return; }
+  const s = p.size * scale;
+  const img = fxSprite(name, p.x, fxY(p, s, at), s);
+  if (!img) { setTimeout(() => then?.(), delay); return; }
+  const b = img.dataset.base;
+  img.animate([
+    { transform: `${b} translate(${from[0]}px, ${from[1]}px)`, opacity: 0 },
+    { transform: `${b} translate(${from[0] * 0.75}px, ${from[1] * 0.75}px)`, opacity: 1, offset: 0.2 },
+    { transform: `${b} translate(0, 0)`, opacity: 1 },
+  ], { duration: 380, delay, easing: 'ease-in', fill: 'both' }).onfinish = () => { img.remove(); then?.(); };
+}
+
+// A bolt that jumps from the caster to each target in turn.
+function fxChain(name, from, ids, i = 0) {
+  if (i >= ids.length) return;
+  fxShot(name, i ? ids[i - 1] : from, ids[i], { scale: 0.9, then: () => { fxBurst('impact', ids[i], { scale: 0.45 }); fxChain(name, from, ids, i + 1); } });
+}
+
+// A short jolt of the whole stage for the biggest hits.
+function fxShake(delay = 0) {
+  if (calmMotion.matches || !$('stageEl')) return;
+  $('stageEl').animate([
+    { transform: 'translate(0, 0)' }, { transform: 'translate(-7px, 3px)' }, { transform: 'translate(6px, -3px)' },
+    { transform: 'translate(-3px, 2px)' }, { transform: 'translate(0, 0)' },
+  ], { duration: 340, delay });
 }
 
 // The mage's element, from the spell's name or what it does.
@@ -1671,62 +1722,228 @@ function mageElement(c) {
 }
 const ROGUE_THROWN = /fan of knives|crimson fan|dart/i;
 const HARMFUL = ['dmg', 'guardDmg', 'shieldDmg', 'detonate', 'guardBlast', 'zap', 'burn', 'poison', 'interrupt', 'stun', 'weak', 'vuln', 'exec', 'caltrops'];
-const SUPPORT_BURST = { energy: 'holy', teamEnergy: 'holy', haste: 'holy', teamHaste: 'holy', empower: 'holy', teamEmpower: 'holy', regen: 'holy', teamRegen: 'holy', cleanse: 'holy', beacon: 'holy' };
+const HITS = ['dmg', 'zap', 'guardDmg', 'shieldDmg', 'guardBlast', 'exec', 'detonate'];
+const RED = 'hue-rotate(215deg) saturate(1.3)';   // the rogue's green knives, turned crimson
+
+// Per-card effects. `f` aims at the card's targets: f.on (each enemy hit), f.feet (decal under
+// each), f.shot / f.drop / f.chain (from the caster), f.self / f.ally / f.hearth / f.heroes.
+// f.no(key) skips that key's generic effect (say, the Barrier dome for Smokescreen).
+// Cards not listed get their class's default hit (classHit).
+const CARD_FX = {
+  // Knight
+  k_guard: f => { f.no('guard'); f.self('ward', { scale: 1.15, dur: 700 }); },
+  k_provoke: f => { f.no('taunt'); f.on('challenge', { scale: 0.8, dur: 700 }); },
+  k_bash: f => f.on('shieldbash', { scale: 0.85, thrust: 20 }),
+  k_cleave: f => f.on('cleave', { scale: 1.1, thrust: 24 }),
+  k_challenge: f => { f.no('taunt', 'guard'); f.on('challenge', { scale: 0.75, dur: 700 }); f.self('ward', { scale: 1.1, dur: 700 }); },
+  k_heavy: f => { f.on('smash', { scale: 1.25, at: 'stand', delay: 60 }); f.shake(80); },
+  k_iron: f => { f.no('guard'); f.self('ward', { scale: 1.25, dur: 800 }); },
+  k_slam: f => { f.no('guard'); f.on('smash', { scale: 0.95, at: 'stand' }); f.self('ward', { scale: 1, dur: 600 }); },
+  k_warcry: f => f.self('banner', { scale: 1.1, at: 'stand', rise: 12, dur: 900 }),
+  k_sunder: f => f.on('sunder', { scale: 1.1, at: 'stand' }),
+  k_hold: f => { f.no('taunt'); f.on('challenge', { scale: 0.75, dur: 700 }); },
+  k_laststand: f => { f.no('guard'); f.self('ward', { scale: 1.2, dur: 800 }); },
+  k_oath: f => { f.no('guard'); f.self('ward', { scale: 1.15, dur: 800 }); },
+  k_bulwark: f => f.on('shieldbash', { scale: 0.9, thrust: 20 }),
+  k_quake: f => { f.feet('fissure', { scale: 1.25, dur: 800 }); f.on('smash', { scale: 0.65, at: 'stand', delay: 120 }); f.shake(60); },
+  k_fortress: f => { f.no('taunt', 'guard'); f.self('ward', { scale: 1.35, dur: 900 }); f.on('challenge', { scale: 0.75, dur: 700 }); },
+  k_charge: f => { f.on('shieldbash', { scale: 0.85, thrust: 30 }); f.shake(60); },
+  k_titan: f => { f.feet('fissure', { scale: 1.35, dur: 900 }); f.on('smash', { scale: 0.95, at: 'stand', delay: 100 }); f.shake(100); },
+  k_aegis: f => { f.no('guard'); f.self('ward', { scale: 1.2, dur: 800 }); },
+  k_undying: f => { f.no('guard'); f.self('ward', { scale: 1.2, dur: 800, filter: 'hue-rotate(-25deg) saturate(1.4)' }); },
+  k_toss: f => { f.no('guard'); f.volley('shieldtoss', 2, 0.7); },
+  k_parry: f => { f.no('guard'); f.on('shieldbash', { scale: 0.8, thrust: 16 }); },
+  k_intercept: f => { f.no('guard'); f.ally('ward', { scale: 1.15, dur: 700 }); f.self('shieldbash', { scale: 0.6 }); },
+  k_bastion: f => { f.no('guard'); f.heroes('ward', { scale: 1.05, dur: 700 }); },
+  k_standard: f => f.self('banner', { scale: 1.15, at: 'stand', rise: 12, dur: 1000 }),
+  k_comers: f => { f.no('taunt', 'guard'); f.on('challenge', { scale: 0.75, dur: 700 }); f.self('ward', { scale: 1.2, dur: 800 }); },
+  // Rogue
+  r_smoke: f => { f.no('shield'); f.hearth('smoke', { scale: 1.6, dur: 900 }); },
+  r_hamstring: f => f.on('xslash', { scale: 0.7, rot: 0.3 }),
+  r_twin: f => f.hits('xslash', 2),
+  r_flurry: f => f.hits('xslash', 4),
+  r_dance: f => f.hits('xslash', 5),
+  r_quick: f => f.on('xslash', { scale: 0.7 }),
+  r_venom: f => { f.no('poison'); f.on('vial', { scale: 0.8 }); },
+  r_expose: f => f.on('deathmark', { scale: 0.75, dur: 800 }),
+  r_feint: f => f.self('shadowstep', { scale: 1, dur: 600 }),
+  r_distract: f => { f.no('taunt', 'guard'); f.self('shadowstep', { scale: 1, dur: 600 }); f.on('challenge', { scale: 0.65, dur: 600, filter: 'hue-rotate(110deg)' }); },
+  r_fan: f => f.shot('knives', { scale: 0.85 }),
+  r_evade: f => { f.no('vanish'); f.self('shadowstep', { scale: 1.2, dur: 800 }); },
+  r_backstab: f => f.on('assassinate', { scale: 1, thrust: 24 }),
+  r_bomb: f => { f.no('shield'); f.on('smoke', { scale: 1.2, dur: 900 }); f.hearth('smoke', { scale: 1.3, dur: 900 }); },
+  r_garrote: f => f.on('garrote', { scale: 0.9, dur: 650 }),
+  r_toxin: f => { f.no('poison'); f.on('vial', { scale: 0.95 }); },
+  r_cheap: f => f.on('garrote', { scale: 0.8, dur: 600 }),
+  r_pick: f => { f.stab(); f.on('coins', { scale: 0.7, rise: 30, delay: 120, dur: 800 }); },
+  r_assassin: f => { f.on('assassinate', { scale: 1.35, thrust: 30 }); f.shake(60); },
+  r_shadow: f => f.self('shadowstep', { scale: 1.1, dur: 800 }),
+  r_crimson: f => f.shot('knives', { scale: 0.85, filter: RED }),
+  r_vanish: f => { f.no('vanish'); f.self('shadowstep', { scale: 1.25, dur: 900 }); },
+  r_clone: f => f.self('shadowstep', { scale: 1.1, dur: 800 }),
+  r_cloak: f => { f.no('vanish'); f.ally('shadowstep', { scale: 1.15, dur: 800 }); },
+  r_coup: f => f.on('assassinate', { scale: 1.1, thrust: 24 }),
+  r_caltrops: f => f.foesFeet('caltrops', { scale: 1.1, dur: 1000 }),
+  r_mark: f => f.on('deathmark', { scale: 0.8, dur: 900 }),
+  // Mage
+  m_bolt: f => f.shot('fireball', { scale: 0.75, hit: 'explosion', hitScale: 0.6 }),
+  m_fireball: f => f.shot('fireball', { scale: 0.9, hit: 'explosion', hitScale: 0.95 }),
+  m_counter: f => f.on('brokenrune', { scale: 0.8 }),
+  m_spark: f => f.shot('missiles', { scale: 0.55 }),
+  m_lance: f => f.shot('frost', { scale: 0.85, hit: 'impact', hitScale: 0.5 }),
+  m_wave: f => f.on('flamewave', { scale: 1.2, at: 'stand', thrust: 40, dur: 700 }),
+  m_ignite: f => f.on('flamewave', { scale: 0.8, at: 'stand', dur: 650 }),
+  m_missile: f => f.shot('missiles', { scale: 0.8 }),
+  m_channel: f => f.self('manasurge', { scale: 1.1, at: 'stand', dur: 800 }),
+  m_chain: f => f.chain('lightning'),
+  m_haste: f => f.self('timerune', { scale: 1, dur: 800 }),
+  m_silence: f => f.on('brokenrune', { scale: 0.95 }),
+  m_nova: f => f.feet('frostnova', { scale: 1.4, dur: 800 }),
+  m_detonate: f => { f.on('explosion', { scale: 1.05 }); f.shake(40); },
+  m_focus: f => f.self('manasurge', { scale: 1.1, at: 'stand', dur: 800 }),
+  m_inferno: f => f.on('flamewave', { scale: 1.1, at: 'stand', thrust: 30, dur: 800 }),
+  m_meteor: f => f.drop('meteor', { scale: 1.05, hit: 'explosion', hitScale: 1.1, shake: true }),
+  m_pyro: f => f.shot('fireball', { scale: 1.15, hit: 'explosion', hitScale: 1.35, shake: true }),
+  m_font: f => f.self('manasurge', { scale: 1.2, at: 'stand', dur: 900 }),
+  m_overload: f => f.self('manasurge', { scale: 1.2, at: 'stand', dur: 700, filter: 'hue-rotate(-40deg) saturate(1.5)' }),
+  m_torrent: f => f.volley('missiles', 5, 0.55),
+  m_rewind: f => f.on('timerune', { scale: 0.85, dur: 800 }),
+  m_living: f => f.self('flamewave', { scale: 0.9, at: 'stand', dur: 800 }),
+  m_arch: f => f.self('manasurge', { scale: 1.35, at: 'stand', dur: 1000 }),
+  m_scorch: f => f.shot('fireball', { scale: 0.6, hit: 'flamewave', hitScale: 0.6, hitAt: 'stand' }),
+  m_frostbite: f => f.shot('frost', { scale: 0.75, hit: 'frostnova', hitScale: 0.9, hitAt: 'feet' }),
+  m_steal: f => f.on('brokenrune', { scale: 0.8 }),
+  m_combust: f => { f.on('explosion', { scale: 0.95 }); f.shake(40); },
+  m_blizzard: f => f.on('blizzard', { scale: 1.3, at: 'stand', dur: 900 }),
+  m_twin: f => f.self('manasurge', { scale: 1, at: 'stand', dur: 700, filter: 'hue-rotate(60deg)' }),
+  // Cleric
+  c_prayer: f => { f.self('lanternflare', { scale: 0.8, dur: 600 }); },
+  c_sanct: f => f.hearth('consecrate', { scale: 1.5, at: 'feet', dur: 900 }),
+  c_rebuke: f => f.on('bell', { scale: 0.7, dur: 650 }),
+  c_bless: f => f.ally('hymn', { scale: 0.9, rise: 20, dur: 900 }),
+  c_light: f => f.self('lanternflare', { scale: 1, dur: 700 }),
+  c_purify: f => f.self('lanternflare', { scale: 0.85, dur: 600 }),
+  c_judge: f => f.drop('lightsword', { scale: 1.2, at: 'stand', from: [0, -240], hit: 'holy', hitScale: 0.7 }),
+  c_hush: f => f.on('bell', { scale: 0.75, dur: 650 }),
+  c_holyfire: f => f.on('holyfire', { scale: 1, at: 'stand', dur: 750 }),
+  c_res: f => f.self('lanternflare', { scale: 0.9, dur: 600 }),
+  c_hymn: f => f.self('hymn', { scale: 1.1, rise: 24, dur: 1000 }),
+  c_consecrate: f => { f.feet('consecrate', { scale: 1.3, dur: 900 }); f.on('holyfire', { scale: 0.85, at: 'stand', delay: 150, dur: 700 }); },
+  c_angel: f => { f.no('guard'); f.ally('wings', { scale: 1.35, dur: 900 }); },
+  c_bene: f => f.self('hymn', { scale: 1, rise: 20, dur: 900 }),
+  c_smiteevil: f => f.drop('lightsword', { scale: 1.5, at: 'stand', from: [0, -300], hit: 'holy', hitScale: 1.1, shake: true }),
+  c_ground: f => f.hearth('consecrate', { scale: 1.6, at: 'feet', dur: 1000 }),
+  c_circle: f => f.hearth('consecrate', { scale: 1.7, at: 'feet', dur: 1000 }),
+  c_martyr: f => f.shotTo('bloodlight', 'hearth', { scale: 0.8 }),
+  c_grace: f => f.heroes('hymn', { scale: 0.8, rise: 18, dur: 900 }),
+  c_miracle: f => f.self('lanternflare', { scale: 1.1, dur: 700 }),
+  c_divint: f => { f.no('invuln'); f.hearth('wings', { scale: 1.8, dur: 1000 }); },
+  c_beacon: f => f.self('lanternflare', { scale: 1, dur: 800 }),
+  c_ascend: f => f.heroes('wings', { scale: 1.2, dur: 900 }),
+  c_penance: f => { f.on('holy', { scale: 0.8 }); f.shotFrom('bloodlight', 'hearth', { scale: 0.6, delay: 150 }); },
+  c_dawn: f => f.self('lanternflare', { scale: 1, dur: 700 }),
+  c_peal: f => f.on('bell', { scale: 0.75, dur: 650 }),
+  c_transfuse: f => f.shotTo('bloodlight', f.allyId, { scale: 0.75 }),
+  c_covenant: f => { f.no('teamGuard'); f.heroes('ward', { scale: 1.05, dur: 700 }); },
+};
+
+// The default hit for a class's attack cards without their own recipe.
+function classHit(f, c) {
+  const hits = HITS.some(k => k in c.fx);
+  if (c.cls === 'mage') {
+    const el = mageElement(c);
+    f.shot(el, { scale: el === 'lightning' ? 1 : 0.8, hit: el === 'fireball' ? 'impact' : null });
+  } else if (c.cls === 'rogue') {
+    if (hits && ROGUE_THROWN.test(c.name)) f.shot('dagger', { scale: 0.7 });
+    else if (hits) f.stab();
+  } else if (c.cls === 'cleric') {
+    if (hits) f.on('holy', { scale: 0.9, delay: 120 });
+  } else if (hits) f.on('slash', { scale: 1.05, delay: 120 });
+}
+
+// Recent hits by a card that executes, so an enemy dying to one gets a killing-blow mark.
+const execHits = new Map();
 
 function castFx(ev) {
   const c = CARDS[ev.id] && cardDef(ev.id);
   if (!c || !combatDom) return;
   const fx = c.fx, by = ev.by;
   const alive = aliveEnemies().map(e => e.id);
-  const foes = c.tgt === 'enemy' ? [ev.t] : c.tgt === 'all' || c.tgt === 'random' ? alive : [];
+  const harmful = HARMFUL.some(k => k in fx);
+  const foes = !harmful && !('taunt' in fx) ? [] : (c.tgt === 'enemy' ? [ev.t] : c.tgt === 'all' || c.tgt === 'random' ? alive : []).filter(Boolean).slice(0, 5);
   const ally = c.tgt === 'ally' && ev.t ? ev.t : by;
-  // Attacks and debuffs on enemies.
-  if (foes.length && HARMFUL.some(k => k in fx)) {
-    // What lands on a target once the hit arrives: the extra effects on top of the hit.
-    const after = (id, hit) => {
-      if (hit) fxBurst(hit, id, { scale: hit === 'slash' ? 1.05 : 0.8 });
-      if ('poison' in fx) fxBurst('poison', id, { scale: 0.75, delay: 80 });
-      if ('interrupt' in fx) fxBurst('impact', id, { scale: 0.6 });
-      if ('stun' in fx) fxBurst('stun', id, { scale: 0.7, delay: 150, rise: 18, dur: 900 });
-    };
-    const hits = 'dmg' in fx || 'zap' in fx || 'guardDmg' in fx || 'shieldDmg' in fx || 'guardBlast' in fx || 'exec' in fx || 'detonate' in fx;
-    foes.slice(0, 5).forEach((id, i) => {
-      const delay = i * 70;
-      if (c.cls === 'mage') {
-        const el = mageElement(c);
-        fxShot(el, by, id, { delay, scale: el === 'lightning' ? 1 : 0.8, then: () => after(id, el === 'fireball' ? 'impact' : null) });
-      } else if (c.cls === 'rogue') {
-        // Thrown cards fly; every other rogue attack is a stab that appears on the target,
-        // once per hit (up to three).
-        if (hits && ROGUE_THROWN.test(c.name)) fxShot('dagger', by, id, { delay, scale: 0.7, then: () => after(id, null) });
-        else {
-          if (hits) for (let k = 0; k < Math.min(3, fx.hits || 1); k++) {
-            fxBurst('dagger', id, { scale: 0.75, delay: delay + 100 + k * 110, thrust: 26, dy: [0, -10, 10][k], rot: [0, 0.25, -0.2][k], dur: 360 });
-          }
-          setTimeout(() => after(id, null), delay + 100);
-        }
-      } else if (c.cls === 'cleric') {
-        setTimeout(() => { fxBurst('holy', id, { scale: 0.9 }); after(id, null); }, delay + 120);
-      } else {
-        // Knights hit in melee: the slash appears on the target as the lunge lands.
-        setTimeout(() => after(id, hits ? 'slash' : null), delay + 120);
-      }
-    });
-  }
-  // Defence and support.
-  if ('shield' in fx || 'ward' in fx || 'invuln' in fx) fxBurst('barrier', 'hearth', { scale: 1.4, dur: 800 });
-  if ('heal' in fx) fxBurst('heal', 'hearth', { scale: 1.1, rise: 26, dur: 900 });
-  if ('guard' in fx || 'guardSelf' in fx || 'aegis' in fx || 'bastion' in fx || 'shelter' in fx) fxBurst('armor', 'guardSelf' in fx ? by : ally, { scale: 0.8 });
-  if ('teamGuard' in fx) for (const id of Object.keys(C.heroes)) fxBurst('armor', id, { scale: 0.7 });
-  if ('mend' in fx || 'revive' in fx) fxBurst('heal', ally, { scale: 0.9, rise: 22, dur: 900 });
-  if ('teamMend' in fx) for (const id of Object.keys(C.heroes)) fxBurst('heal', id, { scale: 0.8, rise: 22, dur: 900 });
-  if ('taunt' in fx || 'rally' in fx) fxBurst('shout', by, { scale: 1.1 });
-  if ('vanish' in fx || ('cover' in fx && c.cls === 'rogue')) fxBurst('smoke', by, { scale: 1.1, dur: 800 });
-  const buff = Object.keys(fx).find(k => SUPPORT_BURST[k]);
-  if (buff) {
-    const team = buff.startsWith('team');
-    for (const id of team ? Object.keys(C.heroes) : [ally]) fxBurst(SUPPORT_BURST[buff], id, { scale: 0.55, rise: 16 });
-  }
+  const heroes = Object.keys(C.heroes);
+  const skip = new Set();
+  const each = (list, fn, gap = 80) => list.forEach((id, i) => fn(id, i * gap));
+  const f = {
+    allyId: ally, land: 0,
+    no: (...keys) => keys.forEach(k => skip.add(k)),
+    on: (n, o = {}) => each(foes, (id, d) => fxBurst(n, id, { ...o, delay: (o.delay || 0) + d })),
+    feet: (n, o = {}) => each(foes, (id, d) => fxBurst(n, id, { ...o, at: 'feet', delay: (o.delay || 0) + d })),
+    foesFeet: (n, o = {}) => each(alive, (id, d) => fxBurst(n, id, { ...o, at: 'feet', delay: (o.delay || 0) + d })),
+    self: (n, o) => fxBurst(n, by, o),
+    ally: (n, o) => fxBurst(n, ally, o),
+    hearth: (n, o) => fxBurst(n, 'hearth', o),
+    heroes: (n, o = {}) => each(heroes, (id, d) => fxBurst(n, id, { ...o, delay: (o.delay || 0) + d }), 60),
+    shake: (delay = 0) => fxShake(delay),
+    // One stab per hit, up to `max`, each at a slightly different angle.
+    stab: (max = 3) => each(foes, (id, d) => { for (let k = 0; k < Math.min(max, fx.hits || 1); k++) fxBurst('dagger', id, { scale: 0.75, delay: d + 100 + k * 110, thrust: 26, dy: [0, -10, 10][k], rot: [0, 0.25, -0.2][k], dur: 360 }); }),
+    hits: (n, max) => each(foes, (id, d) => { for (let k = 0; k < Math.min(max, fx.hits || 1); k++) fxBurst(n, id, { scale: 0.7, delay: d + 90 + k * 120, rot: [0, 0.5, -0.4, 0.9, -0.8][k], dy: [0, -8, 8, -4, 4][k], dur: 380 }); }),
+    shot: (n, o = {}) => {
+      f.land = 280;
+      each(foes, (id, d) => fxShot(n, by, id, { ...o, delay: (o.delay || 0) + d, then: () => {
+        if (o.hit) fxBurst(o.hit, id, { scale: o.hitScale || 0.8, at: o.hitAt || 'mid' });
+        if (o.shake) fxShake();
+      } }));
+    },
+    // Several projectiles at random targets, one after another (Arcane Torrent).
+    volley: (n, count, scale) => { f.land = 300; for (let k = 0; k < count && alive.length; k++) fxShot(n, by, alive[Math.floor(Math.random() * alive.length)], { scale, delay: k * 90 }); },
+    shotTo: (n, to, o = {}) => fxShot(n, by, to, o),
+    shotFrom: (n, to, o = {}) => foes.forEach(id => fxShot(n, id, to, o)),
+    drop: (n, o = {}) => {
+      f.land = 400;
+      each(foes, (id, d) => fxDrop(n, id, { ...o, delay: (o.delay || 0) + d * 1.5, then: () => {
+        if (o.hit) fxBurst(o.hit, id, { scale: o.hitScale || 1 });
+        if (o.shake) fxShake();
+      } }), 100);
+    },
+    chain: n => { f.land = 260; fxChain(n, by, foes); },
+  };
+  const recipe = CARD_FX[c.id];
+  if (recipe) recipe(f);
+  else if (harmful) classHit(f, c);
+  if ('exec' in fx) for (const id of foes) execHits.set(id, performance.now());
+
+  // Extra effects on each enemy hit, once the hit lands.
+  const later = (fn) => each(foes, (id, d) => fn(id, f.land + d));
+  if ('poison' in fx && !skip.has('poison')) later((id, d) => fxBurst('poison', id, { scale: 0.7, delay: d + 60 }));
+  if ('interrupt' in fx) later((id, d) => fxBurst('impact', id, { scale: 0.55, delay: d }));
+  if ('stun' in fx) later((id, d) => fxBurst('stun', id, { scale: 0.7, delay: d + 150, rise: 18, dur: 900 }));
+  if ('weak' in fx) later((id, d) => fxBurst('weaken', id, { scale: 0.85, delay: d + 100, dur: 800 }));
+  if ('vuln' in fx) later((id, d) => fxBurst('vulnerable', id, { scale: 0.65, delay: d + 120, dur: 700 }));
+
+  // Defence and support, unless the recipe drew its own.
+  const has = k => k in fx && !skip.has(k);
+  if (has('shield') || has('ward') || has('invuln')) fxBurst('barrier', 'hearth', { scale: 1.4, dur: 800 });
+  if (has('heal')) fxBurst('heal', 'hearth', { scale: 1.1, rise: 26, dur: 900 });
+  if (has('guard') || has('guardSelf') || has('aegis') || has('bastion') || has('shelter')) fxBurst('armor', has('guardSelf') ? by : ally, { scale: 0.8 });
+  if (has('teamGuard')) f.heroes('armor', { scale: 0.7 });
+  if (has('mend')) fxBurst('heal', ally, { scale: 0.9, rise: 22, dur: 900 });
+  if (has('teamMend')) f.heroes('heal', { scale: 0.8, rise: 22, dur: 900 });
+  if (has('taunt') || has('rally')) fxBurst('shout', by, { scale: 1.1 });
+  if (has('vanish')) fxBurst('shadowstep', ally, { scale: 1.1, dur: 800 });
+  // Buffs on whoever they're for: the whole team for team* keys.
+  const buff = (keys, name, o) => {
+    const k = keys.find(has);
+    if (k) for (const id of k.startsWith('team') ? heroes : [k === 'fury' ? by : ally]) fxBurst(name, id, o);
+  };
+  buff(['energy', 'teamEnergy'], 'energy', { scale: 0.75, at: 'stand', rise: 14, dur: 800 });
+  buff(['empower', 'teamEmpower', 'fury'], 'empower', { scale: 1, at: 'stand', dur: 750, delay: 80 });
+  buff(['haste', 'teamHaste', 'hurry'], 'haste', { scale: 0.85, rise: 16, dur: 800, delay: 120 });
+  buff(['regen', 'teamRegen', 'cleanse', 'beacon'], 'holy', { scale: 0.55, rise: 16 });
+  if (has('thorns') || has('retri')) fxBurst('thorns', by, { scale: 0.85, at: 'feet', dur: 900 });
+  // Powers lock in with a rune under the hero.
+  if (c.power) fxBurst('powerrune', by, { scale: 1.1, at: 'feet', dur: 1100, delay: 100 });
 }
 
 // Enemy moves that strike from range, by name, and what they throw. Every other attack
@@ -1737,14 +1954,14 @@ function enemyFx(ev) {
   if (!e || !combatDom) return;
   const heroes = Object.keys(C.heroes);
   const shot = ENEMY_SHOT[ev.x];
-  // Projectiles painted heading right (fireball, dagger) are flipped to head left; shadow already does.
+  // Projectiles painted heading right (fireball, dagger) are turned to face left; shadow already does.
   const hit = (to, scale = 1) => shot
     ? fxShot(shot, e.id, to, { scale: 0.7 * scale, left: shot === 'shadow', then: () => fxBurst('impact', to, { scale: 0.5 }) })
     : fxBurst('claw', to, { scale: 0.9 * scale, delay: 120 });
   switch (ev.kk) {
     case 'atk': case 'pounce': if (ev.to) hit(ev.to); break;
     case 'wave': fxShot(shot || 'fireball', e.id, 'hearth', { scale: 1.1, left: shot === 'shadow', then: () => fxBurst('impact', 'hearth', { scale: 0.9 }) }); break;
-    case 'quake': fxBurst('impact', 'hearth', { scale: 1.1 }); for (const id of heroes) fxBurst('impact', id, { scale: 0.7, delay: 80 }); break;
+    case 'quake': fxBurst('impact', 'hearth', { scale: 1.1 }); for (const id of heroes) fxBurst('fissure', id, { scale: 1.4, at: 'feet', delay: 80, dur: 800 }); fxShake(60); break;
     case 'shatter': fxBurst('impact', 'hearth', { scale: 1 }); break;
     case 'sunder': for (const id of heroes) fxBurst('claw', id, { scale: 0.8 }); break;
     case 'block': fxBurst('armor', e.id, { scale: 0.8 }); break;
@@ -1754,6 +1971,14 @@ function enemyFx(ev) {
     case 'summon': fxBurst('smoke', e.id, { scale: 1.1, dur: 800 }); break;
     case 'hex': case 'drain': case 'slow': for (const id of heroes) fxBurst('curse', id, { scale: 0.75, dur: 800 }); break;
   }
+}
+
+// An enemy's soul rises as it dies; a killing blow from an execute card marks it first.
+function deathFx(id) {
+  const t = execHits.get(id);
+  if (t && performance.now() - t < 1500) fxBurst('killblow', id, { scale: 0.9, dur: 700 });
+  execHits.delete(id);
+  fxBurst('soul', id, { scale: 0.9, rise: 40, delay: 150, dur: 1100 });
 }
 
 function handleEvents(list) {
@@ -1766,7 +1991,10 @@ function handleEvents(list) {
         else if (ev.b > 0) floatText(ev.to, `${ico(ev.to === 'hearth' ? 'barrier' : combatDom?.heroes.has(ev.to) ? 'armor' : 'block')}${ev.b}`, 'blocked', true);
         break;
       case 'heal': floatText(ev.to, ev.to === 'shield' ? `+${ev.v}${ico('barrier')}` : `+${ev.v}`, 'heal', true); break;
-      case 'txt': floatText(ev.to, ev.x, ev.c || 'txt'); break;
+      case 'txt':
+        floatText(ev.to, ev.x, ev.c || 'txt');
+        if (ev.x === 'Revived!') fxBurst('pillar', ev.to, { scale: 1.4, at: 'stand', dur: 1100 });
+        break;
       case 'eact': floatText(ev.by, ev.x, 'eact'); flash(ev.by, 'lunge'); enemyFx(ev); break;
       case 'cast': {
         // Attacks swing and lunge at the enemy; everything else is a quick skill pose.
@@ -1779,7 +2007,7 @@ function handleEvents(list) {
         break;
       }
       case 'down': flash(ev.to, 'hit'); break;
-      case 'die': floatText(ev.to, '☠️', 'txt'); break;
+      case 'die': deathFx(ev.to); break;
     }
   }
 }

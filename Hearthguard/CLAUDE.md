@@ -77,10 +77,28 @@ No build step and no dependencies to install. Plain ES modules served as static 
   - Scripts used Pillow and numpy from a scratch folder. They aren't in the repo.
 - **Hero poses:** each class has a 2×2 sheet `assets/heroes-<cls>.png` (idle, attack / cast, down), full body, facing right, made by attaching the class bust as the reference. It's sliced to `assets/heroes/<cls>-<pose>.webp`, 512px tall. All four cells are cropped with **one shared rectangle**, so the figure keeps its scale and foot line when the pose swaps. Then add the class to `HERO_ART` in `game.js`; classes not listed stand in with their bust. The Rogue's sheet goes on magenta because of the green cloak.
 - **Poses in combat:** `setPose` picks down, then a pose flashed by a card that just landed (`poseFlash`: attack for attacks, cast for everything else), then cast while casting, then idle. The `cast` event carries the card `id`, target `t` and `atk`, for poses and effects.
-- **Effects:** two 3×3 sheets painted on black (`assets/vfx-1.png` and `vfx-2.png`) are sliced to `assets/vfx/<name>.webp`, 256px. Black becomes alpha: alpha is the brightest channel, and the colour is un-premultiplied, so sprites need no blend modes. Sheet 1's projectiles head right; sheet 2's (`shadow`) head left.
-  - `castFx` picks a card's effect from its `fx` keys and class. **Melee attacks appear on the target and never fly**: knight slash, rogue stab (the dagger sprite thrust in place, once per hit up to three), cleric holy. Only spells (mage, by element via `mageElement`) and thrown rogue cards (`ROGUE_THROWN`) are projectiles. On top of that come poison, interrupt and stun bursts, plus barrier, armor, heal, shout and smoke for support cards.
-  - `enemyFx` uses the `eact` event's `kk` (move kind) and `to` (hero id or `'hearth'`, returned by `Sim.enemyAct`). Only ranged moves throw a projectile (`ENEMY_SHOT`, keyed by move name); every other attack claws on its target.
-  - Sprites are short-lived `<img>`s in `#fxLayer`, animated with the Web Animations API (transform and opacity only), capped at `VFX_MAX`. In the browser pane, animations sit at their first frame while the pane isn't drawing; to check one, pause it and set `currentTime`.
+- **Effects:** seven 3×3 sheets painted on black are sliced to `assets/vfx/<name>.webp`, 256px. The sheets are `vfx-1`, `vfx-2`, `vfx-knight`, `vfx-rogue`, `vfx-mage`, `vfx-cleric` and `vfx-shared`; the names per set are in `VFX_SETS`.
+  - **Keying:** black becomes alpha. Alpha is the brightest channel and the colour is un-premultiplied, so sprites need no blend modes. Painted objects (shields, banner, knives, vial, caltrops, coins, thorns) are cut "solid": they only fade near black, so dark tones stay opaque.
+  - **Direction:** projectiles head right, except `shadow`, which heads left. Ground decals (`fissure`, `caltrops`, `frostnova`, `consecrate`, `powerrune`) are painted flattened.
+  - **Preloading:** `preloadVfx` (from `buildCombat`) loads the base and shared sets plus the party's classes only.
+  - **Melee never flies:** melee attacks appear on the target. Only spells and thrown things (`ROGUE_THROWN`) are projectiles.
+  - `castFx`: most cards have a recipe in `CARD_FX` written against a small helper `f`:
+    - `f.on` bursts on each target, and `f.feet` lays a decal under each.
+    - `f.shot`, `f.drop` (meteor, sword of light) and `f.chain` (lightning hopping) come from the caster.
+    - `f.self`, `f.ally`, `f.hearth` and `f.heroes` place effects on the party side.
+    - `f.hits` and `f.stab` play one effect per hit, and `f.shake` jolts the stage.
+    - `f.no(key)` skips that key's generic effect.
+    
+    Cards without a recipe get `classHit`. Overlays from the card's `fx` keys run either way:
+    - on enemies: poison, interrupt, stun, `weaken`, `vulnerable`;
+    - on the party: barrier, heal, armor, energy, `empower`, `haste`, thorns;
+    - `powerrune` under the caster for every Power.
+  - **Placement** (`at` on bursts): `'mid'` centres on the figure, `'feet'` lays a decal on the ground, and `'stand'` stands the sprite on the ground.
+  - **Events:**
+    - Enemy deaths show `soul`, plus `killblow` if an execute card hit them in the last 1.5s (`execHits`).
+    - A `txt` event of "Revived!" brings down a `pillar`.
+  - `enemyFx` uses the `eact` event's `kk` (move kind) and `to` (hero id or `'hearth'`, returned by `Sim.enemyAct`). Only ranged moves throw a projectile (`ENEMY_SHOT`, keyed by move name). Every other attack claws on its target, and quakes crack the ground under the heroes.
+  - **Rendering:** sprites are short-lived `<img>`s in `#fxLayer`, animated with the Web Animations API (transform, opacity and an optional hue `filter`), capped at `VFX_MAX`. In the browser pane, animations sit at their first frame while the pane isn't drawing. To check one, pause it and set `currentTime`; to run callbacks that fire on landing, `finish()` it.
 - **Fallback:** every image is loaded with its emoji as the fallback (`pic()`, `ico()`), so a missing file degrades gracefully.
 - **Check sheets before slicing.** Sheets have arrived as duplicates of each other (identical checksums) and with a painted background instead of green (the Ash Wyrm, faded with an oval mask).
 - **UI icons:** `assets/ui/*.webp`, mapped in `ICONS` in `game.js`. Prefer `ico('name')` over emoji wherever a painted icon exists.
