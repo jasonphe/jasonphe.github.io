@@ -259,7 +259,7 @@ const say = (fx, k, tgt, all) => {
   const ally = tgt === 'ally';
   switch (k) {
     case 'dmg': return `Deal <b>${v}</b> damage${fx.hits > 1 ? ` ${fx.hits} times` : ''}${all ? ' to ALL enemies' : ''}.`;
-    case 'guardDmg': return 'Deal damage equal to your Armor.';
+    case 'guardDmg': return 'Deal damage equal to your Armor, then lose half your Armor.';
     case 'shieldDmg': return "Deal damage equal to the Hearth's Barrier.";
     case 'exec': return `+<b>${v}</b> if the target is under 40% HP.`;
     case 'detonate': return all ? `Deal <b>${v}×</b> each enemy's Burn to it. The Burn stays.` : `Deal <b>${v}×</b> the target's Burn. The Burn stays.`;

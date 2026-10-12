@@ -104,7 +104,7 @@ function cardValue(sim, pid, c, tgt, claims) {
       case 'zap': v += x * (fx.hits || 1) * 0.9; break;
       case 'burn': case 'poison': for (const e of foes) { const have = e[k] || 0; v += Math.min(e.hp, (tri(have + x) - tri(have)) * 0.8); } break;
       case 'detonate': for (const e of foes) v += Math.min(e.hp, (e.burn || 0) * x); break;
-      case 'guardDmg': for (const e of foes) v += hitFoe(e, h.guard + bonus); break;
+      case 'guardDmg': for (const e of foes) v += hitFoe(e, h.guard + bonus); v -= h.guard * 0.25; break;
       case 'shieldDmg': for (const e of foes) v += hitFoe(e, C.shield + bonus); break;
       case 'guardBlast': for (const e of foes) v += hitFoe(e, h.guard * x); v -= h.guard * 0.5; break;
       case 'interrupt':

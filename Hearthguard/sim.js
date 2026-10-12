@@ -610,7 +610,8 @@ export class Sim {
         case 'invuln': C.invuln = Math.max(C.invuln || 0, C.t + v); this.ev.push({ k: 'txt', to: 'hearth', x: 'Protected!' }); break;
         case 'beacon': C.beacon = (C.beacon || 0) + v; break;
         case 'teamRegen': C.teamRegen = (C.teamRegen || 0) + v; break;
-        case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); break;
+        // Body Slam: hit with all your Armor, then lose half of it.
+        case 'guardDmg': for (const e of foes) this.hitEnemy(e, (h.guard + bonus) * mult, pid); h.guard = Math.floor(h.guard / 2); break;
         case 'shieldDmg': for (const e of foes) this.hitEnemy(e, (Math.floor(C.shield) + bonus) * mult, pid); break;
         // The Burn stays: Detonate is a bonus hit on top of it, never worth less than waiting.
         case 'detonate': for (const e of foes) this.hitEnemy(e, e.burn * v + bonus, pid); break;
