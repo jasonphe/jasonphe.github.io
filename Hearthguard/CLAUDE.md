@@ -72,6 +72,18 @@ No build step and no dependencies to install. Plain ES modules served as static 
 - **Progress:** stored per browser in `localStorage` (`hearthguard-progress`). There are no accounts. The host doesn't check unlocks; the deck builder does.
 - **Debug menu:** open it with Ctrl+Shift+D or `?debug`. It stores cheats separately (`hearthguard-cheats`, with its own deck slot). While cheats are on, runs don't touch real progress. Never let cheats write to `progress`.
 
+## Look
+
+The UI is styled to read as a printed game, not a web app. Players said the old look (Cinzel, rounded cards, glows everywhere) felt AI-generated, so keep away from that.
+- **Type:**
+  - **Pirata One** (`--display`) for headings, names and card titles. It has one weight, so never bold it.
+  - **Alegreya** for body text.
+  - **Alegreya Sans** (`--ui`) for numbers and tiny labels.
+- **Panels:** framed with a 9-slice chamfered border (`--frame`, plus the `--frame-gold` and `--frame-danger` variants) over `--grain`, a paper-grain SVG noise. Use `background-clip: padding-box`. To give a panel a colour accent, use an inset box-shadow, since a frame can't take a CSS colour.
+- **Emphasis:** a gold frame, a hard outline or a hard offset shadow. No blurred glows. Rarity is a hard inner rule, doubled from Epic up.
+- **Buttons:** bronze plates with cut corners (`clip-path`).
+- **Small UI icons:** the `.gi` set (check, cross, cycle, link, flag, unlock, hammer, trash). They're inline SVG masks in one ink-stroke style, tinted by `currentColor`. Add new ones in the same style rather than using emoji.
+
 ## Art
 
 - **Style** (reuse in every prompt): *dark fantasy game illustration in a hand-painted gouache style, bold dark ink outlines, chunky readable silhouettes, warm orange-amber firelight rim lighting against deep umber, charcoal and slate-blue shadows, textured brush strokes, muted palette with one saturated accent, no text/labels/watermarks.* Class glow colors: Knight gold `#e0b84a`, Mage blue-violet `#7c8cff`, Rogue emerald `#4fd18b`, Cleric rose `#f2a1c7`, Hex purple `#8b3bbf`.

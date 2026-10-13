@@ -419,7 +419,7 @@ function voteList() {
 }
 
 function waitingFor(done) {
-  return `<div class="waiting">${S.players.filter(p => p.on).map(p => `<span class="pchip ${done?.[p.id] != null ? 'ok' : ''}" style="--pc:${pColor(p.id)}">${esc(p.name)} ${done?.[p.id] != null ? '✓' : '…'}</span>`).join('')}</div>`;
+  return `<div class="waiting">${S.players.filter(p => p.on).map(p => `<span class="pchip ${done?.[p.id] != null ? 'ok' : ''}" style="--pc:${pColor(p.id)}">${esc(p.name)} ${done?.[p.id] != null ? '<i class="gi gi-check"></i>' : '…'}</span>`).join('')}</div>`;
 }
 
 const SCREENS = {
@@ -543,7 +543,7 @@ const SCREENS = {
       <p class="sub">Each of you picks one: tend the Hearth, or sharpen a card.</p>
       ${m && done == null ? `<div class="choices">
         <button class="choice" data-rest><b>${pic('icons/rest', '🔥')} Rest</b><span>Heal the Hearth ${heal} and restore your HP (${m.hp}/${m.maxHp}).</span></button>
-        <button class="choice" data-deck="smith"><b>⚒️ Smith</b><span>Upgrade a card in your deck.</span></button>
+        <button class="choice" data-deck="smith"><b><i class="gi gi-hammer"></i> Smith</b><span>Upgrade a card in your deck.</span></button>
       </div>` : `<p class="note">${m ? (done === 'rest' ? 'You rested.' : 'You upgraded a card.') : ''} Waiting for the others…</p>`}
       ${waitingFor(S.done)}
     </div>`;
@@ -564,7 +564,7 @@ const SCREENS = {
       <div class="relic-row">${S.shop.relics.map((r, i) => `<button class="relic-btn" data-buy-relic="${i}" ${r.sold || m.gold < r.price ? 'disabled' : ''}>
         <span class="relic-icon">${relicPic(r.id)}</span><b>${esc(RELICS[r.id].name)}</b><small>${relicText(r.id)}</small><span class="price">${r.sold ? 'Sold' : `${ico('gold')} ${r.price}`}</span></button>`).join('') || '<p class="note">Sold out.</p>'}</div>
       <div class="shop-foot">
-        <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}>🗑️ Remove a card (${ico('gold')} ${REMOVE_PRICE})</button>
+        <button class="btn ghost" data-deck="remove" ${S.shop.removed[selfId] || m.gold < REMOVE_PRICE ? 'disabled' : ''}><i class="gi gi-trash"></i> Remove a card (${ico('gold')} ${REMOVE_PRICE})</button>
         <button class="btn" data-done>Leave shop</button>
       </div>` : `<p class="note">Waiting for the others to finish shopping…</p>`}
       ${waitingFor(S.done)}
@@ -789,8 +789,8 @@ function embersHTML() {
   return `<div class="unlock">
     <h3>+${a.n} ${ico('embers')} Embers</h3>
     <p class="sub">You have ${progress.embers}. Spend them on new cards with <b>Edit deck</b> in the lobby.</p>
-    ${a.tier ? `<p class="unlock-note">🔓 <span class="rt r-${a.tier}">${RARITY_NAMES[a.tier]}</span> cards can now be bought.</p>` : ''}
-    ${a.opened ? `<p class="unlock-note">🔓 <b>${a.opened}</b> difficulty is now open.</p>` : ''}
+    ${a.tier ? `<p class="unlock-note"><i class="gi gi-unlock"></i> <span class="rt r-${a.tier}">${RARITY_NAMES[a.tier]}</span> cards can now be bought.</p>` : ''}
+    ${a.opened ? `<p class="unlock-note"><i class="gi gi-unlock"></i> <b>${a.opened}</b> difficulty is now open.</p>` : ''}
   </div>`;
 }
 
@@ -1036,7 +1036,7 @@ function buildCombat() {
     <div class="me" id="meEl">
       <div class="me-top">
         <div class="energy" title="Energy"><div class="epips big"></div><span class="enum"></span></div>
-        <div class="mycast hidden"><i></i><span></span><button class="x" title="Cancel cast (Esc)">✕</button></div>
+        <div class="mycast hidden"><i></i><span></span><button class="x" title="Cancel cast (Esc)"><i class="gi gi-cross"></i></button></div>
         <div class="piles"></div>
       </div>
       <div class="hand" id="handEl"><button class="zoom" id="cardZoom" hidden></button></div>
@@ -1101,7 +1101,7 @@ function chooseCard(u) {
   const c = cardDef(inst.id, inst.up);
   // Touch screens have no hover, so the first tap shows the card and the second plays it.
   if (touch.matches && sel !== u) { sel = u; return; }
-  if (c.unplayable) { toast('Hex is unplayable. Discard it with ↻ or X.'); return; }
+  if (c.unplayable) { toast('Hex is unplayable. Discard it with its discard button, or X.'); return; }
   if (h.ch) { toast('You are still casting'); return; }
   if (sel === u) { playSel(autoTarget(c)); return; }
   const needsPick = (c.tgt === 'enemy' && aliveEnemies().length > 1) || (c.tgt === 'ally' && Object.keys(C.heroes).length > 1);
@@ -1554,7 +1554,7 @@ function frame(now) {
   const e = curEnergy(h);
   pips(meEl.querySelector('.energy .epips'), e, h.emax);
   setText(meEl.querySelector('.enum'), `${Math.floor(e)}/${h.emax}`);
-  setHTML(meEl.querySelector('.piles'), `<span title="Draw pile">${ico('deck')} ${h.draw.length}</span><span title="Discard pile">${ico('discard')} ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards">↻ free×${h.cycleFree}</span>` : ''}`);
+  setHTML(meEl.querySelector('.piles'), `<span title="Draw pile">${ico('deck')} ${h.draw.length}</span><span title="Discard pile">${ico('discard')} ${h.disc.length}</span>${h.cycleFree ? `<span title="Free discards"><i class="gi gi-cycle"></i> free×${h.cycleFree}</span>` : ''}`);
   const mc = meEl.querySelector('.mycast');
   if (h.ch) {
     tog(mc, 'hidden', false);
