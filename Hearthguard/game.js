@@ -1219,12 +1219,30 @@ const POSE_MS = { attack: 450, cast: 600 };
 // played in order when an attack lands, in place of the single attack pose. Each frame holds
 // for MOVE_MS: anticipation, impact, follow-through. The card's effect waits for the impact
 // frame (MOVE_HIT ms), so the slash or bash lands on the hit.
-const HERO_MOVES = { knight: { slash: ['slash1', 'slash2', 'slash3'], bash: ['bash1', 'bash2', 'bash3'] } };
+const HERO_MOVES = {
+  knight: { slash: ['slash1', 'slash2', 'slash3'], bash: ['bash1', 'bash2', 'bash3'] },
+  rogue: { stab: ['stab1', 'stab2', 'stab3'], throw: ['throw1', 'throw2', 'throw3'] },
+  mage: { hurl: ['hurl1', 'hurl2', 'hurl3'], invoke: ['invoke1', 'invoke2', 'invoke3'] },
+  // Judgment has two frames; the second holds through the follow-through beat.
+  cleric: { smite: ['smite1', 'smite2', 'smite3'], judgment: ['judg1', 'judg2', 'judg2'] },
+};
 const MOVE_MS = [110, 150, 220];
 const MOVE_HIT = MOVE_MS[0];
-// The Knight's shield attacks bash; his other attacks slash.
+// Which motion an attack plays. Knight: shield attacks bash, the rest slash. Rogue: thrown
+// cards throw, the rest stab. Mage: spells at every enemy invoke, the rest hurl. Cleric: the
+// big holy strikes call down judgment, the rest smite.
 const SHIELD_ATTACKS = new Set(['k_bash', 'k_slam', 'k_bulwark', 'k_charge', 'k_parry', 'k_toss', 'k_titan']);
-const motionFor = (cls, id) => cls === 'knight' ? (SHIELD_ATTACKS.has(id) ? 'bash' : 'slash') : null;
+const JUDGMENTS = new Set(['c_judge', 'c_smiteevil', 'c_consecrate']);
+function motionFor(cls, id) {
+  const c = CARDS[id];
+  switch (cls) {
+    case 'knight': return SHIELD_ATTACKS.has(id) ? 'bash' : 'slash';
+    case 'rogue': return ROGUE_THROWN.test(c?.name || '') ? 'throw' : 'stab';
+    case 'mage': return c?.tgt === 'all' || c?.tgt === 'random' ? 'invoke' : 'hurl';
+    case 'cleric': return JUDGMENTS.has(id) ? 'judgment' : 'smite';
+  }
+  return null;
+}
 const heroPoses = cls => [...POSES, ...Object.values(HERO_MOVES[cls] || {}).flat()];
 
 function heroEl(pid) {

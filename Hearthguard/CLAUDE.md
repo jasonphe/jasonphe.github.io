@@ -85,7 +85,13 @@ No build step and no dependencies to install. Plain ES modules served as static 
   - **Redrawn poses:** a pose redrawn as its own image (like `heroes-knight-attack.png`, because the lunge didn't fit a cell) is scaled to the height of the cell it replaces. All poses then go on one shared canvas aligned on the feet: same lowest pixel, and the same middle of the feet. The hero stays planted and a wide pose just reaches further.
   - **Attack motions:** classes in `HERO_MOVES` play a three-frame motion on attacks instead of the single attack pose: anticipation, impact, follow-through, held for `MOVE_MS`.
     - The card's effect waits until the impact frame (`MOVE_HIT`).
-    - `motionFor` picks the motion. The Knight bashes with `SHIELD_ATTACKS` (Shield Bash, Body Slam, Bulwark, Crushing Charge, Parry, Shield Toss, Titan's Wrath) and slashes with everything else.
+    - `motionFor` picks the motion:
+      - **Knight:** bashes with `SHIELD_ATTACKS` (Shield Bash, Body Slam, Bulwark, Crushing Charge, Parry, Shield Toss, Titan's Wrath) and slashes with everything else.
+      - **Rogue:** throws with `ROGUE_THROWN` cards and stabs with the rest.
+      - **Mage:** invokes with spells that hit every or random enemies, and hurls the rest.
+      - **Cleric:** `JUDGMENTS` (Judgment, Consecrate, Smite Evil) call down judgment (two frames, the second held), and the rest smite. Her smite frames came from a separate 3×1 strip (scaled 1.05×) and her judgment frames from the 3×2 sheet (1.45×). The compositor takes several `--frames` sheets, each with its own grid, names (`-` skips a cell) and scale.
+    - Frames sheets are 3×2 and cut with `bridged_cells`, which repairs a blade or flame poking across a gutter and drops stray slivers. The Rogue and Mage frames were scaled 1.45× to match their sheets; the Knight's were 1.38×. Check the scale against a matching pose before trusting a number.
+    - **Prompts:** ask for one hand to hold the prop in every frame, and no kneeling or falling in attacks. The first Cleric sheet swapped her lantern between hands and knelt at the end of an attack.
     - His frames came from a 3×2 sheet (`assets/heroes-knights-frames.png`) and were scaled to match his other poses **by head height**. Lunges vary in depth, so matching on overall height made him 20% too big.
   - **Sizing:** hero pose images are sized by height (`.hero .art.posed img.pose`), not fitted into the box, so a wide canvas doesn't shrink the hero. The overhang ignores taps.
 - **Poses in combat:** `setPose` picks down, then a pose flashed by a card that just landed (`poseFlash`: attack for attacks, cast for everything else), then cast while casting, then idle. The `cast` event carries the card `id`, target `t` and `atk`, for poses and effects.
