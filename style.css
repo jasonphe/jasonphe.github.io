@@ -132,7 +132,6 @@ img { display: block; max-width: 100%; }
     z-index: -3;
     background: url("resources/hero.jpg") center / cover no-repeat;
     animation: hero-zoom 2.4s var(--ease-out) both;
-    will-change: translate;
 }
 
 /* Shade for legibility; in dark mode it fades into the page background. */
@@ -155,7 +154,7 @@ img { display: block; max-width: 100%; }
     mix-blend-mode: screen;
 }
 
-.hero-content { position: relative; max-width: var(--max); width: 100%; margin: 0 auto; }
+.hero-content { position: relative; max-width: calc(var(--max) - 2 * var(--gutter)); width: 100%; margin: 0 auto; }
 
 .hero h1 {
     font-size: clamp(48px, 9vw, 96px);
@@ -230,6 +229,14 @@ img { display: block; max-width: 100%; }
 }
 
 /* ---------- Sections ---------- */
+
+/* Overlap the hero's bottom edge so the background image can't peek out as a hairline at fractional pixel ratios. */
+main {
+    position: relative;
+    margin-top: -2px;
+    padding-top: 2px;
+    background: var(--bg);
+}
 
 .section {
     max-width: var(--max);
