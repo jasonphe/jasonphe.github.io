@@ -1,9 +1,10 @@
 // Copycat Kitchen: study a photo of a dish, cook it from scratch, and get judged on how close you came.
-import { INGS, PREPS, HEAT, HEAT_LABELS, PAN_KEY, SEASONINGS, FLAVORS, FLAVOR_NAMES, DISHES, PANTRY, TRANSFORMS, DRY, nextPreps } from './data.js';
+import { INGS, PREPS, HEAT, HEAT_LABELS, PAN_KEY, SEASONINGS, FLAVORS, FLAVOR_NAMES, DISHES, PANTRY, TRANSFORMS, DRY, nextPreps, prepGame } from './data.js';
 import {
   drawItem, drawMix, drawPlate, stageName, isScorched, hashStr,
-  drawMarble, drawBowl, drawBowlFront, drawSpoon, drawStoveTop, drawFlames, drawPan, drawPot, drawPotWater, drawOven, drawOvenGlass, drawBoard, drawKnife, drawTable, drawTiles,
+  drawMarble, drawBowl, drawBowlFront, drawStoveTop, drawFlames, drawPan, drawPot, drawPotWater, drawOven, drawOvenGlass, drawBoard, drawTable, drawTiles,
 } from './draw.js';
+import { createGame } from './games.js';
 import { judge, flavorOf, targetComps, recipeSteps, CATEGORIES } from './score.js';
 
 const $ = (s) => document.querySelector(s);
@@ -104,7 +105,7 @@ let S = null, uidN = 1;
 function start(dish) {
   S = {
     dish, items: [], heat: { pan: 0, pot: 0, oven: 0 }, season: { salt: 0, pepper: 0, chili: 0, soy: 0 },
-    tokens: 3, tasted: {}, station: 'pantry', sel: null, chop: null, knead: null, knifeT: 9, tossT: 9, drag: null,
+    tokens: 3, tasted: {}, station: 'pantry', sel: null, game: null, gameGeo: null, tossT: 9, drag: null,
     fx: [], hits: [], zones: [], clock: 0, dt: 0,
   };
   lastCounter = lastActions = lastControls = '';
@@ -154,7 +155,7 @@ function stateOf(it) {
     if (DRY(m)) dry += v;
     if (v > bv) { bv = v; bestM = m; }
   }
-  return { ing: it.ing, prep: it.prep, cook: it.cook, dry: tot ? dry / tot : 0, method: tot > 0.05 ? bestM : 'raw' };
+  return { ing: it.ing, prep: it.prep, cook: it.cook, dry: tot ? dry / tot : 0, method: tot > 0.05 ? bestM : 'raw', q: it.q ?? 1 };
 }
 
 function addItem(ing) {
@@ -173,8 +174,8 @@ function moveTo(it, where) {
   if (from === where) return false;
   if (where === 'board' && unit.length > 1) { toast("A mix can't be cut."); return false; }
   if (unitsAt(where).length >= CAP[where]) { toast(`The ${PLACE[where]} is full.`); return false; }
-  if (from === 'board') S.chop = null;
-  if (from === 'bowl') S.knead = null;
+  stopGameAt(from);
+  stopGameAt(where);
   const slot = freeSlot(where);
   for (const x of unit) { x.where = where; x.slot = slot; }
   S.sel = null;
@@ -184,8 +185,7 @@ function moveTo(it, where) {
 
 function bin(it) {
   const unit = unitOf(it);
-  if (it.where === 'board') S.chop = null;
-  if (it.where === 'bowl') S.knead = null;
+  stopGameAt(it.where);
   S.items = S.items.filter((x) => !unit.includes(x));
   if (isSel(unit)) S.sel = null;
   sfx('bin');
@@ -199,11 +199,60 @@ function combine(where) {
   S.sel = null;
 }
 
+// ---------- Minigames ----------
+
+// Start a minigame (games.js) at a place: the board, the bowl or the pan.
+function play(place, kind, opts, extra = {}) {
+  S.game = Object.assign(createGame(kind, opts), { place }, extra);
+}
+function stopGameAt(place) { if (S.game?.place === place) S.game = null; }
+
+// Act on what a minigame's input handler returned, and finish the game when it's done.
+function gameEvent(ev) {
+  if (ev) {
+    if (ev.sfx) sfx(ev.sfx);
+    if (ev.msg) toast(ev.msg);
+    if (ev.hop) S.tossT = 0;
+    const g = S.gameGeo;
+    if (ev.sfx === 'chop' && S.game?.place === 'board' && g) {
+      const it = byUid(S.game.uid), col = it ? INGS[it.ing].b : '#fff';
+      for (let i = 0; i < 4; i++) S.fx.push({ kind: 'bit', x: g.x, y: g.y, vx: (Math.random() - 0.5) * 220, vy: -80 - Math.random() * 120, life: 0, max: 0.6, r: 3 + Math.random() * 4, color: col });
+    }
+  }
+  if (S.game?.done) finishGame();
+}
+
+function finishGame() {
+  const g = S.game;
+  S.game = null;
+  if (g.place === 'bowl') return finishMix();
+  if (g.place === 'pan') return toss();
+  const it = byUid(g.uid);
+  if (it) applyPrep(it, g.prep, g.q ?? 1);
+  sfx('pop');
+}
+
+// A finished cut. Some cuts turn an ingredient into another (pasta dough into pasta); some make several pieces (a loaf).
+function applyPrep(it, prep, q) {
+  const d = INGS[it.ing], into = d.cutsInto?.[prep];
+  if (into) {
+    Object.assign(it, { ing: into, prep: 'whole', q });
+    toast(`You cut the ${d.name.toLowerCase()} into ${INGS[into].name.toLowerCase()}.`);
+    return;
+  }
+  it.prep = prep;
+  it.q = Math.min(it.q ?? 1, q);
+  let made = 0;
+  for (let i = 1; i < (d.yields?.[prep] || 1) && unitsAt('counter').length < CAP.counter; i++, made++) {
+    S.items.push({ ...newItem(it.ing, 'counter', freeSlot('counter')), prep, cook: it.cook, by: { ...it.by }, q: it.q });
+  }
+  if (made) toast(`${made + 1} slices. The others are on the counter.`);
+}
+
 function toss() {
   if (unitsAt('pan').length < 2) return;
   combine('pan');
   S.tossT = 0;
-  sfx('sizzle');
   toast("Tossed together. They're one dish now.");
 }
 
@@ -231,16 +280,10 @@ function startMix() {
   if (unitsAt('bowl').length < 2) return toast('Put at least two things in the bowl.');
   const r = bowlRecipe();
   if (r?.hint) return toast(r.hint);
-  S.knead = { taps: 0, need: r ? r.t.taps : 5 };
+  play('bowl', 'circle', { turns: r ? r.t.turns : 2, tool: 'spoon' });
 }
 
-function knead() {
-  if (!S.knead) return;
-  S.knead.taps++;
-  S.tossT = 0;
-  sfx('chop');
-  if (S.knead.taps < S.knead.need) return;
-  S.knead = null;
+function finishMix() {
   const r = bowlRecipe();
   if (r) {
     const slot = Math.min(...itemsAt('bowl').map((x) => x.slot));
@@ -283,8 +326,7 @@ function tick(dt) {
 function setStation(st) {
   S.station = st;
   S.fx = [];
-  if (st !== 'board') S.chop = null;
-  if (st !== 'bowl') S.knead = null;
+  if (S.game && STATION_OF[S.game.place] !== st) S.game = null;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.st === st));
   $('#pantry').hidden = st !== 'pantry';
   $('#stage').style.visibility = st === 'pantry' ? 'hidden' : 'visible';
@@ -385,10 +427,14 @@ function drawBoardStation(ctx, w, h, H) {
     ctx.textAlign = 'center'; ctx.fillText('Nothing on the board', b.x + bw / 2, b.y + bh / 2 + 6); ctx.restore();
     return [];
   }
-  const s = bh * 0.34, x = b.x + bw * (S.chop ? 0.42 : 0.5), y = b.y + bh * 0.52;
-  const label = drawHeld(ctx, unit, x, y, s);
-  if (S.chop) drawKnife(ctx, x + s * 0.5, y - s * 0.05, bh * 0.58, Math.min(1, S.knifeT * 7));
-  return [label];
+  const s = bh * 0.34, x = b.x + bw * 0.5, y = b.y + bh * 0.5;
+  const game = S.game?.place === 'board' ? S.game : null, g = { x, y, s };
+  const [dx, dy] = game?.itemOffset?.(g) || [0, 0];
+  const label = drawHeld(ctx, unit, x + dx, y + dy, s * (game?.itemScale?.() ?? 1));
+  if (!game) return [label];
+  S.gameGeo = g;
+  game.draw(ctx, g);
+  return [];
 }
 
 function drawStoveStation(ctx, w, h, H) {
@@ -416,6 +462,8 @@ function drawStoveStation(ctx, w, h, H) {
     labels.push(drawHeld(ctx, u, x, y, pan.R * (lone ? 0.4 : 0.29)));
     if (S.heat.pan && Math.random() < S.dt * S.heat.pan * 1.3) steam(x, y - pan.R * 0.15, isScorched(hottest(u)));
   }
+
+  if (S.game?.place === 'pan') { S.gameGeo = { x: pan.x, y: pan.y, s: pan.R * 0.6 }; S.game.draw(ctx, S.gameGeo); }
 
   drawFlames(ctx, pot.x, pot.y + pot.R * 0.85, pot.R * 1.2, S.heat.pot, S.clock);
   drawPot(ctx, pot.x, pot.y, pot.R, S.heat.pot, S.clock);
@@ -476,7 +524,7 @@ function drawBowlStation(ctx, w, h, H) {
     labels.push(drawHeld(ctx, u, x + p[0] * R, y + p[1] * R, R * (lone ? 0.34 : 0.24)));
   }
   drawBowlFront(ctx, x, y, R);
-  if (S.knead) drawSpoon(ctx, x + R * 0.15, y + R * 0.05, R * 0.9, 0.35 + Math.sin(Math.min(1, S.tossT * 4) * Math.PI) * 0.6);
+  if (S.game?.place === 'bowl') { S.gameGeo = { x, y: y + R * 0.08, s: R * 0.5 }; S.game.draw(ctx, S.gameGeo); }
   zone(ctx, 'bowl', x, y + R * 0.2, R, R * 0.6);
   return labels;
 }
@@ -512,28 +560,24 @@ stage.addEventListener('pointerdown', (e) => {
   if (!S) return;
   audio();
   const [x, y] = canvasPoint(e.clientX, e.clientY);
-  if (S.station === 'board' && S.chop) { chop(); return; }
-  if (S.station === 'bowl' && S.knead) { knead(); return; }
+  if (S.game && STATION_OF[S.game.place] === S.station) {
+    stage.setPointerCapture(e.pointerId);
+    gameEvent(S.game.down?.(x, y));
+    return;
+  }
   const sel = selected();
   if (sel && sel.where === 'counter') { const z = hitZone(x, y); if (z) { moveTo(sel, z.where); return; } }
   const h = hitItem(x, y);
   S.sel = h && S.sel !== h.uid ? h.uid : null;
 });
 
-function chop() {
-  const it = itemsAt('board')[0];
-  if (!it || !S.chop) return;
-  S.chop.taps++;
-  S.knifeT = 0;
-  sfx('chop');
-  const wrap = $('#stageWrap'), w = wrap.clientWidth, H = wrap.clientHeight - $('#controls').offsetHeight;
-  const col = INGS[it.ing].b;
-  for (let i = 0; i < 5; i++) S.fx.push({ kind: 'bit', x: w * 0.45, y: H * 0.5, vx: (Math.random() - 0.5) * 220, vy: -80 - Math.random() * 120, life: 0, max: 0.6, r: 4 + Math.random() * 4, color: col });
-  if (S.chop.taps >= PREPS[S.chop.prep].taps) {
-    it.prep = S.chop.prep;
-    S.chop = null;
-    sfx('pop');
-  }
+// Drags and releases only matter to minigames.
+for (const type of ['pointermove', 'pointerup']) {
+  stage.addEventListener(type, (e) => {
+    if (!S?.game || STATION_OF[S.game.place] !== S.station) return;
+    const [x, y] = canvasPoint(e.clientX, e.clientY);
+    gameEvent(type === 'pointermove' ? S.game.move?.(x, y) : S.game.up?.(x, y));
+  });
 }
 
 // ---------- Counter, with drag and drop ----------
@@ -646,37 +690,34 @@ function heatRow(v, label, extra = '') {
     `<button class="seg-btn${S.heat[v] === i ? ' on h' + i : ''}" data-ctl="heat" data-v="${v}" data-h="${i}">${t}</button>`).join('')}</div>${extra}</div>`;
 }
 
+// While a minigame runs: its instructions, a progress meter (filled in each frame) and a way out.
+const gameRow = () => `<div class="ctl-row"><span class="ctl-label game-hint">${S.game.hint}</span>
+  ${S.game.noMeter ? '' : '<span class="meter"><i></i></span>'}<button class="seg-btn" data-ctl="game-stop">Stop</button></div>`;
+
 function renderControls() {
   let html = '';
-  const st = S.station;
+  const st = S.station, playing = S.game && STATION_OF[S.game.place] === st;
   if (st === 'board') {
     const it = unitsAt('board')[0]?.[0];
     if (!it) html = '';
-    else if (S.chop) {
-      const need = PREPS[S.chop.prep].taps;
-      html = `<div class="ctl-row"><span class="ctl-label">Tap anywhere to ${PREPS[S.chop.prep].name.toLowerCase()}</span>
-        <span class="pips">${'<i class="on"></i>'.repeat(S.chop.taps)}${'<i></i>'.repeat(need - S.chop.taps)}</span>
-        <button class="seg-btn" data-ctl="chop-stop">Stop</button></div>`;
-    } else {
-      const opts = nextPreps(it.ing, it.prep);
+    else if (playing) html = gameRow();
+    else {
+      const opts = nextPreps(it.ing, it.prep), names = INGS[it.ing].prepNames || {};
       const none = it.prep === 'whole' ? 'This one is used whole.' : 'Ready to cook.';
       html = `<div class="ctl-row"><span class="ctl-label">${opts.length ? 'Prep' : none}</span>
-        ${opts.map((p) => `<button class="seg-btn" data-ctl="prep" data-prep="${p}">${PREPS[p].name}</button>`).join('')}
+        ${opts.map((p) => `<button class="seg-btn" data-ctl="prep" data-prep="${p}">${names[p] || PREPS[p].name}</button>`).join('')}
         <button class="seg-btn ghost" data-ctl="board-off">To the counter</button></div>`;
     }
   } else if (st === 'bowl') {
     const n = unitsAt('bowl').length;
-    if (S.knead) {
-      html = `<div class="ctl-row"><span class="ctl-label">Tap anywhere to mix</span>
-        <span class="pips">${'<i class="on"></i>'.repeat(S.knead.taps)}${'<i></i>'.repeat(S.knead.need - S.knead.taps)}</span>
-        <button class="seg-btn" data-ctl="knead-stop">Stop</button></div>`;
-    } else if (n) {
+    if (playing) html = gameRow();
+    else if (n) {
       html = `<div class="ctl-row"><span class="ctl-label">${n < 2 ? 'Add something else to mix with it.' : 'Bowl'}</span>
         ${n >= 2 ? '<button class="seg-btn" data-ctl="mix">Mix together</button>' : ''}</div>`;
     }
   } else if (st === 'stove') {
     const toss = unitsAt('pan').length >= 2 ? '<button class="seg-btn" data-ctl="toss">Toss together</button>' : '';
-    html = heatRow('pan', 'Pan', toss) + heatRow('pot', 'Pot');
+    html = (playing ? gameRow() : heatRow('pan', 'Pan', toss)) + heatRow('pot', 'Pot');
   }
   else if (st === 'oven') html = heatRow('oven', 'Oven');
   else if (st === 'plate') {
@@ -699,12 +740,14 @@ $('#controls').addEventListener('click', (e) => {
   audio();
   const c = b.dataset.ctl;
   if (c === 'heat') { S.heat[b.dataset.v] = +b.dataset.h; sfx('tick'); }
-  else if (c === 'prep') { S.chop = { prep: b.dataset.prep, taps: 0 }; S.knifeT = 9; }
-  else if (c === 'chop-stop') S.chop = null;
+  else if (c === 'prep') {
+    const it = itemsAt('board')[0], prep = b.dataset.prep;
+    if (it) play('board', ...prepGame(it.ing, prep), { uid: it.uid, prep });
+  }
+  else if (c === 'game-stop') S.game = null;
   else if (c === 'board-off') { const it = itemsAt('board')[0]; if (it) moveTo(it, 'counter'); }
-  else if (c === 'toss') toss();
+  else if (c === 'toss') play('pan', 'flick', { flicks: 2 });
   else if (c === 'mix') startMix();
-  else if (c === 'knead-stop') S.knead = null;
   else if (c === 'season') { S.season[b.dataset.k]++; sfx('shake'); }
   else if (c === 'unseason') { for (const k in S.season) S.season[k] = 0; }
   else if (c === 'taste') openTarget();
@@ -944,10 +987,15 @@ function frame(t) {
   if (S && screen === 'kitchen') {
     S.dt = dt;
     S.clock += dt;
-    S.knifeT += dt;
     S.tossT += dt;
     tick(dt);
+    if (S.game) {
+      S.game.update(dt);
+      if (S.game.done) finishGame();
+    }
     renderControls();
+    const meter = $('#controls .meter i');
+    if (meter && S.game) meter.style.width = `${Math.round(Math.min(1, S.game.progress()) * 100)}%`;
     renderCounter();
     renderActions();
     drawStage();

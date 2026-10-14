@@ -262,6 +262,15 @@ const WHOLE = {
     ctx.fillStyle = css(shade(B, -0.1));
     for (const [x, y] of scatter(r, 14, 0.3)) { ellipse(ctx, x + 0.62, y + 0.55, 0.03, 0.025); ctx.fill(); }
   },
+  pastadough(ctx, r, d, A) {
+    shadow(ctx, 0.85, 0.2, 0.5);
+    blob(ctx, r, 0.85, 0.5, 10, 0.06); ball(ctx, A);
+    ctx.save(); ctx.strokeStyle = css(shade(A, 0.3), 0.8); ctx.lineWidth *= 1.5;
+    ctx.beginPath(); ctx.moveTo(-0.5, -0.1); ctx.quadraticCurveTo(0, -0.3, 0.5, -0.1); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    for (const [x, y] of scatter(r, 10, 0.55)) { ellipse(ctx, x, y - 0.05, 0.03, 0.02); ctx.fill(); }
+  },
   dough(ctx, r, d, A, B, st) {
     const k = 1 + 0.22 * clamp01(st.cook); // it rises as it bakes
     shadow(ctx, 0.75 * k, 0.2, 0.55);
@@ -305,6 +314,12 @@ const SPECIAL = {
       const yolk = cookColor('#f6a91a', '#f2bd45', { ...st, dry: st.dry * 0.5 });
       ellipse(ctx, 0.08, -0.06, 0.32, 0.29); ball(ctx, yolk, 0.08, -0.06, 0.32);
       if (st.cook < 1.3) gloss(ctx, 0, -0.16, 0.1, 0.05, 0.6, 0);
+      if ((st.q ?? 1) < 0.6) { // bits of shell
+        ctx.fillStyle = '#efe0c6';
+        for (const [x, y] of [[-0.45, 0.2], [0.5, 0.25], [-0.2, -0.45], [0.35, -0.4]]) {
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.09, y + 0.03); ctx.lineTo(x + 0.02, y + 0.09); ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+      }
       return;
     }
     // Whisked: a glossy puddle, then soft curds.
@@ -332,16 +347,7 @@ const SPECIAL = {
     ctx.restore();
   },
   pasta(ctx, r, d, A, B, st) {
-    if (st.cook < 0.45) { // a bundle of dry spaghetti
-      ctx.save(); ctx.rotate(-0.5);
-      for (let i = 0; i < 16; i++) {
-        const y = (i / 15 - 0.5) * 0.36;
-        ctx.beginPath(); ctx.moveTo(-0.95, y); ctx.lineTo(0.95, y + (r() - 0.5) * 0.04);
-        ctx.strokeStyle = INK; ctx.lineWidth = 0.075; ctx.stroke();
-        ctx.strokeStyle = css(A); ctx.lineWidth = 0.045; ctx.stroke();
-      }
-      ctx.restore(); return;
-    }
+    // Fresh noodles: a loose nest, dusted with flour until it's cooked.
     shadow(ctx, 0.85);
     blob(ctx, r, 0.82, 0.6, 10, 0.08); fillStroke(ctx, shade(A, -0.12));
     for (let i = 0; i < 30; i++) {
@@ -352,6 +358,10 @@ const SPECIAL = {
       ctx.bezierCurveTo(x0 + Math.cos(a) * L, y0 + Math.sin(a) * L * 0.6, x0 + Math.cos(a + 2) * L, y0 + Math.sin(a + 2) * L * 0.6, x0 + Math.cos(a + 1) * L * 0.8, y0 + Math.sin(a + 1) * L * 0.5);
       ctx.strokeStyle = css(shade(A, -0.3), 0.8); ctx.lineWidth = 0.085; ctx.stroke();
       ctx.strokeStyle = css(shade(A, 0.1 + r() * 0.1)); ctx.lineWidth = 0.055; ctx.stroke();
+    }
+    if (st.cook < 0.3) {
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      for (const [x, y] of scatter(r, 14, 0.6)) { ellipse(ctx, x, y, 0.03, 0.02); ctx.fill(); }
     }
   },
   rice(ctx, r, d, A, B, st) {
@@ -392,19 +402,24 @@ const PATTERN = {
   plain() {},
 };
 
+// How uneven the pieces are: 0 for clean knife work, up to 1 for a mess.
+const sloppy = (st) => 1 - (st.q ?? 1);
+
 const SLICES = {
-  round(ctx, r, d, A, B) {
+  round(ctx, r, d, A, B, st) {
     for (const [x, y] of [[-0.42, -0.2], [0.02, -0.3], [0.44, -0.18], [-0.22, 0.24], [0.24, 0.26]]) {
       ctx.save(); ctx.translate(x + (r() - 0.5) * 0.06, y + (r() - 0.5) * 0.06);
+      const k = 1 + (r() - 0.5) * 1.1 * sloppy(st); ctx.scale(k, k);
       ellipse(ctx, 0, 0, 0.33, 0.3); fillStroke(ctx, A);
       ellipse(ctx, 0, 0, 0.27, 0.245); ctx.fillStyle = css(B); ctx.fill();
       PATTERN[d.pattern || 'plain'](ctx, r, A, B);
       ctx.restore();
     }
   },
-  strip(ctx, r, d, A, B) {
+  strip(ctx, r, d, A, B, st) {
     for (const [x, y] of scatter(r, 7, 0.55)) {
       ctx.save(); ctx.translate(x, y); ctx.rotate(-0.6 + (r() - 0.5) * 0.9);
+      ctx.scale(1 + (r() - 0.5) * 1.2 * sloppy(st), 1);
       ctx.beginPath(); ctx.roundRect(-0.32, -0.08, 0.64, 0.16, 0.07);
       if (d.skin) {
         fillStroke(ctx, A);
@@ -435,25 +450,26 @@ const SLICES = {
 
 const CUTS = {
   slice(ctx, r, d, A, B, st) { SLICES[d.slice || 'round'](ctx, r, d, A, B, st); },
-  dice(ctx, r, d, A, B) {
+  dice(ctx, r, d, A, B, st) {
     for (const [x, y] of scatter(r, 15, 0.66)) {
-      const s = 0.15 + r() * 0.05;
+      const s = (0.15 + r() * 0.05) * (1 + (r() - 0.5) * 1.4 * sloppy(st));
       ctx.save(); ctx.translate(x, y); ctx.rotate(r() * 1.5);
       ctx.beginPath(); ctx.roundRect(-s / 2, -s / 2, s, s, s * 0.25); fillStroke(ctx, shade(B, (r() - 0.5) * 0.12));
       if (d.skin) { ctx.beginPath(); ctx.moveTo(-s / 2, -s / 2); ctx.lineTo(s / 2, -s / 2); ctx.strokeStyle = css(A); ctx.lineWidth = 0.05; ctx.stroke(); }
       ctx.restore();
     }
   },
-  mince(ctx, r, d, A, B) {
+  mince(ctx, r, d, A, B, st) {
     ctx.lineWidth *= 0.5;
     for (const [x, y] of scatter(r, 50, 0.6)) {
-      const s = 0.05 + r() * 0.035;
+      const s = (0.05 + r() * 0.035) * (1 + r() * 2 * sloppy(st));
       ctx.beginPath(); ctx.rect(x - s / 2, y - s / 2, s, s); fillStroke(ctx, shade(B, (r() - 0.5) * 0.2));
     }
   },
-  wedge(ctx, r, d, A, B) {
+  wedge(ctx, r, d, A, B, st) {
     for (const [x, y, rot] of [[-0.4, -0.22, -0.3], [0.38, -0.25, 0.4], [-0.3, 0.22, -0.9], [0.35, 0.25, 0.9]]) {
       ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+      const k = 1 + (r() - 0.5) * 1.1 * sloppy(st); ctx.scale(k, k);
       ctx.beginPath(); ctx.ellipse(0, -0.1, 0.42, 0.3, 0, 0, Math.PI); ctx.closePath(); fillStroke(ctx, A);
       ctx.beginPath(); ctx.ellipse(0, -0.1, 0.35, 0.22, 0, 0, Math.PI); ctx.closePath(); ctx.fillStyle = css(B); ctx.fill();
       if (d.pattern === 'segments') {
@@ -786,19 +802,6 @@ export function drawBoard(ctx, w, h, b) {
   ctx.restore();
 }
 
-// A chef's knife, raised by lift (0 down, 1 up).
-export function drawKnife(ctx, x, y, L, lift) {
-  ctx.save(); ctx.translate(x, y - lift * L * 0.35); ctx.rotate(-0.25 - lift * 0.35);
-  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.roundRect(-L * 0.62, L * 0.1, L * 1.1, L * 0.1, L * 0.05); ctx.fill();
-  const g = ctx.createLinearGradient(0, -L * 0.12, 0, L * 0.06);
-  g.addColorStop(0, '#f4f6f8'); g.addColorStop(1, '#a9b0b8');
-  ctx.beginPath(); ctx.moveTo(-L * 0.62, 0.0); ctx.lineTo(0, -L * 0.12); ctx.lineTo(0, L * 0.06); ctx.quadraticCurveTo(-L * 0.4, L * 0.06, -L * 0.62, 0); ctx.closePath();
-  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(40,40,50,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = '#2b211a'; ctx.beginPath(); ctx.roundRect(0, -L * 0.09, L * 0.42, L * 0.13, L * 0.05); ctx.fill();
-  ctx.fillStyle = '#c9cdd2'; for (const k of [0.12, 0.28]) { ellipse(ctx, L * k, -L * 0.025, L * 0.018, L * 0.018); ctx.fill(); }
-  ctx.restore();
-}
-
 // A mixing bowl in three-quarter view. The inside is drawn first; drawBowlFront goes over the contents.
 export function drawBowl(ctx, x, y, R) {
   ctx.save();
@@ -824,15 +827,6 @@ export function drawBowlFront(ctx, x, y, R) {
   ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.42, 0, 0, Math.PI); ctx.stroke();
   ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = R * 0.05;
   ctx.beginPath(); ctx.moveTo(x - R * 0.6, y + R * 0.35); ctx.quadraticCurveTo(x - R * 0.5, y + R * 0.6, x - R * 0.2, y + R * 0.68); ctx.stroke();
-  ctx.restore();
-}
-
-// A wooden spoon standing in the bowl, swung by angle a.
-export function drawSpoon(ctx, x, y, L, a) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
-  ctx.fillStyle = '#c99556'; ctx.strokeStyle = 'rgba(80,45,15,0.6)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.roundRect(-L * 0.04, -L, L * 0.08, L * 0.8, L * 0.04); ctx.fill(); ctx.stroke();
-  ellipse(ctx, 0, -L * 0.1, L * 0.13, L * 0.18); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
 

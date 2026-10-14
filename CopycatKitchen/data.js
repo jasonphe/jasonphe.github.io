@@ -4,18 +4,25 @@ export const FLAVORS = ['salty', 'sour', 'sweet', 'spicy', 'savory'];
 export const FLAVOR_NAMES = { salty: 'Salty', sour: 'Sour', sweet: 'Sweet', spicy: 'Spicy', savory: 'Savory' };
 
 // ---------- Cuts ----------
-// taps: board taps the cut takes. speed: cooking time relative to whole (smaller pieces cook faster).
+// game: the board minigame for the cut, and its settings (see games.js).
+// speed: cooking time relative to whole (smaller pieces cook faster).
 export const PREPS = {
-  whole: { name: 'Whole', done: 'whole', taps: 0, speed: 1, say: (n) => n },
-  slice: { name: 'Slice', done: 'sliced', taps: 5, speed: 0.6, say: (n) => `slice the ${n}` },
-  dice: { name: 'Dice', done: 'diced', taps: 8, speed: 0.45, say: (n) => `dice the ${n}` },
-  mince: { name: 'Mince', done: 'minced', taps: 12, speed: 0.3, say: (n) => `mince the ${n}` },
-  wedge: { name: 'Wedges', done: 'in wedges', taps: 4, speed: 0.75, say: (n) => `cut the ${n} into wedges` },
-  grate: { name: 'Grate', done: 'grated', taps: 7, speed: 0.35, say: (n) => `grate the ${n}` },
-  tear: { name: 'Tear', done: 'torn', taps: 3, speed: 0.6, say: (n) => `tear the ${n}` },
-  crack: { name: 'Crack', done: 'cracked', taps: 1, speed: 1, say: (n) => `crack the ${n}` },
-  whisk: { name: 'Whisk', done: 'whisked', taps: 6, speed: 0.8, say: (n) => `whisk the ${n}` },
+  whole: { name: 'Whole', done: 'whole', speed: 1, say: (n) => n },
+  slice: { name: 'Slice', done: 'sliced', game: ['knife', { cuts: 5, speed: 2.4 }], speed: 0.6, say: (n) => `slice the ${n}` },
+  dice: { name: 'Dice', done: 'diced', game: ['knife', { cuts: 4, turns: true, speed: 2.8 }], speed: 0.45, say: (n) => `dice the ${n}` },
+  mince: { name: 'Mince', done: 'minced', game: ['rock', {}], speed: 0.3, say: (n) => `mince the ${n}` },
+  wedge: { name: 'Wedges', done: 'in wedges', game: ['knife', { cuts: 3, speed: 2 }], speed: 0.75, say: (n) => `cut the ${n} into wedges` },
+  grate: { name: 'Grate', done: 'grated', game: ['grate', { strokes: 10 }], speed: 0.35, say: (n) => `grate the ${n}` },
+  tear: { name: 'Tear', done: 'torn', game: ['tear', { pieces: 4 }], speed: 0.6, say: (n) => `tear the ${n}` },
+  crack: { name: 'Crack', done: 'cracked', game: ['crack', {}], speed: 1, say: (n) => `crack the ${n}` },
+  whisk: { name: 'Whisk', done: 'whisked', game: ['circle', { turns: 3, tool: 'whisk' }], speed: 0.8, say: (n) => `whisk the ${n}` },
 };
+
+// The minigame for cutting this ingredient this way. Ingredients can change the number of cuts (a loaf takes 3).
+export function prepGame(ing, prep) {
+  const [kind, opts] = PREPS[prep].game, cuts = INGS[ing].cuts?.[prep];
+  return [kind, cuts ? { ...opts, cuts } : opts];
+}
 
 // A cut item can only be cut finer. Anything whole can take any of its ingredient's cuts.
 const FINER = { slice: ['dice', 'mince'], dice: ['mince'] };
@@ -72,7 +79,7 @@ export const PAN_KEY = ['', 'pan_low', 'pan_med', 'pan_high'];
 // melt: from this cook level (for these cuts) it turns into a sauce or puddle.
 export const INGS = {
   egg: { name: 'Egg', fam: 'egg', role: 'main', time: 9, preps: ['crack', 'whisk'], a: '#f1e2c9', ac: '#f1e2c9', b: '#f6b21b', bc: '#f3bf3a', fl: { savory: 0.4 } },
-  bread: { name: 'Bread', fam: 'starch', role: 'base', time: 10, preps: ['slice'], rawName: 'fresh', warmName: 'warm', from: 'dough', a: '#b8773a', ac: '#b8773a', b: '#f1dcae', bc: '#f1dcae', fl: { sweet: 0.2 } },
+  bread: { name: 'Bread', fam: 'starch', role: 'base', time: 10, preps: ['slice'], rawName: 'fresh', warmName: 'warm', from: 'dough', fromHow: 'bake', cuts: { slice: 3 }, yields: { slice: 3 }, a: '#b8773a', ac: '#b8773a', b: '#f1dcae', bc: '#f1dcae', fl: { sweet: 0.2 } },
   flour: { name: 'Flour', fam: 'baking', role: 'garnish', time: 20, preps: [], a: '#f4efe6', ac: '#efe2c6', b: '#ffffff', bc: '#f4ead6', fl: {} },
   yeast: { name: 'Yeast', fam: 'baking', role: 'garnish', time: 10, preps: [], a: '#d4a85e', ac: '#c79a50', b: '#e3c48a', bc: '#d6b273', fl: { savory: 0.1 } },
   // Made in the bowl. Baking it in the oven turns it into a loaf of bread.
@@ -80,6 +87,12 @@ export const INGS = {
     name: 'Dough', fam: 'baking', role: 'base', time: 26, preps: [], bakesInto: 'bread',
     stages: [[0.05, 'raw'], [0.5, 'rising'], [Infinity, 'baking']],
     a: '#efdcb4', ac: '#e2b46e', b: '#f4e6c6', bc: '#e9c88f', fl: {},
+  },
+  // Made in the bowl. Cutting it on the board turns it into fresh pasta.
+  pastadough: {
+    name: 'Pasta dough', fam: 'baking', role: 'base', time: 30, preps: ['slice'], cutsInto: { slice: 'pasta' },
+    prepNames: { slice: 'Cut noodles' }, cuts: { slice: 6 },
+    a: '#f2d27a', ac: '#e8c060', b: '#f6dc8e', bc: '#eccb72', fl: {},
   },
   tomato: {
     name: 'Tomato', fam: 'fruit', role: 'side', time: 16, preps: ['slice', 'dice', 'wedge'], skin: true, slice: 'round', pattern: 'seeds',
@@ -103,7 +116,7 @@ export const INGS = {
     name: 'Butter', fam: 'dairy', role: 'garnish', time: 8, preps: [], a: '#f3dc84', ac: '#f3dc84', b: '#f8e7a2', bc: '#f8e7a2',
     melt: { at: 0.3, preps: ['whole'], name: 'melted', color: '#f0c95a', alpha: 0.62 }, fl: { savory: 0.4, salty: 0.2 },
   },
-  pasta: { name: 'Pasta', fam: 'starch', role: 'base', time: 16, preps: [], a: '#eed08a', ac: '#f4dc98', b: '#eed08a', bc: '#f4dc98', fl: {} },
+  pasta: { name: 'Pasta', fam: 'starch', role: 'base', time: 9, preps: [], from: 'pastadough', fromHow: 'cut', a: '#eccb73', ac: '#f4dc98', b: '#eccb73', bc: '#f4dc98', fl: {} },
   rice: { name: 'Rice', fam: 'starch', role: 'base', time: 18, preps: [], a: '#efe9da', ac: '#fbf9f2', b: '#efe9da', bc: '#fbf9f2', fl: { sweet: 0.1 } },
   steak: { name: 'Steak', fam: 'meat', role: 'main', time: 18, preps: ['slice', 'dice'], slice: 'strip', a: '#b3303a', ac: '#7a4632', b: '#c94650', bc: '#9a6450', fl: { savory: 1 }, flc: { savory: 1.1 } },
   chicken: { name: 'Chicken', fam: 'meat', role: 'main', time: 18, preps: ['slice', 'dice'], slice: 'strip', a: '#f0b0a3', ac: '#f0dfc6', b: '#f4c1b6', bc: '#f6e8d4', fl: { savory: 0.6 } },
@@ -111,13 +124,17 @@ export const INGS = {
 };
 
 // Pantry shelf order.
-export const PANTRY = ['flour', 'yeast', 'egg', 'pasta', 'rice', 'potato', 'tomato', 'onion', 'garlic', 'bellpepper', 'carrot', 'mushroom', 'lemon', 'basil', 'cheese', 'butter', 'steak', 'chicken', 'salmon'];
+export const PANTRY = ['flour', 'yeast', 'egg', 'rice', 'potato', 'tomato', 'onion', 'garlic', 'bellpepper', 'carrot', 'mushroom', 'lemon', 'basil', 'cheese', 'butter', 'steak', 'chicken', 'salmon'];
 
 // Mixing exactly these in the bowl makes something new. Anything else just becomes a mix.
 export const TRANSFORMS = [
   {
-    makes: 'dough', taps: 8,
+    makes: 'dough', turns: 4,
     needs: [{ ing: 'flour' }, { ing: 'egg', preps: ['crack', 'whisk'], hint: 'Crack the egg before it goes in the dough.' }, { ing: 'yeast' }],
+  },
+  {
+    makes: 'pastadough', turns: 3,
+    needs: [{ ing: 'flour' }, { ing: 'egg', preps: ['crack', 'whisk'], hint: 'Crack the egg before it goes in the dough.' }],
   },
 ];
 
@@ -159,7 +176,7 @@ export const DISHES = [
     season: { salt: 1 },
   },
   {
-    id: 'pasta', name: 'Tomato Basil Pasta', level: 2,
+    id: 'pasta', name: 'Tomato Basil Pasta', level: 3,
     diner: 'A bright tomato sauce with plenty of garlic, a little heat, and fresh basil.',
     parts: [
       { ing: 'pasta', prep: 'whole', method: 'pot', cook: 1.0 },

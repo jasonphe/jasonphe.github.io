@@ -498,3 +498,15 @@ h1, h2, h3 { font-family: Fraunces, Georgia, serif; margin: 0; letter-spacing: -
   .res-score .big { font-size: 64px; }
   .cat { grid-template-columns: 104px 1fr 30px; font-size: 13px; }
 }
+
+/* ---------- Minigames ---------- */
+
+.game-hint { color: var(--ink); font-size: 14px; }
+.meter { flex: 1; min-width: 70px; max-width: 220px; height: 10px; border-radius: 5px; background: var(--paper-2); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--tomato); border-radius: 5px; transition: width 0.1s; }
+
+/* Wide screens: control rows sit side by side, so the stage keeps its height. */
+@media (min-width: 700px) {
+  .controls { flex-direction: row; flex-wrap: wrap; column-gap: 18px; }
+  .controls .ctl-row { flex: 1 1 300px; }
+}

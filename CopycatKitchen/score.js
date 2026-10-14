@@ -65,10 +65,12 @@ export function judge(dish, mine, mineSeason, minePairs) {
   target.forEach((t, i) => {
     if (match[i] < 0) { note(0.6 / nT, `Missing: ${nm(t.ing)}.`); return; }
     const m = mine[match[i]], s = ingSim(t.ing, m.ing);
-    const ps = prepSim(t.prep, m.prep), ms = methodSim(t.method, m.method), ds = doneSim(t, m);
+    // Knife work also counts how cleanly it was done in the minigame (q), not just the kind of cut.
+    const q = m.q ?? 1, ps = prepSim(t.prep, m.prep) * (0.3 + 0.7 * q), ms = methodSim(t.method, m.method), ds = doneSim(t, m);
     ing += s; prep += ps * s; tech += ms * s; done += ds * s;
     if (s < 1) note(0.3 / nT, `You used ${nm(m.ing)} where the dish had ${nm(t.ing)}.`);
-    if (ps < 1) note(0.15 * (1 - ps) / nT, `The ${nm(t.ing)} should be ${PREPS[t.prep].done}, not ${PREPS[m.prep].done}.`);
+    if (t.prep !== m.prep) note(0.15 * (1 - ps) / nT, `The ${nm(t.ing)} should be ${PREPS[t.prep].done}, not ${PREPS[m.prep].done}.`);
+    else if (q < 0.75 && m.prep !== 'crack') note(0.15 * (1 - ps) / nT + 0.02, `The ${nm(t.ing)} pieces were uneven.`);
     if (ms < 1) {
       const said = (c) => (c.method === 'raw' ? 'served raw' : METHODS[c.method].name);
       note(0.25 * (1 - ms) / nT, `The ${nm(t.ing)} was ${said(t)}, not ${said(m)}.`);
@@ -116,12 +118,12 @@ export function judge(dish, mine, mineSeason, minePairs) {
   let total = CATEGORIES.reduce((sum, c) => sum + c.w * cats[c.key], 0) * 100;
 
   if (mine.some((m) => m.ing === 'chicken' && m.cook < 0.8)) { total -= 15; note(1, 'Raw chicken! The judges are concerned.'); }
+  if (mine.some((m) => m.prep === 'crack' && (m.q ?? 1) < 0.6)) { total -= 6; note(0.5, 'There was shell in the egg. Crunchy!'); }
   total = Math.max(0, Math.min(100, Math.round(total)));
 
   notes.sort((a, b) => b.impact - a.impact);
   let lines = notes.slice(0, 3).map((x) => x.text);
-  if (total >= 97) lines = ['Indistinguishable from the original. Are you the chef?'];
-  else if (!lines.length) lines = ['Very close. Only the smallest details are off.'];
+  if (!lines.length) lines = [total >= 97 ? 'Indistinguishable from the original. Are you the chef?' : 'Very close. Only the smallest details are off.'];
   const stars = total >= 90 ? 3 : total >= 75 ? 2 : total >= 55 ? 1 : 0;
   return { total, stars, cats, notes: lines, flavors: { target: ft, mine: fm } };
 }
@@ -132,7 +134,8 @@ export function recipeSteps(dish) {
   // Things made from scratch first, like bread from dough.
   for (const ing of new Set(parts.map((p) => p.ing))) {
     const from = INGS[ing].from, t = from && TRANSFORMS.find((x) => x.makes === from);
-    if (t) steps.push(`Mix the ${list(t.needs.map((n) => nm(n.ing)))} in a bowl to make ${nm(from)}, then bake it in the oven into ${nm(ing)}.`);
+    const how = INGS[ing].fromHow === 'cut' ? 'cut it into noodles' : `bake it in the oven into ${nm(ing)}`;
+    if (t) steps.push(`Mix the ${list(t.needs.map((n) => nm(n.ing)))} in a bowl to make ${nm(from)}, then ${how}.`);
   }
   const cut = (p) => (p.prep === 'whole' ? '' : PREPS[p.prep].say(nm(p.ing)));
   const groups = new Map();
