@@ -1,25 +1,27 @@
 // Copycat Kitchen: study a photo of a dish, cook it from scratch, and get judged on how close you came.
-import { INGS, PREPS, HEAT, HEAT_LABELS, PAN_KEY, SEASONINGS, FLAVORS, FLAVOR_NAMES, DISHES, PANTRY, DRY, nextPreps } from './data.js';
+import { INGS, PREPS, HEAT, HEAT_LABELS, PAN_KEY, SEASONINGS, FLAVORS, FLAVOR_NAMES, DISHES, PANTRY, TRANSFORMS, DRY, nextPreps } from './data.js';
 import {
-  drawItem, drawPlate, stageName, isScorched, hashStr,
-  drawStoveTop, drawFlames, drawPan, drawPot, drawPotWater, drawOven, drawOvenGlass, drawBoard, drawKnife, drawTable, drawTiles,
+  drawItem, drawMix, drawPlate, stageName, isScorched, hashStr,
+  drawMarble, drawBowl, drawBowlFront, drawSpoon, drawStoveTop, drawFlames, drawPan, drawPot, drawPotWater, drawOven, drawOvenGlass, drawBoard, drawKnife, drawTable, drawTiles,
 } from './draw.js';
 import { judge, flavorOf, targetComps, recipeSteps, CATEGORIES } from './score.js';
 
 const $ = (s) => document.querySelector(s);
-const CAP = { counter: 12, board: 1, pan: 6, pot: 4, oven: 6, plate: 10 };
-const PLACE = { counter: 'counter', board: 'board', pan: 'pan', pot: 'pot', oven: 'oven', plate: 'plate' };
-const STATION_OF = { pan: 'stove', pot: 'stove', oven: 'oven', board: 'board', plate: 'plate' };
+const CAP = { counter: 12, board: 1, bowl: 6, pan: 6, pot: 4, oven: 6, plate: 10 };
+const PLACE = { counter: 'counter', board: 'board', bowl: 'bowl', pan: 'pan', pot: 'pot', oven: 'oven', plate: 'plate' };
+const STATION_OF = { pan: 'stove', pot: 'stove', oven: 'oven', board: 'board', bowl: 'bowl', plate: 'plate' };
 const HINTS = {
   pantry: 'Tap an ingredient to put it on the counter.',
   board: 'Drag something from the counter onto the board to cut it.',
-  stove: 'Drag food into the pan or pot, then turn up the heat.',
+  bowl: 'Put things in the bowl and mix them. Some combinations make something new.',
+  stove: 'Drag food into the pan or pot and turn up the heat. Toss to combine what\'s in the pan.',
   oven: 'Drag food into the oven, then set the temperature.',
   plate: 'Drag finished food onto the plate. Season it, then serve.',
 };
 const LEVELS = ['', 'Easy', 'Medium', 'Hard'];
 const PAN_SLOTS = [[-0.5, -0.16], [0, -0.22], [0.5, -0.16], [-0.42, 0.2], [0.04, 0.25], [0.48, 0.2]];
 const POT_SLOTS = [[-0.42, -0.02], [0.02, -0.08], [0.44, -0.01], [0, 0.1]];
+const BOWL_SLOTS = [[-0.42, -0.06], [0, -0.12], [0.42, -0.06], [-0.22, 0.14], [0.22, 0.14], [0, 0.02]];
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const seedOf = (dish) => hashStr(dish.id) % 100000;
@@ -102,7 +104,7 @@ let S = null, uidN = 1;
 function start(dish) {
   S = {
     dish, items: [], heat: { pan: 0, pot: 0, oven: 0 }, season: { salt: 0, pepper: 0, chili: 0, soy: 0 },
-    tokens: 3, tasted: {}, station: 'pantry', sel: null, chop: null, knifeT: 9, drag: null,
+    tokens: 3, tasted: {}, station: 'pantry', sel: null, chop: null, knead: null, knifeT: 9, tossT: 9, drag: null,
     fx: [], hits: [], zones: [], clock: 0, dt: 0,
   };
   lastCounter = lastActions = lastControls = '';
@@ -117,6 +119,25 @@ function start(dish) {
 const byUid = (u) => S.items.find((it) => it.uid === u);
 const selected = () => (S.sel == null ? null : byUid(S.sel) || null);
 const itemsAt = (where) => S.items.filter((it) => it.where === where).sort((a, b) => a.slot - b.slot);
+
+// A unit is what moves around as one: a single item, or everything tossed or mixed together (same it.mix).
+const unitOf = (it) => (it.mix ? S.items.filter((x) => x.mix === it.mix) : [it]);
+function unitsAt(where) {
+  const seen = new Set(), out = [];
+  for (const it of itemsAt(where)) {
+    const k = it.mix || 'u' + it.uid;
+    if (!seen.has(k)) { seen.add(k); out.push(unitOf(it)); }
+  }
+  return out;
+}
+const unitName = (u) => (u.length > 1 ? 'Mix' : INGS[u[0].ing].name);
+// The most-cooked part of a unit: what its label shows, and what burns first.
+const hottest = (u) => u.map(stateOf).reduce((a, b) => (b.cook > a.cook ? b : a));
+function unitSub(u) {
+  if (u.length > 1) return u.map((x) => INGS[x.ing].name.toLowerCase()).join(', ');
+  return (u[0].prep === 'whole' ? '' : PREPS[u[0].prep].done + ', ') + stageName(stateOf(u[0]));
+}
+const isSel = (u) => u.some((x) => x.uid === S.sel);
 function freeSlot(where) {
   const used = new Set(itemsAt(where).map((it) => it.slot));
   let s = 0;
@@ -137,29 +158,100 @@ function stateOf(it) {
 }
 
 function addItem(ing) {
-  if (itemsAt('counter').length >= CAP.counter) return toast('The counter is full. Use or bin something first.');
-  S.items.push({ uid: uidN++, ing, prep: 'whole', cook: 0, by: {}, with: {}, where: 'counter', slot: freeSlot('counter'), seed: (Math.random() * 1e9) >>> 0 });
+  if (unitsAt('counter').length >= CAP.counter) return toast('The counter is full. Use or bin something first.');
+  S.items.push(newItem(ing, 'counter', freeSlot('counter')));
   sfx('pop');
   toast(`${INGS[ing].name} is on the counter.`);
 }
 
+function newItem(ing, where, slot) {
+  return { uid: uidN++, ing, prep: 'whole', cook: 0, by: {}, where, slot, seed: (Math.random() * 1e9) >>> 0 };
+}
+
 function moveTo(it, where) {
-  if (it.where === where) return false;
-  if (itemsAt(where).length >= CAP[where]) { toast(`The ${PLACE[where]} is full.`); return false; }
-  if (it.where === 'board') S.chop = null;
-  it.slot = freeSlot(where);
-  it.where = where;
+  const unit = unitOf(it), from = it.where;
+  if (from === where) return false;
+  if (where === 'board' && unit.length > 1) { toast("A mix can't be cut."); return false; }
+  if (unitsAt(where).length >= CAP[where]) { toast(`The ${PLACE[where]} is full.`); return false; }
+  if (from === 'board') S.chop = null;
+  if (from === 'bowl') S.knead = null;
+  const slot = freeSlot(where);
+  for (const x of unit) { x.where = where; x.slot = slot; }
   S.sel = null;
   sfx(where === 'pan' && S.heat.pan ? 'sizzle' : 'pop');
   return true;
 }
 
 function bin(it) {
+  const unit = unitOf(it);
   if (it.where === 'board') S.chop = null;
-  S.items = S.items.filter((x) => x !== it);
-  if (S.sel === it.uid) S.sel = null;
+  if (it.where === 'bowl') S.knead = null;
+  S.items = S.items.filter((x) => !unit.includes(x));
+  if (isSel(unit)) S.sel = null;
   sfx('bin');
-  toast(`Binned the ${INGS[it.ing].name.toLowerCase()}.`);
+  toast(`Binned the ${unitName(unit).toLowerCase()}.`);
+}
+
+// Everything in one place becomes a single mix. It can't be separated again.
+function combine(where) {
+  const all = itemsAt(where), id = 'm' + uidN++, slot = Math.min(...all.map((x) => x.slot));
+  for (const x of all) { x.mix = id; x.slot = slot; }
+  S.sel = null;
+}
+
+function toss() {
+  if (unitsAt('pan').length < 2) return;
+  combine('pan');
+  S.tossT = 0;
+  sfx('sizzle');
+  toast("Tossed together. They're one dish now.");
+}
+
+// The recipe these bowl contents make, if they match one exactly. A near miss (say, an uncracked egg) returns a hint.
+function bowlRecipe() {
+  const items = itemsAt('bowl');
+  if (items.some((x) => x.mix || x.cook > 0.05)) return null;
+  for (const t of TRANSFORMS) {
+    if (t.needs.length !== items.length) continue;
+    const left = [...items];
+    let hint = null;
+    const ok = t.needs.every((n) => {
+      const i = left.findIndex((x) => x.ing === n.ing);
+      if (i < 0) return false;
+      if (n.preps && !n.preps.includes(left[i].prep)) hint = n.hint;
+      left.splice(i, 1);
+      return true;
+    });
+    if (ok) return { t, hint };
+  }
+  return null;
+}
+
+function startMix() {
+  if (unitsAt('bowl').length < 2) return toast('Put at least two things in the bowl.');
+  const r = bowlRecipe();
+  if (r?.hint) return toast(r.hint);
+  S.knead = { taps: 0, need: r ? r.t.taps : 5 };
+}
+
+function knead() {
+  if (!S.knead) return;
+  S.knead.taps++;
+  S.tossT = 0;
+  sfx('chop');
+  if (S.knead.taps < S.knead.need) return;
+  S.knead = null;
+  const r = bowlRecipe();
+  if (r) {
+    const slot = Math.min(...itemsAt('bowl').map((x) => x.slot));
+    S.items = S.items.filter((x) => x.where !== 'bowl');
+    S.items.push(newItem(r.t.makes, 'bowl', slot));
+    toast(`You made ${INGS[r.t.makes].name.toLowerCase()}!`);
+  } else {
+    combine('bowl');
+    toast('Mixed together.');
+  }
+  sfx('pop');
 }
 
 function tick(dt) {
@@ -171,7 +263,13 @@ function tick(dt) {
       const d = (f * dt) / (INGS[it.ing].time * PREPS[it.prep].speed);
       it.cook += d;
       it.by[key] = (it.by[key] || 0) + d;
-      for (const o of list) if (o !== it) it.with[o.uid] = (it.with[o.uid] || 0) + dt;
+      // Dough baked through becomes a fresh loaf, which then cooks (browns) like any bread.
+      const into = INGS[it.ing].bakesInto;
+      if (into && v === 'oven' && it.cook >= 1) {
+        Object.assign(it, { ing: into, cook: 0, by: {}, warned: false });
+        toast(`The dough has baked into ${INGS[into].name.toLowerCase()}!`);
+        continue;
+      }
       if (!it.warned && isScorched(stateOf(it))) {
         it.warned = true;
         if (S.station !== STATION_OF[v]) toast(`Something's burning in the ${PLACE[v]}!`, true);
@@ -186,6 +284,7 @@ function setStation(st) {
   S.station = st;
   S.fx = [];
   if (st !== 'board') S.chop = null;
+  if (st !== 'bowl') S.knead = null;
   document.querySelectorAll('#tabs button').forEach((b) => b.classList.toggle('active', b.dataset.st === st));
   $('#pantry').hidden = st !== 'pantry';
   $('#stage').style.visibility = st === 'pantry' ? 'hidden' : 'visible';
@@ -242,14 +341,15 @@ function tag(ctx, x, y, text, alert) {
   ctx.restore();
 }
 
-// Draw an item sitting in a station, and remember where it is for taps. Returns a label to draw on top later.
-function drawHeld(ctx, it, x, y, s) {
-  const st = stateOf(it);
+// Draw a unit sitting in a station, and remember where it is for taps. Returns a label to draw on top later.
+function drawHeld(ctx, unit, x, y, s) {
+  const it = unit[0], top = hottest(unit);
   const jig = S.heat[it.where] && it.where === 'pan' ? Math.sin(S.clock * 45 + it.uid) * 0.5 * S.heat.pan : 0;
-  drawItem(ctx, st, x + jig, y, s, it.seed);
+  const hop = (it.where === 'pan' || it.where === 'bowl') && S.tossT < 0.35 ? Math.sin((S.tossT / 0.35) * Math.PI) * s * 0.5 : 0;
+  drawMix(ctx, unit.map(stateOf), x + jig, y - hop, s * (unit.length > 1 ? 1.2 : 1), it.seed);
   S.hits.push({ uid: it.uid, x, y, r: s });
-  if (S.sel === it.uid) selRing(ctx, x, y, s);
-  return () => tag(ctx, x, y + s * 0.8 + 2, stageName(st), isScorched(st));
+  if (isSel(unit)) selRing(ctx, x, y, s * (unit.length > 1 ? 1.2 : 1));
+  return () => tag(ctx, x, y + s * 0.8 + 2, stageName(top), isScorched(top));
 }
 
 function steam(x, y, smoky) {
@@ -279,14 +379,14 @@ function drawBoardStation(ctx, w, h, H) {
   const b = { x: (w - bw) / 2, y: (H - bh) / 2 + 4, w: bw, h: bh };
   drawBoard(ctx, w, h, b);
   zone(ctx, 'board', b.x + bw / 2, b.y + bh / 2, bw / 2, bh / 2);
-  const it = itemsAt('board')[0];
-  if (!it) {
+  const unit = unitsAt('board')[0];
+  if (!unit) {
     ctx.save(); ctx.font = 'italic 500 18px Fraunces, Georgia, serif'; ctx.fillStyle = 'rgba(80,45,15,0.45)';
     ctx.textAlign = 'center'; ctx.fillText('Nothing on the board', b.x + bw / 2, b.y + bh / 2 + 6); ctx.restore();
     return [];
   }
   const s = bh * 0.34, x = b.x + bw * (S.chop ? 0.42 : 0.5), y = b.y + bh * 0.52;
-  const label = drawHeld(ctx, it, x, y, s);
+  const label = drawHeld(ctx, unit, x, y, s);
   if (S.chop) drawKnife(ctx, x + s * 0.5, y - s * 0.05, bh * 0.58, Math.min(1, S.knifeT * 7));
   return [label];
 }
@@ -308,19 +408,21 @@ function drawStoveStation(ctx, w, h, H) {
   drawFlames(ctx, pan.x, pan.y + pan.R * 0.42, pan.R * 1.25, S.heat.pan, S.clock);
   drawPan(ctx, pan.x, pan.y, pan.R, S.heat.pan);
   zone(ctx, 'pan', pan.x, pan.y, pan.R, pan.R * 0.64);
-  const inPan = itemsAt('pan').map((it) => ({ it, p: PAN_SLOTS[it.slot] })).sort((a, b) => a.p[1] - b.p[1]);
-  for (const { it, p } of inPan) {
-    const x = pan.x + p[0] * pan.R, y = pan.y + p[1] * pan.R;
-    labels.push(drawHeld(ctx, it, x, y, pan.R * 0.29));
-    if (S.heat.pan && Math.random() < S.dt * S.heat.pan * 1.3) steam(x, y - pan.R * 0.15, isScorched(stateOf(it)));
+  const inPan = unitsAt('pan').map((u) => ({ u, p: PAN_SLOTS[u[0].slot] })).sort((a, b) => a.p[1] - b.p[1]);
+  for (const { u, p } of inPan) {
+    // A lone mix sits in the middle of the pan.
+    const lone = inPan.length === 1 && u.length > 1, c = lone ? [0, 0] : p;
+    const x = pan.x + c[0] * pan.R, y = pan.y + c[1] * pan.R;
+    labels.push(drawHeld(ctx, u, x, y, pan.R * (lone ? 0.4 : 0.29)));
+    if (S.heat.pan && Math.random() < S.dt * S.heat.pan * 1.3) steam(x, y - pan.R * 0.15, isScorched(hottest(u)));
   }
 
   drawFlames(ctx, pot.x, pot.y + pot.R * 0.85, pot.R * 1.2, S.heat.pot, S.clock);
   drawPot(ctx, pot.x, pot.y, pot.R, S.heat.pot, S.clock);
   const top = pot.y - pot.R * 0.12;
-  for (const it of itemsAt('pot')) {
-    const p = POT_SLOTS[it.slot], x = pot.x + p[0] * pot.R, y = top + p[1] * pot.R;
-    labels.push(drawHeld(ctx, it, x, y, pot.R * 0.26));
+  for (const u of unitsAt('pot')) {
+    const p = POT_SLOTS[u[0].slot], x = pot.x + p[0] * pot.R, y = top + p[1] * pot.R;
+    labels.push(drawHeld(ctx, u, x, y, pot.R * 0.26));
   }
   drawPotWater(ctx, pot.x, pot.y, pot.R, S.heat.pot, S.clock);
   zone(ctx, 'pot', pot.x, pot.y + pot.R * 0.25, pot.R, pot.R * 0.75);
@@ -335,11 +437,11 @@ function drawOvenStation(ctx, w, h, H) {
   const { win, tray } = drawOven(ctx, o, S.heat.oven, S.clock);
   zone(ctx, 'oven', win.x + win.w / 2, win.y + win.h / 2, win.w / 2, win.h / 2);
   const s = Math.min(tray.w / 5.6, tray.h / 3.8), labels = [];
-  for (const it of itemsAt('oven')) {
-    const c = it.slot % 3, r = Math.floor(it.slot / 3);
+  for (const u of unitsAt('oven')) {
+    const c = u[0].slot % 3, r = Math.floor(u[0].slot / 3);
     const x = tray.x + (tray.w * (c + 0.5)) / 3, y = tray.y + (tray.h * (r + 0.42)) / 2;
-    labels.push(drawHeld(ctx, it, x, y, s));
-    if (S.heat.oven && isScorched(stateOf(it)) && Math.random() < S.dt * 2) steam(x, y - s, true);
+    labels.push(drawHeld(ctx, u, x, y, s));
+    if (S.heat.oven && isScorched(hottest(u)) && Math.random() < S.dt * 2) steam(x, y - s, true);
   }
   drawOvenGlass(ctx, win);
   return labels;
@@ -349,11 +451,11 @@ function drawPlateStation(ctx, w, h, H) {
   drawTable(ctx, w, h);
   const R = Math.min(w * 0.42, H * 0.44), cx = w / 2, cy = H / 2 + 4;
   const items = itemsAt('plate');
-  const hits = drawPlate(ctx, cx, cy, R, items.map(stateOf), S.season, seedOf(S.dish));
+  const hits = drawPlate(ctx, cx, cy, R, plateComps(items), S.season, seedOf(S.dish));
   for (const p of hits) {
     const it = items[p.i];
     S.hits.push({ uid: it.uid, x: p.x, y: p.y, r: p.r });
-    if (S.sel === it.uid) selRing(ctx, p.x, p.y, p.r);
+    if (isSel(unitOf(it))) selRing(ctx, p.x, p.y, p.r);
   }
   zone(ctx, 'plate', cx, cy, R, R);
   if (!items.length) {
@@ -363,7 +465,26 @@ function drawPlateStation(ctx, w, h, H) {
   return [];
 }
 
-const STATION_DRAW = { board: drawBoardStation, stove: drawStoveStation, oven: drawOvenStation, plate: drawPlateStation };
+function drawBowlStation(ctx, w, h, H) {
+  drawMarble(ctx, w, h);
+  const R = Math.min(w * 0.4, H * 0.5), x = w / 2, y = H * 0.42;
+  drawBowl(ctx, x, y, R);
+  const units = unitsAt('bowl'), labels = [];
+  const lone = units.length === 1;
+  for (const u of units) {
+    const p = lone ? [0, 0.08] : BOWL_SLOTS[u[0].slot] || [0, 0];
+    labels.push(drawHeld(ctx, u, x + p[0] * R, y + p[1] * R, R * (lone ? 0.34 : 0.24)));
+  }
+  drawBowlFront(ctx, x, y, R);
+  if (S.knead) drawSpoon(ctx, x + R * 0.15, y + R * 0.05, R * 0.9, 0.35 + Math.sin(Math.min(1, S.tossT * 4) * Math.PI) * 0.6);
+  zone(ctx, 'bowl', x, y + R * 0.2, R, R * 0.6);
+  return labels;
+}
+
+// Plate items as drawn and judged: things mixed together share a group.
+const plateComps = (items) => items.map((it) => ({ ...stateOf(it), group: it.mix || null }));
+
+const STATION_DRAW = { board: drawBoardStation, bowl: drawBowlStation, stove: drawStoveStation, oven: drawOvenStation, plate: drawPlateStation };
 
 function drawStage() {
   if (S.station === 'pantry') return;
@@ -392,6 +513,7 @@ stage.addEventListener('pointerdown', (e) => {
   audio();
   const [x, y] = canvasPoint(e.clientX, e.clientY);
   if (S.station === 'board' && S.chop) { chop(); return; }
+  if (S.station === 'bowl' && S.knead) { knead(); return; }
   const sel = selected();
   if (sel && sel.where === 'counter') { const z = hitZone(x, y); if (z) { moveTo(sel, z.where); return; } }
   const h = hitItem(x, y);
@@ -418,19 +540,17 @@ function chop() {
 
 let lastCounter = '';
 function renderCounter() {
-  const items = itemsAt('counter');
-  const key = items.map((it) => `${it.uid}:${it.prep}`).join(',') + '|' + S.sel;
+  const units = unitsAt('counter');
+  const key = units.map((u) => u.map((it) => `${it.uid}:${it.ing}:${it.prep}`).join('+')).join(',') + '|' + S.sel;
   if (key === lastCounter) return;
   lastCounter = key;
   const el = $('#counter');
-  if (!items.length) { el.innerHTML = '<p class="empty">Empty. Grab something from the pantry.</p>'; return; }
-  el.innerHTML = items.map((it) => {
-    const st = stateOf(it), sub = (it.prep === 'whole' ? '' : PREPS[it.prep].done + ', ') + stageName(st);
-    return `<button class="chip${S.sel === it.uid ? ' sel' : ''}" data-uid="${it.uid}"><canvas width="88" height="88"></canvas><span class="chip-name">${esc(INGS[it.ing].name)}</span><span class="chip-sub">${sub}</span></button>`;
-  }).join('');
+  if (!units.length) { el.innerHTML = '<p class="empty">Empty. Grab something from the pantry.</p>'; return; }
+  el.innerHTML = units.map((u) => `<button class="chip${isSel(u) ? ' sel' : ''}" data-uid="${u[0].uid}"><canvas width="88" height="88"></canvas>
+    <span class="chip-name">${esc(unitName(u))}</span><span class="chip-sub">${esc(unitSub(u))}</span></button>`).join('');
   el.querySelectorAll('.chip').forEach((b) => {
-    const it = byUid(+b.dataset.uid);
-    drawItem(b.querySelector('canvas').getContext('2d'), stateOf(it), 44, 46, 34, it.seed);
+    const u = unitOf(byUid(+b.dataset.uid));
+    drawMix(b.querySelector('canvas').getContext('2d'), u.map(stateOf), 44, 46, u.length > 1 ? 40 : 34, u[0].seed);
   });
 }
 
@@ -448,9 +568,9 @@ counterEl.addEventListener('pointermove', (e) => {
   if (!press.drag && Math.hypot(e.clientX - press.x, e.clientY - press.y) > 8) {
     press.drag = true;
     S.drag = press.uid;
-    const it = byUid(press.uid);
+    const u = unitOf(byUid(press.uid));
     ghost.innerHTML = '<canvas width="128" height="128"></canvas>';
-    drawItem(ghost.firstChild.getContext('2d'), stateOf(it), 64, 64, 48, it.seed);
+    drawMix(ghost.firstChild.getContext('2d'), u.map(stateOf), 64, 64, 48, u[0].seed);
     ghost.hidden = false;
   }
   if (press.drag) ghost.style.transform = `translate(${e.clientX - 32}px, ${e.clientY - 40}px)`;
@@ -483,7 +603,8 @@ let lastActions = '';
 function actionsFor(it) {
   const a = [], st = S.station;
   if (it.where === 'counter') {
-    if (st === 'board') a.push(['board', 'Onto board']);
+    if (st === 'board' && !it.mix) a.push(['board', 'Onto board']);
+    if (st === 'bowl') a.push(['bowl', 'Into bowl']);
     if (st === 'stove') a.push(['pan', 'Into pan'], ['pot', 'Into pot']);
     if (st === 'oven') a.push(['oven', 'Into oven']);
     if (st === 'plate') a.push(['plate', 'Onto plate']);
@@ -502,9 +623,9 @@ function renderActions() {
     key = 'hint:' + S.station;
     html = `<p class="hint">${HINTS[S.station]}</p>`;
   } else {
-    const st = stateOf(it), sub = (it.prep === 'whole' ? '' : PREPS[it.prep].done + ', ') + stageName(st);
+    const u = unitOf(it), sub = u.length > 1 ? `${unitSub(u)} · ${stageName(hottest(u))}` : unitSub(u);
     key = `${it.uid}|${it.where}|${S.station}|${sub}`;
-    html = `<div class="sel-label"><b>${esc(INGS[it.ing].name)}</b><span>${sub}</span></div>
+    html = `<div class="sel-label"><b>${esc(unitName(u))}</b><span>${esc(sub)}</span></div>
       <div class="act-btns">${actionsFor(it).map(([a, t]) => `<button class="pill${a === 'trash' ? ' danger' : ''}" data-act="${a}">${t}</button>`).join('')}</div>`;
   }
   if (key === lastActions) return;
@@ -520,16 +641,16 @@ $('#actions').addEventListener('click', (e) => {
 // ---------- Station controls ----------
 
 let lastControls = '';
-function heatRow(v, label) {
+function heatRow(v, label, extra = '') {
   return `<div class="ctl-row"><span class="ctl-label">${label}</span><div class="seg">${HEAT_LABELS[v].map((t, i) =>
-    `<button class="seg-btn${S.heat[v] === i ? ' on h' + i : ''}" data-ctl="heat" data-v="${v}" data-h="${i}">${t}</button>`).join('')}</div></div>`;
+    `<button class="seg-btn${S.heat[v] === i ? ' on h' + i : ''}" data-ctl="heat" data-v="${v}" data-h="${i}">${t}</button>`).join('')}</div>${extra}</div>`;
 }
 
 function renderControls() {
   let html = '';
   const st = S.station;
   if (st === 'board') {
-    const it = itemsAt('board')[0];
+    const it = unitsAt('board')[0]?.[0];
     if (!it) html = '';
     else if (S.chop) {
       const need = PREPS[S.chop.prep].taps;
@@ -543,7 +664,20 @@ function renderControls() {
         ${opts.map((p) => `<button class="seg-btn" data-ctl="prep" data-prep="${p}">${PREPS[p].name}</button>`).join('')}
         <button class="seg-btn ghost" data-ctl="board-off">To the counter</button></div>`;
     }
-  } else if (st === 'stove') html = heatRow('pan', 'Pan') + heatRow('pot', 'Pot');
+  } else if (st === 'bowl') {
+    const n = unitsAt('bowl').length;
+    if (S.knead) {
+      html = `<div class="ctl-row"><span class="ctl-label">Tap anywhere to mix</span>
+        <span class="pips">${'<i class="on"></i>'.repeat(S.knead.taps)}${'<i></i>'.repeat(S.knead.need - S.knead.taps)}</span>
+        <button class="seg-btn" data-ctl="knead-stop">Stop</button></div>`;
+    } else if (n) {
+      html = `<div class="ctl-row"><span class="ctl-label">${n < 2 ? 'Add something else to mix with it.' : 'Bowl'}</span>
+        ${n >= 2 ? '<button class="seg-btn" data-ctl="mix">Mix together</button>' : ''}</div>`;
+    }
+  } else if (st === 'stove') {
+    const toss = unitsAt('pan').length >= 2 ? '<button class="seg-btn" data-ctl="toss">Toss together</button>' : '';
+    html = heatRow('pan', 'Pan', toss) + heatRow('pot', 'Pot');
+  }
   else if (st === 'oven') html = heatRow('oven', 'Oven');
   else if (st === 'plate') {
     const any = Object.values(S.season).some(Boolean);
@@ -568,6 +702,9 @@ $('#controls').addEventListener('click', (e) => {
   else if (c === 'prep') { S.chop = { prep: b.dataset.prep, taps: 0 }; S.knifeT = 9; }
   else if (c === 'chop-stop') S.chop = null;
   else if (c === 'board-off') { const it = itemsAt('board')[0]; if (it) moveTo(it, 'counter'); }
+  else if (c === 'toss') toss();
+  else if (c === 'mix') startMix();
+  else if (c === 'knead-stop') S.knead = null;
   else if (c === 'season') { S.season[b.dataset.k]++; sfx('shake'); }
   else if (c === 'unseason') { for (const k in S.season) S.season[k] = 0; }
   else if (c === 'taste') openTarget();
@@ -585,6 +722,7 @@ function updateTabs() {
     dot.classList.toggle('alert', !!alert);
   };
   set('board', anyIn('board'), false);
+  set('bowl', anyIn('bowl'), false);
   set('stove', S.heat.pan || S.heat.pot, burning(['pan', 'pot']) && (S.heat.pan || S.heat.pot));
   set('oven', S.heat.oven, burning(['oven']) && S.heat.oven);
   set('plate', anyIn('plate'), false);
@@ -607,7 +745,7 @@ function fbar(v, cls) {
   return `<span class="fbar ${cls}"><i style="width:${Math.min(100, (v / 3) * 100)}%"></i><em>${v.toFixed(1)}</em></span>`;
 }
 function renderTarget() {
-  const d = S.dish, ft = flavorOf(targetComps(d), d.season), fm = flavorOf(itemsAt('plate').map(stateOf), S.season);
+  const d = S.dish, ft = flavorOf(targetComps(d), d.season), fm = flavorOf(plateComps(itemsAt('plate')), S.season);
   $('#targetBody').innerHTML = `
     <button class="dlg-x" data-dlg="close" aria-label="Close">×</button>
     <p class="kicker">The original</p>
@@ -642,10 +780,10 @@ dlg.addEventListener('click', (e) => {
 function serve() {
   const items = itemsAt('plate');
   if (!items.length) { toast('Put something on the plate first.'); return; }
-  const mine = items.map(stateOf);
+  const mine = plateComps(items);
   const pairs = new Set();
   items.forEach((a, i) => items.forEach((b, j) => {
-    if (i < j && (a.with[b.uid] || 0) >= 2) pairs.add([a.ing, b.ing].sort().join('|'));
+    if (i < j && a.mix && a.mix === b.mix) pairs.add([a.ing, b.ing].sort().join('|'));
   }));
   const res = judge(S.dish, mine, S.season, pairs);
   const prev = best[S.dish.id];
@@ -807,6 +945,7 @@ function frame(t) {
     S.dt = dt;
     S.clock += dt;
     S.knifeT += dt;
+    S.tossT += dt;
     tick(dt);
     renderControls();
     renderCounter();

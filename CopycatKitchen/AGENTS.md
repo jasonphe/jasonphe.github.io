@@ -19,25 +19,27 @@ No build step and no dependencies. Plain ES modules.
 
 ## How it plays
 
-- **Stations** are tabs: Pantry, Board, Stove (pan and pot), Oven, Plate. Food keeps cooking while you're on another tab. The tab gets a dot when its heat is on, and a pulsing red dot plus a toast when something starts to char.
+- **Stations** are tabs: Pantry, Board, Bowl, Stove (pan and pot), Oven, Plate. Food keeps cooking while you're on another tab. The tab gets a dot when its heat is on, and a pulsing red dot plus a toast when something starts to char.
 - **Moving food:** drag a counter chip onto a station, or tap the chip and then tap the station (or use the action bar). Items in a pan, pot or oven can be tapped to select them, then taken out or plated directly.
 - **Board:** pick a cut, then tap anywhere on the canvas to chop (`PREPS[*].taps` taps). Cuts only get finer: whole → slice → dice → mince.
-- **Cooking:** each item has a `cook` level. 1 means cooked through, and past that dry heat browns it (golden ~1.15, browned ~1.5, charred 2.0, burnt 2.5). Water never browns; it goes soft and then mushy. Speed is `HEAT[vessel][level] / (ingredient.time × prep.speed)`, so smaller cuts cook faster. `it.by` records how much cooking each method did, and the biggest one is the item's method. `it.with` records seconds spent in the same vessel as each other item; that's how "cooked together" is judged.
+- **Cooking:** each item has a `cook` level. 1 means cooked through, and past that dry heat browns it (golden ~1.15, browned ~1.5, charred 2.0, burnt 2.5). Water never browns; it goes soft and then mushy. Speed is `HEAT[vessel][level] / (ingredient.time × prep.speed)`, so smaller cuts cook faster. `it.by` records how much cooking each method did, and the biggest one is the item's method.
+- **Mixes:** **Toss together** (pan) and **Mix together** (bowl) give everything there the same `it.mix` id. From then on they're one *unit*: one counter chip, one spot in a station, one heap on the plate, moved and binned together, and they can't be separated or cut. Each part still cooks at its own rate. `unitOf` / `unitsAt` in `game.js` work in units; anything that moves or draws food should too.
+- **Recipes in the bowl (`TRANSFORMS`):** mixing exactly the listed ingredients makes a new one instead of a mix. Flour + cracked egg + yeast make dough (an uncracked egg gets a hint instead). Dough has `bakesInto: 'bread'`: once it bakes through in the oven it becomes a fresh loaf (cook reset to 0, so toasting it later is judged like any bread). Bread isn't in the pantry; you have to bake it.
 - **Melting:** ingredients with `melt` turn into a puddle or sauce past a cook level (diced tomato → sauce, butter, cheese). Melted things sit in the `sauce` role on the plate.
 - **Seasoning** happens only on the plate. Pepper and chili show as specks and soy as a drizzle. Salt is invisible, so taste tests are the only way to find it.
 - **Taste tests:** 3 per dish. Each one reveals one flavor dimension of the original. Tasting your own plate is free.
 
 ## The plate is the photo
 
-The "photo" of the target and the player's plate are drawn by the same `drawPlate`. The layout (`layoutPlate`) depends only on what's on the plate, never on the order it was added, and each item's random seed comes from its ingredient, cut and cook level. So a perfect copy is pixel-identical to the original, and every target can be reached. Keep it that way: never give a dish a separately made hero image.
+The "photo" of the target and the player's plate are drawn by the same `drawPlate`. Things in the same group (a mix, or a dish's `group`) are laid out and drawn as one heap (`drawMix`). The layout (`layoutPlate`) depends only on what's on the plate, never on the order it was added, and each item's random seed comes from its ingredient, cut and cook level. So a perfect copy is pixel-identical to the original, and every target can be reached. Keep it that way: never give a dish a separately made hero image.
 
 ## Judging (`score.js`)
 
-Target items are greedily matched to the player's items (same ingredient first, then the same family, e.g. onion for garlic). Six weighted categories (`CATEGORIES`): ingredients 25, knife work 15, technique 20, doneness 20, flavor 15, cooked together 5. Extras only cost ingredient points. "Cooked together" only checks the original's pairs, so cooking extra things side by side is never punished. Raw chicken costs 15 points. Notes are the three most costly mistakes. Stars at 55, 75 and 90.
+Target items are greedily matched to the player's items (same ingredient first, then the same family, e.g. onion for garlic). Six weighted categories (`CATEGORIES`): ingredients 25, knife work 15, technique 15, doneness 20, flavor 15, mixed together 10. Extras only cost ingredient points. "Mixed together" compares which pairs of ingredients were tossed or mixed into one (overlap of the original's pairs and yours), so leaving out a toss and tossing the wrong things both cost points. Cooking things side by side in a pan without tossing them is not mixing. Raw chicken costs 15 points. Notes are the three most costly mistakes. Stars at 55, 75 and 90.
 
 ## Adding a dish
 
-Add it to `DISHES` in `data.js`. Each part is `{ ing, prep, method, cook, group? }`. `method` is `raw`, `pan_low`, `pan_med`, `pan_high`, `pot` or `oven`. Parts that share a `group` were cooked together. Check that the target is reachable in a sensible time (seconds = cook × time × prep.speed / heat), and look at it on the menu to make sure the photo actually shows what matters.
+Add it to `DISHES` in `data.js`. Each part is `{ ing, prep, method, cook, group? }`. `method` is `raw`, `pan_low`, `pan_med`, `pan_high`, `pot` or `oven`. Parts that share a `group` were tossed together, and the player has to toss them too. Check that the target is reachable in a sensible time (seconds = cook × time × prep.speed / heat), and look at it on the menu to make sure the photo actually shows what matters.
 
 ## Testing
 

@@ -24,7 +24,9 @@ Each sheet is a grid; list the cells left to right, top to bottom in the prompt.
 
 **1. `whole-a.png` (3×3):** a raw egg in its shell; a crusty loaf of white bread; a bundle of dry spaghetti tied loosely; a small pile of uncooked white rice grains; a russet potato; a ripe red tomato with green stem; a brown onion; a garlic bulb; a red bell pepper with green stem.
 
-**2. `whole-b.png` (3×3):** a carrot with leafy top, lying diagonally; a brown cremini mushroom; a lemon; a wedge of yellow cheese with holes; a stick of butter on its paper; a raw ribeye steak; a raw chicken breast; a raw salmon fillet, skin side down; *(leave the last cell empty)*.
+**2. `whole-b.png` (3×3):** a carrot with leafy top, lying diagonally; a brown cremini mushroom; a lemon; a wedge of yellow cheese with holes; a stick of butter on its paper; a raw ribeye steak; a raw chicken breast; a raw salmon fillet, skin side down; a paper bag of flour.
+
+**2b. `baking.png` (3×2):** a small paper packet of dried yeast; a ball of raw bread dough, lightly floured; the same dough risen and half-baked, pale gold; a freshly baked round loaf; a bowl's worth of shaggy, just-mixed dough; *(leave the last cell empty)*.
 
 **3. `basil.png` (2×1, magenta):** a sprig of fresh basil; a small scatter of torn basil leaves.
 
@@ -50,6 +52,7 @@ Each sheet is a grid; list the cells left to right, top to bottom in the prompt.
 - `oven.png`: the front of a cream retro enamel oven with a large dark glass window and three knobs. The window is empty and dark.
 - `board.png`: a wooden cutting board on a marble counter, from above.
 - `plate.png`: an empty white ceramic plate from above, on green.
+- `bowl.png`: an empty blue ceramic mixing bowl from three-quarter view, on green. Also ask for the front rim on its own, so food can sit inside it.
 - `tablecloth.png`: a seamless red-and-white gingham tablecloth tile.
 
 ## Slicing

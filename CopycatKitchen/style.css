@@ -284,10 +284,10 @@ h1, h2, h3 { font-family: Fraunces, Georgia, serif; margin: 0; letter-spacing: -
   scrollbar-width: none;
 }
 .actions .hint { margin: 0; color: var(--ink-2); font-size: 14px; white-space: normal; line-height: 1.25; }
-.sel-label { flex: none; display: flex; flex-direction: column; line-height: 1.15; }
+.sel-label { flex: 0 1 auto; min-width: 72px; display: flex; flex-direction: column; line-height: 1.15; }
 .sel-label b { font-family: Fraunces, Georgia, serif; font-size: 16px; }
-.sel-label span { font-size: 12px; color: var(--ink-2); }
-.act-btns { display: flex; gap: 6px; margin-left: auto; }
+.sel-label span { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.act-btns { flex: none; display: flex; gap: 6px; margin-left: auto; }
 .pill {
   padding: 7px 13px;
   border-radius: 999px;
@@ -364,8 +364,8 @@ h1, h2, h3 { font-family: Fraunces, Georgia, serif; margin: 0; letter-spacing: -
 .tabs {
   flex: none;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
   background: var(--ink);
 }

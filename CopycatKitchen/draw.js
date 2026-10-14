@@ -37,9 +37,12 @@ export function isMelted(st) {
 
 // The word for how cooked something is. Dry heat (pan, oven) browns; water softens.
 export function stageName(st) {
-  if (st.cook < 0.05) return 'raw';
+  const d = INGS[st.ing];
+  if (d.stages) return d.stages.find(([at]) => st.cook < at)[1];
+  if (st.cook < 0.05) return d.rawName || 'raw';
   if (isMelted(st) && (st.dry < 0.5 || st.cook < 1.9)) return INGS[st.ing].melt.name;
   if (st.dry >= 0.5) {
+    if (st.cook < 1.15 && d.warmName) return d.warmName;
     if (st.cook < 0.6) return 'barely cooked';
     if (st.cook < 1.15) return 'cooked';
     if (st.cook < 1.5) return 'golden';
@@ -239,6 +242,35 @@ const WHOLE = {
     ctx.beginPath(); ctx.moveTo(-0.8, -0.05); ctx.lineTo(0.8, -0.05); ctx.lineTo(0.4, -0.5); ctx.lineTo(-0.5, -0.45); ctx.closePath(); fillStroke(ctx, B);
     ctx.fillStyle = css(shade(A, -0.18));
     for (const [x, y, s] of [[-0.45, 0.2, 0.1], [0.1, 0.32, 0.07], [0.5, 0.15, 0.09], [-0.1, -0.25, 0.08], [0.2, -0.3, 0.05]]) { ellipse(ctx, x, y, s, s * 0.8); ctx.fill(); }
+  },
+  flour(ctx, r, d, A) {
+    shadow(ctx, 0.75, 0.2, 0.72);
+    ctx.beginPath(); ctx.moveTo(-0.55, -0.45); ctx.lineTo(0.55, -0.45); ctx.lineTo(0.66, 0.7); ctx.lineTo(-0.66, 0.7); ctx.closePath(); ball(ctx, A);
+    ctx.beginPath(); ctx.moveTo(-0.55, -0.45); ctx.lineTo(-0.42, -0.78); ctx.lineTo(0.42, -0.78); ctx.lineTo(0.55, -0.45); ctx.closePath(); fillStroke(ctx, shade(A, -0.06));
+    ctx.beginPath(); ctx.rect(-0.6, 0.05, 1.2, 0.2); ctx.fillStyle = '#6f93c4'; ctx.fill();
+    ctx.save(); ctx.strokeStyle = '#c9a24a'; ctx.lineWidth *= 2;
+    for (const k of [-0.12, 0, 0.12]) { ctx.beginPath(); ctx.moveTo(k * 0.5, -0.05); ctx.quadraticCurveTo(k * 2, -0.3, k * 1.2, -0.38); ctx.stroke(); }
+    ctx.restore();
+    ellipse(ctx, 0.7, 0.62, 0.25, 0.1); ctx.fillStyle = '#ffffff'; ctx.fill();
+  },
+  yeast(ctx, r, d, A, B) {
+    shadow(ctx, 0.7, 0.18, 0.55);
+    ctx.beginPath(); ctx.moveTo(-0.6, -0.45);
+    for (let i = 0; i <= 8; i++) ctx.lineTo(-0.6 + i * 0.15, i % 2 ? -0.52 : -0.45);
+    ctx.lineTo(0.6, 0.45); ctx.lineTo(-0.6, 0.45); ctx.closePath(); ball(ctx, A);
+    ellipse(ctx, 0, 0.02, 0.28, 0.2); ctx.fillStyle = css(shade(A, 0.4)); ctx.fill();
+    ctx.fillStyle = css(shade(B, -0.1));
+    for (const [x, y] of scatter(r, 14, 0.3)) { ellipse(ctx, x + 0.62, y + 0.55, 0.03, 0.025); ctx.fill(); }
+  },
+  dough(ctx, r, d, A, B, st) {
+    const k = 1 + 0.22 * clamp01(st.cook); // it rises as it bakes
+    shadow(ctx, 0.75 * k, 0.2, 0.55);
+    blob(ctx, r, 0.7 * k, 0.52 * k, 10, 0.05); ball(ctx, A);
+    ctx.save(); ctx.strokeStyle = css(shade(A, -0.2), 0.7); ctx.lineWidth *= 1.6;
+    for (const x of [-0.25, 0.05, 0.35]) { ctx.beginPath(); ctx.moveTo((x - 0.1) * k, -0.25 * k); ctx.lineTo((x + 0.08) * k, 0.05 * k); ctx.stroke(); }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    for (const [x, y] of scatter(r, 12, 0.5)) { ellipse(ctx, x * k, y * k - 0.1, 0.03, 0.02); ctx.fill(); }
   },
   butter(ctx, r, d, A, B) {
     shadow(ctx, 0.85);
@@ -471,18 +503,47 @@ export function drawItem(ctx, st, x, y, s, seed = 1) {
   ctx.restore();
 }
 
+// Several things tossed or mixed together: sauces underneath, the rest heaped around the middle.
+// Drawn in a fixed order (not the order they went in), so the same mix always looks the same.
+export function drawMix(ctx, sts, x, y, s, seed = 1) {
+  if (sts.length === 1) { drawItem(ctx, sts[0], x, y, s, seed); return; }
+  const key = (st) => `${st.ing}|${st.prep}`;
+  const sorted = [...sts].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+  const wet = sorted.filter(isMelted), solid = sorted.filter((st) => !isMelted(st));
+  wet.forEach((st, n) => drawItem(ctx, st, x + s * (0.14 + n * 0.08), y + s * 0.2, s * 0.85, seed + n));
+  const k = solid.length;
+  solid.forEach((st, n) => {
+    const a = (n / k) * Math.PI * 2 + 0.6, rr = k > 1 ? s * 0.32 : 0;
+    drawItem(ctx, st, x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.75, s * (k > 1 ? 0.68 : 0.9), seed + 31 * (n + 1));
+  });
+}
+
 // ---------- The plate ----------
 
 export function plateRole(c) { return isMelted(c) ? 'sauce' : INGS[c.ing].role; }
 
 // Where each item sits, in plate radii. Depends only on what's on the plate, never on the order it was added.
+// Things tossed or mixed together (the same group) are one unit: one heap, one spot on the plate.
 export function layoutPlate(comps) {
+  const groups = new Map();
+  comps.forEach((c, i) => {
+    const g = c.group != null ? 'g' + c.group : 's' + i;
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g).push(i);
+  });
+  const ckey = (i) => `${comps[i].ing}|${comps[i].prep}|${Math.round(comps[i].cook * 4)}`;
+  const units = [...groups.values()].map((m) => ({ m, k: m.map(ckey).sort().join('+') }));
+  const RANK = ['main', 'base', 'side', 'sauce', 'garnish'];
   const by = { base: [], sauce: [], main: [], side: [], garnish: [] };
-  comps.forEach((c, i) => by[plateRole(c)].push(i));
-  const key = (i) => `${comps[i].ing}|${comps[i].prep}|${Math.round(comps[i].cook * 4)}`;
-  for (const k in by) by[k].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a - b));
+  for (const u of units) {
+    const roles = u.m.map((i) => plateRole(comps[i]));
+    by[RANK.find((r) => roles.includes(r))].push(u);
+  }
+  for (const k in by) by[k].sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0));
   const out = [];
-  const put = (i, x, y, s, role, n) => out.push({ i, x, y, s, seed: hashStr(key(i)) + role.length * 131 + n * 977 });
+  const put = (u, x, y, s, role, n) => out.push({
+    members: u.m, i: u.m[0], x, y, s: s * Math.min(1.3, 1 + 0.12 * (u.m.length - 1)), seed: hashStr(u.k) + role.length * 131 + n * 977,
+  });
   const nb = by.base.length, hasBase = nb > 0, hasMain = by.main.length > 0;
 
   const BASES = [[[0, 0.02, 0.64]], [[-0.3, 0, 0.44], [0.3, 0, 0.44]], [[-0.3, -0.14, 0.38], [0.3, -0.14, 0.38], [0, 0.3, 0.38]]];
@@ -556,7 +617,7 @@ export function drawPlate(ctx, cx, cy, R, comps, season = {}, seed = 7) {
   const hits = [];
   for (const p of layoutPlate(comps)) {
     const x = cx + p.x * R, y = cy + p.y * R, s = p.s * R;
-    drawItem(ctx, comps[p.i], x, y, s, p.seed);
+    drawMix(ctx, p.members.map((i) => comps[i]), x, y, s, p.seed);
     hits.push({ i: p.i, x, y, r: s });
   }
   drawSeason(ctx, cx, cy, R, season, seed);
@@ -692,9 +753,9 @@ export function drawOvenGlass(ctx, win) {
   ctx.save(); ctx.beginPath(); ctx.roundRect(win.x, win.y, win.w, win.h, 14); ctx.strokeStyle = '#8d8478'; ctx.lineWidth = 5; ctx.stroke(); ctx.restore();
 }
 
-export function drawBoard(ctx, w, h, b) {
+// A marble counter.
+export function drawMarble(ctx, w, h) {
   ctx.fillStyle = '#e8ddd0'; ctx.fillRect(0, 0, w, h);
-  // A marble counter.
   const r = rng(11);
   ctx.strokeStyle = 'rgba(140,120,100,0.12)'; ctx.lineWidth = 1.5;
   for (let i = 0; i < 9; i++) {
@@ -702,6 +763,10 @@ export function drawBoard(ctx, w, h, b) {
     while (py < h) { px += (r() - 0.5) * 60; py += 30 + r() * 40; ctx.lineTo(px, py); }
     ctx.stroke();
   }
+}
+
+export function drawBoard(ctx, w, h, b) {
+  drawMarble(ctx, w, h);
   ctx.save();
   ctx.fillStyle = 'rgba(60,30,10,0.25)'; ctx.beginPath(); ctx.roundRect(b.x + 6, b.y + 10, b.w, b.h, 22); ctx.fill();
   const g = ctx.createLinearGradient(b.x, b.y, b.x + b.w, b.y + b.h);
@@ -731,6 +796,43 @@ export function drawKnife(ctx, x, y, L, lift) {
   ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(40,40,50,0.5)'; ctx.lineWidth = 1.5; ctx.stroke();
   ctx.fillStyle = '#2b211a'; ctx.beginPath(); ctx.roundRect(0, -L * 0.09, L * 0.42, L * 0.13, L * 0.05); ctx.fill();
   ctx.fillStyle = '#c9cdd2'; for (const k of [0.12, 0.28]) { ellipse(ctx, L * k, -L * 0.025, L * 0.018, L * 0.018); ctx.fill(); }
+  ctx.restore();
+}
+
+// A mixing bowl in three-quarter view. The inside is drawn first; drawBowlFront goes over the contents.
+export function drawBowl(ctx, x, y, R) {
+  ctx.save();
+  ellipse(ctx, x + R * 0.05, y + R * 0.8, R * 0.85, R * 0.18); ctx.fillStyle = 'rgba(60,30,10,0.22)'; ctx.fill();
+  ellipse(ctx, x, y, R, R * 0.42); ctx.fillStyle = '#e6dccd'; ctx.fill();
+  const g = ctx.createRadialGradient(x, y - R * 0.1, R * 0.1, x, y, R);
+  g.addColorStop(0, '#fbf7f0'); g.addColorStop(1, '#ddd0bd');
+  ellipse(ctx, x, y + R * 0.03, R * 0.92, R * 0.36); ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+}
+export function drawBowlFront(ctx, x, y, R) {
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(x - R, y);
+  ctx.ellipse(x, y, R, R * 0.42, 0, Math.PI, 0, true);
+  ctx.bezierCurveTo(x + R, y + R * 0.55, x + R * 0.55, y + R * 0.8, x, y + R * 0.8);
+  ctx.bezierCurveTo(x - R * 0.55, y + R * 0.8, x - R, y + R * 0.55, x - R, y);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(x - R, 0, x + R, 0);
+  g.addColorStop(0, '#5b86b0'); g.addColorStop(0.4, '#8db3d6'); g.addColorStop(1, '#4b7399');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(30,40,60,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = R * 0.04;
+  ctx.beginPath(); ctx.ellipse(x, y, R, R * 0.42, 0, 0, Math.PI); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = R * 0.05;
+  ctx.beginPath(); ctx.moveTo(x - R * 0.6, y + R * 0.35); ctx.quadraticCurveTo(x - R * 0.5, y + R * 0.6, x - R * 0.2, y + R * 0.68); ctx.stroke();
+  ctx.restore();
+}
+
+// A wooden spoon standing in the bowl, swung by angle a.
+export function drawSpoon(ctx, x, y, L, a) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = '#c99556'; ctx.strokeStyle = 'rgba(80,45,15,0.6)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(-L * 0.04, -L, L * 0.08, L * 0.8, L * 0.04); ctx.fill(); ctx.stroke();
+  ellipse(ctx, 0, -L * 0.1, L * 0.13, L * 0.18); ctx.fill(); ctx.stroke();
   ctx.restore();
 }
 

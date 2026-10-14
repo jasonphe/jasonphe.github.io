@@ -72,7 +72,15 @@ export const PAN_KEY = ['', 'pan_low', 'pan_med', 'pan_high'];
 // melt: from this cook level (for these cuts) it turns into a sauce or puddle.
 export const INGS = {
   egg: { name: 'Egg', fam: 'egg', role: 'main', time: 9, preps: ['crack', 'whisk'], a: '#f1e2c9', ac: '#f1e2c9', b: '#f6b21b', bc: '#f3bf3a', fl: { savory: 0.4 } },
-  bread: { name: 'Bread', fam: 'starch', role: 'base', time: 10, preps: ['slice'], a: '#b8773a', ac: '#b8773a', b: '#f1dcae', bc: '#f1dcae', fl: { sweet: 0.2 } },
+  bread: { name: 'Bread', fam: 'starch', role: 'base', time: 10, preps: ['slice'], rawName: 'fresh', warmName: 'warm', from: 'dough', a: '#b8773a', ac: '#b8773a', b: '#f1dcae', bc: '#f1dcae', fl: { sweet: 0.2 } },
+  flour: { name: 'Flour', fam: 'baking', role: 'garnish', time: 20, preps: [], a: '#f4efe6', ac: '#efe2c6', b: '#ffffff', bc: '#f4ead6', fl: {} },
+  yeast: { name: 'Yeast', fam: 'baking', role: 'garnish', time: 10, preps: [], a: '#d4a85e', ac: '#c79a50', b: '#e3c48a', bc: '#d6b273', fl: { savory: 0.1 } },
+  // Made in the bowl. Baking it in the oven turns it into a loaf of bread.
+  dough: {
+    name: 'Dough', fam: 'baking', role: 'base', time: 26, preps: [], bakesInto: 'bread',
+    stages: [[0.05, 'raw'], [0.5, 'rising'], [Infinity, 'baking']],
+    a: '#efdcb4', ac: '#e2b46e', b: '#f4e6c6', bc: '#e9c88f', fl: {},
+  },
   tomato: {
     name: 'Tomato', fam: 'fruit', role: 'side', time: 16, preps: ['slice', 'dice', 'wedge'], skin: true, slice: 'round', pattern: 'seeds',
     a: '#e0392b', ac: '#c8301f', b: '#ef5b45', bc: '#d23a26',
@@ -103,7 +111,15 @@ export const INGS = {
 };
 
 // Pantry shelf order.
-export const PANTRY = ['egg', 'bread', 'pasta', 'rice', 'potato', 'tomato', 'onion', 'garlic', 'bellpepper', 'carrot', 'mushroom', 'lemon', 'basil', 'cheese', 'butter', 'steak', 'chicken', 'salmon'];
+export const PANTRY = ['flour', 'yeast', 'egg', 'pasta', 'rice', 'potato', 'tomato', 'onion', 'garlic', 'bellpepper', 'carrot', 'mushroom', 'lemon', 'basil', 'cheese', 'butter', 'steak', 'chicken', 'salmon'];
+
+// Mixing exactly these in the bowl makes something new. Anything else just becomes a mix.
+export const TRANSFORMS = [
+  {
+    makes: 'dough', taps: 8,
+    needs: [{ ing: 'flour' }, { ing: 'egg', preps: ['crack', 'whisk'], hint: 'Crack the egg before it goes in the dough.' }, { ing: 'yeast' }],
+  },
+];
 
 export function ingSim(a, b) {
   if (a === b) return 1;

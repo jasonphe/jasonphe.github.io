@@ -1,19 +1,20 @@
 // Judging: match each item on the player's plate to the original, then score six categories and write notes.
-import { INGS, PREPS, METHODS, SEASONINGS, FLAVORS, DRY, prepSim, methodSim, ingSim } from './data.js';
+import { INGS, PREPS, METHODS, SEASONINGS, FLAVORS, TRANSFORMS, DRY, prepSim, methodSim, ingSim } from './data.js';
 import { stageName } from './draw.js';
 
 export const CATEGORIES = [
   { key: 'ingredients', name: 'Ingredients', w: 0.25 },
   { key: 'prep', name: 'Knife work', w: 0.15 },
-  { key: 'technique', name: 'Technique', w: 0.2 },
+  { key: 'technique', name: 'Technique', w: 0.15 },
   { key: 'doneness', name: 'Doneness', w: 0.2 },
   { key: 'flavor', name: 'Flavor', w: 0.15 },
-  { key: 'combo', name: 'Cooked together', w: 0.05 },
+  { key: 'combo', name: 'Mixed together', w: 0.1 },
 ];
 
 const nm = (ing) => INGS[ing].name.toLowerCase();
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 const pinches = (n) => `${n} pinch${n === 1 ? '' : 'es'}`;
+const list = (a) => (a.length < 2 ? a[0] : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
 
 export function targetComps(dish) {
   return dish.parts.map((p) => ({ ing: p.ing, prep: p.prep, cook: p.cook, method: p.method, dry: DRY(p.method) ? 1 : 0, group: p.group }));
@@ -96,14 +97,20 @@ export function judge(dish, mine, mineSeason, minePairs) {
     note(0.15 * Math.min(1, Math.abs(worst.d) / 1.5), worst.d > 0 ? `It needed ${MORE[worst.k]}.` : `A little too ${worst.k}.`);
   }
 
-  // Cooked together: only the original's pairs count, so cooking extra things side by side is never punished.
+  // Mixed together: compare which pairs of ingredients were tossed or mixed into one, both ways.
   const tp = targetPairs(dish);
   let hit = 0;
-  for (const p of tp) {
-    if (minePairs.has(p)) hit++;
-    else { const [a, b] = p.split('|'); note(0.05 / tp.size, `The ${nm(a)} and ${nm(b)} should cook together in the same pan.`); }
+  for (const p of tp) if (minePairs.has(p)) hit++;
+  const union = tp.size + minePairs.size - hit;
+  const combo = union ? hit / union : 1;
+  const groups = new Map();
+  for (const p of dish.parts) if (p.group) groups.set(p.group, [...(groups.get(p.group) || []), p.ing]);
+  for (const g of groups.values()) {
+    const missed = g.some((a, i) => g.some((b, j) => i < j && !minePairs.has([a, b].sort().join('|'))));
+    if (missed) note(0.1, `The ${list(g.map(nm))} should be tossed together in one pan.`);
   }
-  const combo = tp.size ? hit / tp.size : 1;
+  const extra = [...minePairs].find((p) => !tp.has(p));
+  if (extra) { const [a, b] = extra.split('|'); note(0.08, `The ${nm(a)} and ${nm(b)} weren't meant to be mixed.`); }
 
   const cats = { ingredients: ing / n, prep: prep / nT, technique: tech / nT, doneness: done / nT, flavor, combo };
   let total = CATEGORIES.reduce((sum, c) => sum + c.w * cats[c.key], 0) * 100;
@@ -122,14 +129,18 @@ export function judge(dish, mine, mineSeason, minePairs) {
 // The original recipe, in plain steps.
 export function recipeSteps(dish) {
   const steps = [], parts = targetComps(dish);
+  // Things made from scratch first, like bread from dough.
+  for (const ing of new Set(parts.map((p) => p.ing))) {
+    const from = INGS[ing].from, t = from && TRANSFORMS.find((x) => x.makes === from);
+    if (t) steps.push(`Mix the ${list(t.needs.map((n) => nm(n.ing)))} in a bowl to make ${nm(from)}, then bake it in the oven into ${nm(ing)}.`);
+  }
   const cut = (p) => (p.prep === 'whole' ? '' : PREPS[p.prep].say(nm(p.ing)));
   const groups = new Map();
   for (const p of parts) if (p.group) { if (!groups.has(p.group)) groups.set(p.group, []); groups.get(p.group).push(p); }
   for (const g of groups.values()) {
     const cuts = g.map(cut).filter(Boolean);
     const names = g.map((p) => nm(p.ing));
-    const list = (a) => (a.length < 2 ? a[0] : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`);
-    const doing = METHODS[g[0].method].verb(`the ${list(names)} together`);
+    const doing = `${METHODS[g[0].method].verb(`the ${list(names)}`)}, tossed together,`;
     const untils = g.map((p) => `the ${nm(p.ing)} is ${stageName(p)}`);
     steps.push(`${cuts.length ? `${cap(list(cuts))}, then ${doing}` : cap(doing)} until ${list(untils)}.`);
   }
