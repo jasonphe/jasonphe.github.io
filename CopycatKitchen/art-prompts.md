@@ -8,7 +8,7 @@ The expensive part would be one sprite per ingredient × cut × doneness, which 
 
 - **Shape changes get art.** Each ingredient needs a sprite for every *form* it can take: whole, each cut, and the few cooked forms that change shape (fried egg, scrambled curds, cooked spaghetti, cooked rice, sauces and melted puddles).
 - **Color changes are done in code.** Raw → cooked → golden → browned → charred → burnt is a tint laid over the sprite (`cookColor` in `draw.js` already computes it): multiply toward gold, then brown, then near black, only where the sprite is opaque. The same goes for boiled food going pale. This is what keeps the count near 70 sprites instead of 400.
-- **The target photo is never separate art.** It's drawn from the same sprites as the player's plate (see `CLAUDE.md`). That's what makes every dish fair.
+- **The target photo is never separate art.** It's drawn from the same sprites as the player's plate (see `AGENTS.md`). That's what makes every dish fair.
 
 Wiring it up: an `ART` map from `ingredient:form` to an image. `drawItem` draws the image when it has loaded and falls back to the code drawing otherwise, so sprites can arrive one sheet at a time.
 
