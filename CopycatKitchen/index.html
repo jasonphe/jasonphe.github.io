@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Copycat Kitchen</title>
+  <meta name="description" content="Study a photo of a dish, then cook it from scratch. You're scored on how close you get.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ---------- Menu ---------- -->
+  <section id="menu" class="screen">
+    <div class="menu-inner">
+      <a class="back-site" href="../">← jasonphe.github.io</a>
+      <header class="menu-head">
+        <p class="kicker">One photo. No recipe.</p>
+        <h1>Copycat Kitchen</h1>
+        <p class="lede">Study a photo of a finished dish, then cook it from scratch. The closer your plate is to the original, the higher you score.</p>
+      </header>
+      <div id="today"></div>
+      <h2 class="menu-h2">All dishes</h2>
+      <div id="dishGrid" class="dish-grid"></div>
+      <section class="howto">
+        <h2 class="menu-h2">How to cook</h2>
+        <ol>
+          <li><b>Pantry:</b> tap ingredients to put them on the counter.</li>
+          <li><b>Board:</b> cut things up. Tap the board to chop.</li>
+          <li><b>Stove and oven:</b> set the heat and watch the color. Food keeps cooking while you're at another station.</li>
+          <li><b>Plate:</b> plate up, season, and serve. Salt is invisible, so use a taste test to find it.</li>
+        </ol>
+        <p class="hint">Drag an item from the counter onto a station, or tap it and then tap where it should go.</p>
+      </section>
+    </div>
+  </section>
+
+  <!-- ---------- Kitchen ---------- -->
+  <section id="kitchen" class="screen" hidden>
+    <header class="kbar">
+      <button class="icon-btn" id="backBtn" title="Back to the menu" aria-label="Back to the menu">‹</button>
+      <div class="kdish"><small>Copying</small><span id="dishName"></span></div>
+      <button class="icon-btn" id="soundBtn" title="Sound" aria-label="Toggle sound"></button>
+      <button class="target-btn" id="targetBtn" title="Look at the original">
+        <canvas id="targetThumb" width="96" height="96"></canvas>
+        <span>Original</span>
+      </button>
+    </header>
+    <div id="stageWrap">
+      <canvas id="stage"></canvas>
+      <div id="pantry" class="pantry"></div>
+      <div id="controls" class="controls"></div>
+    </div>
+    <div id="actions" class="actions"></div>
+    <div class="counter-row">
+      <div class="counter-label">Counter</div>
+      <div id="counter" class="counter"></div>
+      <button id="trash" class="trash" title="Bin the selected item" aria-label="Bin">🗑</button>
+    </div>
+    <nav id="tabs" class="tabs">
+      <button data-st="pantry"><span class="ico">🧺</span><span>Pantry</span></button>
+      <button data-st="board"><span class="ico">🔪</span><span>Board</span><i class="dot"></i></button>
+      <button data-st="stove"><span class="ico">🍳</span><span>Stove</span><i class="dot"></i></button>
+      <button data-st="oven"><span class="ico">🔥</span><span>Oven</span><i class="dot"></i></button>
+      <button data-st="plate"><span class="ico">🍽️</span><span>Plate</span><i class="dot"></i></button>
+    </nav>
+  </section>
+
+  <!-- ---------- Results ---------- -->
+  <section id="results" class="screen" hidden></section>
+
+  <!-- ---------- The original, and taste tests ---------- -->
+  <dialog id="targetDlg" class="dlg">
+    <div id="targetBody"></div>
+  </dialog>
+
+  <div id="ghost" class="drag-ghost" hidden></div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
