@@ -40,6 +40,7 @@ const CATEGORIES = [
   { id: 'games', name: 'Video games', niche: true },
   { id: 'idioms', name: 'Idioms (hard!)', niche: true },
   { id: 'lol', name: 'League of Legends', niche: true },
+  { id: 'valorant', name: 'Valorant', niche: true },
 ];
 const DEFAULT_CATEGORY = CATEGORIES[0].id;
 const clampCategory = v => CATEGORIES.some(c => c.id === v) ? v : DEFAULT_CATEGORY;
