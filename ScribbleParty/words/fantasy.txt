@@ -1,0 +1,42 @@
+basilisk
+cauldron
+centaur
+crystal ball
+cyclops
+dragon egg
+dwarf
+elf
+enchanted forest
+fairy
+fairy godmother
+genie
+giant
+gnome
+goblin
+golem
+gryphon
+haunted house
+hydra
+invisibility cloak
+jack-o'-lantern
+kraken
+leprechaun
+love potion
+magic carpet
+magic wand
+medusa
+minotaur
+ogre
+pegasus
+phoenix
+pot of gold
+sea serpent
+siren
+sorceress
+spell book
+talking tree
+troll
+werewolf
+wishing well
+witch hat
+yeti

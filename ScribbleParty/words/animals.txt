@@ -1,0 +1,80 @@
+aardvark
+alpaca
+anteater
+armadillo
+axolotl
+badger
+bald eagle
+beaver
+bison
+blobfish
+bulldog
+bumblebee
+capybara
+chameleon
+cheetah
+chicken
+chinchilla
+chipmunk
+cobra
+dachshund
+dragonfly
+eel
+emu
+ferret
+firefly
+gecko
+goat
+goldfish
+gorilla
+grasshopper
+guinea pig
+hamster
+hammerhead shark
+hermit crab
+hummingbird
+hyena
+iguana
+jaguar
+kiwi bird
+komodo dragon
+lemur
+leopard
+llama
+lobster
+manatee
+meerkat
+moose
+mole
+narwhal
+ostrich
+otter
+panther
+pelican
+platypus
+poodle
+porcupine
+praying mantis
+pufferfish
+puffin
+raccoon
+rhino
+rooster
+salamander
+scorpion
+sea lion
+seagull
+skunk
+sloth
+snow leopard
+stingray
+stork
+swan
+tarantula
+toucan
+tortoise
+vulture
+walrus
+warthog
+woodpecker
+yak

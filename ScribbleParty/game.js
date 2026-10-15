@@ -22,16 +22,32 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
 // The host picks a word category. Each one's words live in words/<id>.txt (one per line)
 // so they're easy to edit. Every page loads them all, in case it becomes the host.
+// The mix blends every list except the niche ones.
 const CATEGORIES = [
   { id: 'everyday', name: 'Everyday things' },
-  { id: 'lol', name: 'League of Legends' },
+  { id: 'mix', name: 'Mix of everything', mix: true },
+  { id: 'animals', name: 'Animals' },
+  { id: 'food', name: 'Food & drinks' },
+  { id: 'actions', name: 'Actions' },
+  { id: 'jobs', name: 'Jobs' },
+  { id: 'sports', name: 'Sports & hobbies' },
+  { id: 'fantasy', name: 'Fantasy & myths' },
+  { id: 'space', name: 'Space & sci-fi' },
+  { id: 'ocean', name: 'Under the sea' },
+  { id: 'places', name: 'Famous places' },
+  { id: 'holidays', name: 'Holidays & parties' },
+  { id: 'movies', name: 'Movies & cartoons' },
+  { id: 'games', name: 'Video games', niche: true },
+  { id: 'idioms', name: 'Idioms (hard!)', niche: true },
+  { id: 'lol', name: 'League of Legends', niche: true },
 ];
 const DEFAULT_CATEGORY = CATEGORIES[0].id;
 const clampCategory = v => CATEGORIES.some(c => c.id === v) ? v : DEFAULT_CATEGORY;
 const categoryName = id => CATEGORIES.find(c => c.id === id)?.name ?? '';
 const wordLists = {};
 const FALLBACK_WORDS = ['apple', 'cat', 'house', 'sun', 'tree', 'car', 'fish', 'star', 'boat'];
-for (const { id } of CATEGORIES) {
+for (const { id, mix } of CATEGORIES) {
+  if (mix) continue;
   fetch(`words/${id}.txt`)
     .then(r => r.ok ? r.text() : Promise.reject(r.status))
     .then(t => { wordLists[id] = parseWords(t); })
@@ -657,7 +673,10 @@ function sendSecret(d) {
 // Picks 3 words for the drawer. Custom words get one slot each turn until each has been
 // offered once (or all three slots with "only my words"), and nothing repeats until the pool runs out.
 function chooseWords() {
-  const defaults = wordLists[pub.category]?.length ? wordLists[pub.category] : FALLBACK_WORDS;
+  const list = CATEGORIES.find(c => c.id === pub.category)?.mix
+    ? parseWords(CATEGORIES.filter(c => !c.mix && !c.niche).flatMap(c => wordLists[c.id] ?? []).join('\n'))
+    : wordLists[pub.category];
+  const defaults = list?.length ? list : FALLBACK_WORDS;
   const unused = list => list.filter(w => !H.used.has(norm(w)));
   const fresh = list => { const f = unused(list); return f.length ? f : list; };
   let picks;

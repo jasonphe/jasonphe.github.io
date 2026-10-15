@@ -1,0 +1,37 @@
+Big Ben
+Colosseum
+Eiffel Tower
+Golden Gate Bridge
+Grand Canyon
+Great Wall of China
+Hollywood sign
+Leaning Tower of Pisa
+Machu Picchu
+Mount Everest
+Mount Rushmore
+Niagara Falls
+Pyramids of Giza
+Stonehenge
+Statue of Liberty
+Sydney Opera House
+Taj Mahal
+Times Square
+airport
+amusement park
+aquarium
+bakery
+bowling alley
+cinema
+dentist's office
+farm
+gas station
+gym
+hospital
+library
+museum
+playground
+restaurant
+supermarket
+swimming pool
+train station
+zoo

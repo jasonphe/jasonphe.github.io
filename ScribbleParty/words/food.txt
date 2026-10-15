@@ -1,0 +1,67 @@
+avocado
+bacon
+bagel
+baguette
+birthday cake
+boba tea
+bread
+burrito
+candy cane
+cereal
+cheeseburger
+chicken nugget
+chili pepper
+chocolate bar
+cinnamon roll
+coconut
+corn dog
+croissant
+cupcake
+dumpling
+french fries
+fried egg
+fortune cookie
+gingerbread man
+grapes
+gummy bear
+hot chocolate
+hot sauce
+jelly
+kebab
+lasagna
+lemonade
+macaron
+mac and cheese
+meatball
+milkshake
+muffin
+nachos
+noodles
+omelette
+onion
+peanut butter
+pear
+pepperoni pizza
+pickle
+pie
+pineapple
+popsicle
+pretzel
+ramen
+salad
+salt
+sausage
+smoothie
+soup
+spaghetti
+steak
+strawberry
+sundae
+sushi
+toast
+tomato
+tortilla chips
+waffle
+whipped cream
+wedding cake
+yogurt

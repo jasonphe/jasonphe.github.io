@@ -1,0 +1,49 @@
+astronaut
+baker
+barber
+beekeeper
+bodyguard
+butcher
+cashier
+chef
+coach
+cowboy
+dentist
+detective
+DJ
+doctor
+electrician
+farmer
+firefighter
+fisherman
+florist
+gardener
+judge
+juggler
+lifeguard
+magician
+mail carrier
+mechanic
+mime
+nurse
+painter
+photographer
+pilot
+plumber
+police officer
+referee
+sailor
+scientist
+sculptor
+security guard
+singer
+spy
+surgeon
+tailor
+taxi driver
+teacher
+tour guide
+veterinarian
+waiter
+weather reporter
+zookeeper

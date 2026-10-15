@@ -1,0 +1,46 @@
+archery
+badminton
+ballet
+baseball bat
+basketball hoop
+bowling pin
+boxing glove
+chess
+cricket
+curling
+darts
+dodgeball
+figure skating
+fencing
+frisbee
+golf
+gymnastics
+hockey stick
+hula hoop
+ice hockey
+javelin
+karate
+kayak
+marathon
+mini golf
+ping pong
+pole vault
+roller skates
+rowing
+rugby
+scuba diving
+skateboarding
+ski jump
+snorkel
+snowboard
+soccer ball
+sumo wrestling
+surfboard
+swimming pool
+tennis racket
+tug of war
+volleyball
+water polo
+weightlifting
+wrestling
+yoga
