@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Crash Circuit</title>
+  <meta name="description" content="A 3D combat racing game for up to 8 players in the browser. Grab item boxes, fire missiles, drop mines, and wreck your friends.">
+  <link rel="icon" href="../favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="view"></canvas>
+  <div id="flash"></div>
+
+  <!-- In-race HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl">
+      <div id="pos">1<sup>st</sup></div>
+      <div id="posOf"></div>
+      <div id="lap">LAP 1/3</div>
+      <div id="time">0:00.0</div>
+    </div>
+    <canvas id="mini" width="300" height="300"></canvas>
+    <div class="hud-bl">
+      <div class="hp"><div id="hpFill"></div><span id="hpText">100</span></div>
+      <div id="speed">0<small> km/h</small></div>
+    </div>
+    <button id="itemSlot" aria-label="Use item"><span id="itemIcon"></span><small id="itemKey">SPACE</small></button>
+    <div id="big"></div>
+    <div id="sub"></div>
+    <div id="feed"></div>
+    <div id="spectate" class="hidden">Spectating. You'll race in the next one.</div>
+  </div>
+
+  <div id="touch" class="hidden">
+    <div class="tl">
+      <button data-k="left" aria-label="Steer left">◀</button>
+      <button data-k="right" aria-label="Steer right">▶</button>
+    </div>
+    <div class="tr">
+      <button data-k="brake" class="brake" aria-label="Brake">▼</button>
+      <button data-k="gas" class="gas" aria-label="Gas">▲</button>
+    </div>
+  </div>
+
+  <div class="corner">
+    <button id="muteBtn" class="chip" aria-label="Toggle sound">🔊</button>
+    <button id="leaveBtn" class="chip hidden">Leave</button>
+  </div>
+
+  <!-- Start screen -->
+  <div id="menu" class="screen">
+    <div class="panel">
+      <h1>Crash<span>Circuit</span></h1>
+      <p class="tag">Combat racing for 1 to 8 players. Grab item boxes, wreck your friends, cross the line first.</p>
+      <label class="field">Your name <input id="nameInput" maxlength="16" autocomplete="off" placeholder="Speedy"></label>
+      <div class="field">Car color <div id="swatches"></div></div>
+      <div id="joinExisting" class="hidden">
+        <button id="joinBtn" class="btn big">Join room</button>
+        <button id="newInstead" class="link">Start a new room instead</button>
+      </div>
+      <div id="joinFresh">
+        <button id="createBtn" class="btn big">Create a room</button>
+        <form id="joinForm" class="row">
+          <input id="codeInput" maxlength="6" placeholder="CODE" autocomplete="off" aria-label="Room code">
+          <button class="btn ghost">Join</button>
+        </form>
+      </div>
+      <div class="howto">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows: drive</div>
+        <div><kbd>Space</kbd>: use item &nbsp; <kbd>R</kbd>: back on track</div>
+        <div class="items">🚀 Missile · 💣 Mine · 🛡️ Shield · ⚡ Nitro · 🔧 Repair · 💥 Shockwave</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Waiting room -->
+  <div id="lobby" class="screen hidden">
+    <div class="panel">
+      <h2>Room <span id="roomCode"></span></h2>
+      <button id="inviteBtn" class="btn ghost small">Copy invite link</button>
+      <ul id="players"></ul>
+      <div id="hostControls">
+        <div class="stepper"><span>Bots</span><button data-s="bots" data-d="-1">−</button><b id="botsVal">3</b><button data-s="bots" data-d="1">+</button></div>
+        <div class="stepper"><span>Laps</span><button data-s="laps" data-d="-1">−</button><b id="lapsVal">3</b><button data-s="laps" data-d="1">+</button></div>
+        <button id="startBtn" class="btn big">Start race</button>
+      </div>
+      <p id="waitMsg" class="muted"></p>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="screen hidden">
+    <div class="panel">
+      <h2>Results</h2>
+      <table><thead><tr><th></th><th>Driver</th><th>Time</th><th>KOs</th></tr></thead><tbody id="resBody"></tbody></table>
+      <div id="resHost" class="row">
+        <button id="againBtn" class="btn">Race again</button>
+        <button id="toLobbyBtn" class="btn ghost">Change settings</button>
+      </div>
+      <p id="resWait" class="muted"></p>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="loading">Loading…</div>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
