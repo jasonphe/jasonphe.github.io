@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildTrack, WALL, N } from './track.js';
-import { Car, syncMesh, MAX_HP, TOP, RAD, AXLE } from './car.js';
+import { Car, syncMesh, REF_TOP } from './car.js';
+import { VEHICLES, VEHICLE_IDS, makeVehicleMesh } from './vehicles.js';
 import { Particles, Sound } from './fx.js';
 
 // ---------- Settings ----------
@@ -24,6 +25,7 @@ const ITEMS = {
 };
 const params = new URLSearchParams(location.search);
 const DEV = params.has('dev');
+const cleanVehicle = v => VEHICLES[v] ? v : 'racer';
 const dev = { auto: params.has('auto') };   // ?dev&auto: my car drives itself
 
 // ---------- Helpers ----------
@@ -160,7 +162,7 @@ function makeMineMesh() {
 }
 const ringGeo = new THREE.RingGeometry(0.85, 1, 48).rotateX(-Math.PI / 2);
 
-function makeLabel(name, color) {
+function makeLabel(name, color, y) {
   const c = document.createElement('canvas');
   c.width = 256; c.height = 64;
   const g = c.getContext('2d');
@@ -176,7 +178,7 @@ function makeLabel(name, color) {
   t.colorSpace = THREE.SRGBColorSpace;
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthWrite: false }));
   s.scale.set(5, 1.25, 1);
-  s.position.y = 3.2;
+  s.position.y = y;
   return s;
 }
 
@@ -227,7 +229,7 @@ function send(name, data, target) {
   if (!room) return;
   try { act[name].send(data, target ? { target } : undefined); } catch (e) { console.warn(name, e); }
 }
-const hello = () => ({ n: peers.get(selfId).n, c: peers.get(selfId).c, t: peers.get(selfId).t });
+const hello = () => ({ n: peers.get(selfId).n, c: peers.get(selfId).c, t: peers.get(selfId).t, v: peers.get(selfId).v });
 
 // The host is whoever has been in the room longest.
 function electHost() {
@@ -239,13 +241,13 @@ function electHost() {
 }
 
 async function connect(name) {
-  peers.set(selfId, { n: name, c: myColor, t: Date.now() });
+  peers.set(selfId, { n: name, c: myColor, t: Date.now(), v: myVehicle });
   try {
     if (params.has('offline')) throw new Error('offline');
     const { joinRoom, selfId: id } = await loadNet();
     peers.delete(selfId);
     selfId = hostId = id;
-    peers.set(selfId, { n: name, c: myColor, t: Date.now() });
+    peers.set(selfId, { n: name, c: myColor, t: Date.now(), v: myVehicle });
     room = joinRoom({ appId: APP_ID }, roomCode);
     for (const a of ['hello', 'ph', 'car', 'fx']) {
       act[a] = room.makeAction(a);
@@ -274,7 +276,7 @@ async function connect(name) {
 const handlers = {
   hello(d, from) {
     const isNew = !peers.has(from);
-    peers.set(from, { n: cleanText(d?.n, 16) || 'Racer', c: cleanColor(d?.c), t: num(d?.t, Date.now()) });
+    peers.set(from, { n: cleanText(d?.n, 16) || 'Racer', c: cleanColor(d?.c), t: num(d?.t, Date.now()), v: cleanVehicle(d?.v) });
     const wasHost = isHost();
     electHost();
     if (isNew) feed(`${peers.get(from).n} joined`);
@@ -297,7 +299,7 @@ const handlers = {
       const first = !c.net;
       c.net = { x: num(e[1]), y: num(e[2]), z: num(e[3]), h: num(e[4]), vx: num(e[5]), vz: num(e[6]), at: t };
       if (first) Object.assign(c, { x: c.net.x, y: c.net.y, z: c.net.z, h: c.net.h });
-      c.hp = num(e[7], MAX_HP);
+      c.hp = num(e[7], c.maxHp);
       const f = num(e[8]);
       c.boost = f & 1; c.shield = f & 2 ? 1 : 0; c.ghost = f & 8 ? 1 : 0; c.spin = f & 16 ? 1 : 0;
       c.dead = f & 4 ? 1 : 0;
@@ -331,10 +333,11 @@ function hostBroadcast(next = G) {
 function hostStart() {
   if (!isHost()) return;
   const humans = [...peers].sort((a, b) => a[1].t - b[1].t).slice(0, MAX_CARS);
-  const grid = humans.map(([id, p]) => ({ id, n: p.n, c: p.c }));
+  const grid = humans.map(([id, p]) => ({ id, n: p.n, c: p.c, v: p.v }));
   const free = COLORS.filter(c => !grid.some(g => g.c === c));
   const nb = Math.min(G.bots, MAX_CARS - grid.length);
-  for (let k = 0; k < nb; k++) grid.push({ id: `bot${k}`, n: BOT_NAMES[k % BOT_NAMES.length], c: free[k % free.length] || pick(COLORS), bot: 1 });
+  const rides = shuffle(VEHICLE_IDS);   // bots get different vehicles
+  for (let k = 0; k < nb; k++) grid.push({ id: `bot${k}`, n: BOT_NAMES[k % BOT_NAMES.length], c: free[k % free.length] || pick(COLORS), v: rides[k % rides.length], bot: 1 });
   goAt = now() + COUNTDOWN_MS;
   hostBroadcast({ ...G, p: 'race', grid: shuffle(grid), res: null, race: G.race + 1 });
 }
@@ -353,7 +356,7 @@ function hostTick() {
   const humansDone = humans.every(c => c.fin != null);
   if (!humans.length || fins.length === order.length || (fins.length && rt - Math.min(...fins) > FINISH_GRACE)
     || (humansDone && rt - Math.max(...humans.map(c => c.fin)) > BOT_GRACE)) {
-    const res = ranking().map(c => ({ id: c.id, n: c.name, c: c.color, bot: c.bot ? 1 : 0, fin: c.fin, kos: c.kos }));
+    const res = ranking().map(c => ({ id: c.id, n: c.name, c: c.color, v: c.type, bot: c.bot ? 1 : 0, fin: c.fin, kos: c.kos }));
     for (const g of G.grid) if (!res.some(r => r.id === g.id)) res.push({ id: g.id, n: g.n, c: g.c, bot: g.bot ? 1 : 0, fin: null, kos: 0, left: 1 });
     hostBroadcast({ ...G, p: 'res', res });
   }
@@ -377,7 +380,7 @@ function applyPh(d) {
     p: d.p,
     laps: clamp(num(d.laps, 3) | 0, 1, 9),
     bots: clamp(num(d.bots, 3) | 0, 0, MAX_CARS - 1),
-    grid: (Array.isArray(d.grid) ? d.grid : []).slice(0, MAX_CARS).map(g => ({ id: String(g.id), n: cleanText(g.n, 16) || 'Racer', c: cleanColor(g.c), bot: g.bot ? 1 : 0 })),
+    grid: (Array.isArray(d.grid) ? d.grid : []).slice(0, MAX_CARS).map(g => ({ id: String(g.id), n: cleanText(g.n, 16) || 'Racer', c: cleanColor(g.c), v: cleanVehicle(g.v), bot: g.bot ? 1 : 0 })),
     res: Array.isArray(d.res) ? d.res : null,
     race: num(d.race) | 0,
   };
@@ -403,14 +406,15 @@ function setupRace(go) {
   clearRace();
   G.grid.forEach((g, j) => {
     const local = g.id === selfId || (g.bot && isHost());
-    const c = new Car(g.id, g.n, g.c, { local, bot: !!g.bot });
+    const c = new Car(g.id, g.n, g.c, { local, bot: !!g.bot, type: g.v });
     c.inRace = true;
     c.baseSkill = c.skill = g.bot ? 0.86 + (j * 37 % 10) / 100 : 1;
     // Two staggered columns behind the line.
-    const back = 9 + Math.floor(j / 2) * 8 + (j % 2) * 4;
+    // Rows are 12 m apart so even the bus fits.
+    const back = 4 + c.spec.l / 2 + Math.floor(j / 2) * 12 + (j % 2) * 5;
     c.place(track, N - Math.round(back / track.step), j % 2 ? -4.5 : 4.5);
     c.lap = -1;
-    if (g.id !== selfId) c.mesh.add(makeLabel(g.n, g.c));
+    if (g.id !== selfId) c.mesh.add(c.label = makeLabel(g.n, g.c, c.spec.h + 1.5));
     scene.add(c.mesh);
     cars.set(c.id, c);
   });
@@ -424,7 +428,7 @@ function setupRace(go) {
 function rollItem(c) {
   const order = ranking(), n = order.length;
   const r = n > 1 ? order.indexOf(c) / (n - 1) : 0.5;     // 0 = leading, 1 = last
-  const w = { missile: 3 + 2 * r, mine: 3 - 1.5 * r, shield: 2, boost: 1 + 3 * r, repair: c.hp < 60 ? 3 : 0.6 + r, wave: 1.5 };
+  const w = { missile: 3 + 2 * r, mine: 3 - 1.5 * r, shield: 2, boost: 1 + 3 * r, repair: c.health < 0.6 ? 3 : 0.6 + r, wave: 1.5 };
   let x = Math.random() * Object.values(w).reduce((a, b) => a + b);
   for (const [k, v] of Object.entries(w)) if ((x -= v) <= 0) return k;
   return 'boost';
@@ -438,7 +442,7 @@ function pickups(c) {
   const t = now();
   for (let i = 0; i < boxes.length; i++) {
     const b = boxes[i];
-    if (b.back > t || (c.x - b.x) ** 2 + (c.z - b.z) ** 2 > 2.7 ** 2) continue;
+    if (b.back > t || !c.near(b.x, b.z, 1.3)) continue;
     breakBox(b);
     send('fx', { k: 'pick', b: i });
     if (!c.item) {
@@ -457,8 +461,8 @@ function useItem(c) {
   if (it === 'missile') fireMissile(c);
   else if (it === 'mine') dropMine(c);
   else if (it === 'shield') { c.shield = 6; if (near) sound.zap(); }
-  else if (it === 'boost') { c.boost = 2.4; if (near) sound.whoosh(); }
-  else if (it === 'repair') { c.hp = Math.min(MAX_HP, c.hp + 45); fx.sparkle(c.x, c.y + 0.5, c.z, [0.4, 1, 0.5]); if (near) sound.heal(); }
+  else if (it === 'boost') { c.boost = 2.4 * c.spec.boostLen; if (near) sound.whoosh(); }
+  else if (it === 'repair') { c.hp = Math.min(c.maxHp, c.hp + 45 * c.spec.heal); fx.sparkle(c.x, c.y + 0.5, c.z, [0.4, 1, 0.5]); if (near) sound.heal(); }
   else if (it === 'wave') { waveAt(c.id, c.x, c.y, c.z); send('fx', { k: 'wave', o: c.id, x: r2(c.x), y: r2(c.y), z: r2(c.z) }); }
 }
 // The nearest car in front of c, within range, roughly where it's pointing.
@@ -474,7 +478,7 @@ function targetAhead(c, range) {
 }
 function fireMissile(c) {
   const tg = targetAhead(c, 170);
-  const m = { id: `${c.id}#${++seq}`, o: c.id, x: r2(c.x + Math.sin(c.h) * 3), y: r2(c.y + 0.9), z: r2(c.z + Math.cos(c.h) * 3), h: r2(c.h), tg: tg?.id ?? null, sp: Math.round(Math.max(85, c.fwd + 45)), idx: c.idx };
+  const m = { id: `${c.id}#${++seq}`, o: c.id, x: r2(c.x + Math.sin(c.h) * (c.spec.l / 2 + 1)), y: r2(c.y + 0.9), z: r2(c.z + Math.cos(c.h) * (c.spec.l / 2 + 1)), h: r2(c.h), tg: tg?.id ?? null, sp: Math.round(Math.max(85, c.fwd + 45)), idx: c.idx };
   send('fx', { k: 'fire', ...m });
   spawnMissile(m);
   sound.launch();
@@ -486,7 +490,7 @@ function spawnMissile(m) {
   missiles.set(m.id, m);
 }
 function dropMine(c) {
-  const m = { id: `${c.id}#${++seq}`, o: c.id, x: r2(c.x - Math.sin(c.h) * 3.6), y: r2(c.y), z: r2(c.z - Math.cos(c.h) * 3.6) };
+  const m = { id: `${c.id}#${++seq}`, o: c.id, x: r2(c.x - Math.sin(c.h) * (c.spec.l / 2 + 1.5)), y: r2(c.y), z: r2(c.z - Math.cos(c.h) * (c.spec.l / 2 + 1.5)) };
   send('fx', { k: 'drop', ...m });
   spawnMine(m);
 }
@@ -530,9 +534,10 @@ function waveAt(o, x, y, z) {
     const f = 1 - d / 16;
     hurt(c, 8 + 20 * f, o);
     if (c.dead > 0) continue;
-    c.vx += dx / (d || 1) * 26 * f; c.vz += dz / (d || 1) * 26 * f;
-    c.vy = 7 * f; c.yOff = Math.max(c.yOff, 0.01);
-    if (f > 0.4) { c.spin = 0.6; c.spinDir = Math.random() < 0.5 ? -1 : 1; }
+    const k = 26 * f / c.spec.mass;
+    c.vx += dx / (d || 1) * k; c.vz += dz / (d || 1) * k;
+    c.vy = 7 * f / Math.sqrt(c.spec.mass); c.yOff = Math.max(c.yOff, 0.01);
+    if (f > 0.4 && !c.spec.spinProof) { c.spin = 0.6; c.spinDir = Math.random() < 0.5 ? -1 : 1; }
   }
 }
 
@@ -540,7 +545,11 @@ function updateMissiles(dt) {
   for (const m of missiles.values()) {
     m.t += dt;
     const T = m.tg && cars.get(m.tg);
-    if (T && T.dead <= 0 && m.t > 0.15) m.h += clamp(wrap(Math.atan2(T.x - m.x, T.z - m.z) - m.h), -3.2 * dt, 3.2 * dt);
+    if (T && T.dead <= 0 && m.t > 0.15) {
+      // Turns harder the closer it gets, so it doesn't orbit a target on a bend.
+      const turn = (3.5 + 40 / Math.max(5, Math.hypot(T.x - m.x, T.z - m.z))) * dt;
+      m.h += clamp(wrap(Math.atan2(T.x - m.x, T.z - m.z) - m.h), -turn, turn);
+    }
     else m.h += clamp(wrap(track.headingAt(m.idx + 10) - m.h), -1.4 * dt, 1.4 * dt); // follow the road
     m.x += Math.sin(m.h) * m.sp * dt;
     m.z += Math.cos(m.h) * m.sp * dt;
@@ -554,7 +563,7 @@ function updateMissiles(dt) {
     }
     for (const c of cars.values()) {
       if (!c.local || c.id === m.o || c.dead > 0 || c.ghost > 0) continue;
-      if ((c.x - m.x) ** 2 + (c.z - m.z) ** 2 > 2.6 ** 2) continue;
+      if (!c.near(m.x, m.z, 1.3)) continue;
       hitBy(c, m.o, 34, Math.sin(m.h) * 10, Math.cos(m.h) * 10, 9);
       send('fx', { k: 'boom', id: m.id, x: r2(m.x), y: r2(m.y), z: r2(m.z) });
       explodeAt(m.x, m.y, m.z, 0.7);
@@ -569,8 +578,8 @@ function updateMines(dt) {
     if (m.t > 45) { removeProjectile(m.id); continue; }
     if (m.t < 0.8) continue;  // arming
     for (const c of cars.values()) {
-      if (!c.local || c.dead > 0 || c.ghost > 0) continue;
-      if ((c.x - m.x) ** 2 + (c.z - m.z) ** 2 > 2.3 ** 2) continue;
+      if (!c.local || c.dead > 0 || c.ghost > 0 || c.spec.mineProof) continue;
+      if (!c.near(m.x, m.z, 1.0)) continue;
       c.vx *= 0.45; c.vz *= 0.45;
       hitBy(c, m.o, 28, 0, 0, 12);
       send('fx', { k: 'boom', id: m.id, x: r2(m.x), y: r2(m.y), z: r2(m.z) });
@@ -591,12 +600,14 @@ function hitBy(c, by, dmg, px, pz, lift) {
   }
   hurt(c, dmg, by);
   if (c.dead > 0) return;
-  c.vx += px; c.vz += pz;
-  c.vy = lift; c.yOff = Math.max(c.yOff, 0.01);
-  c.spin = 0.9; c.spinDir = Math.random() < 0.5 ? -1 : 1;
+  const m = c.spec.mass;
+  c.vx += px / m; c.vz += pz / m;
+  c.vy = lift / Math.sqrt(m); c.yOff = Math.max(c.yOff, 0.01);
+  if (!c.spec.spinProof) { c.spin = 0.9; c.spinDir = Math.random() < 0.5 ? -1 : 1; }
 }
 function hurt(c, dmg, by) {
   if (c.dead > 0 || c.ghost > 0 || c.shield > 0 || dmg <= 0) return;
+  dmg *= c.spec.armor;
   c.hp -= dmg;
   if (by && by !== c.id) c.lastHit = { by, t: now() };
   if (c === me) {
@@ -627,51 +638,55 @@ function onKo(d) {
 }
 function respawn(c) {
   c.place(track, c.idx, 0);
-  Object.assign(c, { hp: MAX_HP, dead: 0, ghost: 2.5, spin: 0, boost: 0, steer: 0, lastHit: null });
+  Object.assign(c, { hp: c.maxHp, dead: 0, ghost: 2.5, spin: 0, boost: 0, steer: 0, lastHit: null });
 }
 function onWall(c, v) {
   if (v < 4) return;
   const s = Math.sign((c.x - track.px[c.idx]) * track.nx[c.idx] + (c.z - track.pz[c.idx]) * track.nz[c.idx]);
-  fx.sparks(c.x + track.nx[c.idx] * s * 1.1, c.y + 0.5, c.z + track.nz[c.idx] * s * 1.1, Math.min(30, v * 1.5 | 0), 6);
+  const w = c.spec.w / 2;
+  fx.sparks(c.x + track.nx[c.idx] * s * w, c.y + 0.5, c.z + track.nz[c.idx] * s * w, Math.min(30, v * 1.5 | 0), 6);
   if (c === me) sound.crash(v);
   if (v > 9) hurt(c, (v - 9) * 1.0, null);
 }
 
 // Car-on-car bumps. Each page resolves the cars it drives against every other car,
-// so both sides of a crash feel it. Hitting someone nose-first hurts you less.
+// so both sides of a crash feel it. Heavier vehicles shove and hurt lighter ones more,
+// and hitting someone nose-first hurts you less.
 function collide() {
   const list = [...cars.values()].filter(c => c.inRace && c.dead <= 0 && c.ghost <= 0);
   const t = now();
   for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
     const A = list[a], B = list[b];
     if (!A.local && !B.local) continue;
-    if (Math.abs(A.x - B.x) > 6 || Math.abs(A.z - B.z) > 6) continue;
+    const reach = (A.spec.l + B.spec.l) / 2 + 1;
+    if (Math.abs(A.x - B.x) > reach || Math.abs(A.z - B.z) > reach) continue;
     let pen = 0, nx = 0, nz = 0;
     const afx = Math.sin(A.h), afz = Math.cos(A.h), bfx = Math.sin(B.h), bfz = Math.cos(B.h);
-    for (const i of [-1, 1]) for (const j of [-1, 1]) {
-      const dx = (A.x + afx * AXLE * i) - (B.x + bfx * AXLE * j), dz = (A.z + afz * AXLE * i) - (B.z + bfz * AXLE * j);
-      const d = Math.hypot(dx, dz) || 0.01, p = RAD * 2 - d;
+    const rr = A.spec.rad + B.spec.rad;
+    for (const i of A.spec.circles) for (const j of B.spec.circles) {
+      const dx = (A.x + afx * i) - (B.x + bfx * j), dz = (A.z + afz * i) - (B.z + bfz * j);
+      const d = Math.hypot(dx, dz) || 0.01, p = rr - d;
       if (p > pen) { pen = p; nx = dx / d; nz = dz / d; }
     }
     if (pen <= 0) continue;
     if (Math.abs(A.yOff - B.yOff) > 1.5) continue;
+    const mA = A.spec.mass, mB = B.spec.mass, shareA = mB / (mA + mB), shareB = mA / (mA + mB);
     const both = A.local && B.local;
-    const push = both ? pen / 2 : pen * 0.6;
-    if (A.local) { A.x += nx * push; A.z += nz * push; }
-    if (B.local) { B.x -= nx * push; B.z -= nz * push; }
+    if (A.local) { const p = pen * (both ? shareA : Math.min(1, shareA * 1.2)); A.x += nx * p; A.z += nz * p; }
+    if (B.local) { const p = pen * (both ? shareB : Math.min(1, shareB * 1.2)); B.x -= nx * p; B.z -= nz * p; }
     const vn = (A.vx - B.vx) * nx + (A.vz - B.vz) * nz;
     if (vn >= 0) continue;
-    const j = -1.5 * vn / 2;
-    if (A.local) { A.vx += nx * j; A.vz += nz * j; }
-    if (B.local) { B.vx -= nx * j; B.vz -= nz * j; }
+    const j = -1.5 * vn / (1 / mA + 1 / mB);
+    if (A.local) { A.vx += nx * j / mA; A.vz += nz * j / mA; }
+    if (B.local) { B.vx -= nx * j / mB; B.vz -= nz * j / mB; }
     const hit = -vn;
     const key = A.id < B.id ? A.id + '|' + B.id : B.id + '|' + A.id;
     if (hit < 5 || (pairCD.get(key) || 0) > t) continue;
     pairCD.set(key, t + 350);
     const base = (hit - 5) * 1.3;
     const aNose = -(afx * nx + afz * nz) > 0.6, bNose = bfx * nx + bfz * nz > 0.6;
-    if (A.local) hurt(A, base * (aNose ? 0.4 : 1), B.id);
-    if (B.local) hurt(B, base * (bNose ? 0.4 : 1), A.id);
+    if (A.local) hurt(A, base * 2 * shareA * (aNose ? 0.4 : 1), B.id);
+    if (B.local) hurt(B, base * 2 * shareB * (bNose ? 0.4 : 1), A.id);
     fx.sparks((A.x + B.x) / 2, (A.y + B.y) / 2 + 0.6, (A.z + B.z) / 2, Math.min(40, hit * 2 | 0), 7);
     if (A === me || B === me) sound.crash(hit);
   }
@@ -703,7 +718,7 @@ function botDrive(c, dt) {
   const steer = clamp(wrap(Math.atan2(p.x - c.x, p.z - c.z) - c.h) * 2.2, -1, 1);
   const bend = Math.abs(wrap(track.headingAt(c.idx + Math.round(Math.max(0, sp) * 1.1 / track.step)) - c.h));
   let throttle = 1, brake = 0;
-  if (bend > 0.55 && sp > 30) { throttle = 0; brake = bend > 0.9 ? 0.6 : 0.2; }
+  if (bend > 0.55 && sp > c.spec.top * 0.55) { throttle = 0; brake = bend > 0.9 ? 0.6 : 0.2; }
   if ((b.think -= dt) <= 0) { b.think = 0.4; botItem(c); }
   return { steer, throttle, brake };
 }
@@ -718,7 +733,7 @@ function botItem(c) {
     case 'mine': go ||= others.some(o => dist(o) < 35 && (o.x - c.x) * Math.sin(c.h) + (o.z - c.z) * Math.cos(c.h) < 0); break;
     case 'shield': go ||= [...missiles.values()].some(m => m.tg === c.id && Math.hypot(m.x - c.x, m.z - c.z) < 60) || c.heldT > 8; break;
     case 'boost': go ||= Math.abs(wrap(track.headingAt(c.idx + 45) - c.h)) < 0.25; break;
-    case 'repair': go ||= c.hp < 60; break;
+    case 'repair': go ||= c.health < 0.6; break;
     case 'wave': go ||= others.some(o => dist(o) < 11); break;
   }
   if (go) useItem(c);
@@ -783,6 +798,10 @@ function simStep(dt) {
     if (c.dead > 0) {
       if ((c.dead -= dt) <= 0) respawn(c);
       continue;
+    }
+    if (go && !c.started) {
+      c.started = true;
+      if (c.spec.startItem && !c.item) c.item = c.spec.startItem;
     }
     const inp = !go ? IDLE : c.bot || (DEV && c === me && dev.auto) ? botDrive(c, dt) : playerInput();
     const lap = c.lap;
@@ -857,11 +876,11 @@ function updateCamera(dt) {
       camState.y += (t.y + t.yOff * 0.5 - camState.y) * k;
       camState.x = t.x; camState.z = t.z;
     }
-    const sp = Math.min(1, Math.abs(t.fwd) / TOP);
-    const back = 8.4 + sp * 1.4, up = 3.3;
+    const sp = Math.min(1, Math.abs(t.fwd) / REF_TOP);
+    const back = t.spec.cam.back + sp * 1.4, up = t.spec.cam.up;
     const fx_ = Math.sin(camState.h), fz = Math.cos(camState.h);
     camera.position.set(camState.x - fx_ * back, camState.y + up, camState.z - fz * back);
-    camera.lookAt(camState.x + fx_ * 6, camState.y + 1.3, camState.z + fz * 6);
+    camera.lookAt(camState.x + fx_ * 6, camState.y + 0.5 + t.spec.h * 0.5, camState.z + fz * 6);
     // Portrait screens get a taller view so the road ahead isn't cropped.
     const base = camera.aspect < 1 ? Math.min(92, 66 + (1 - camera.aspect) * 48) : 66;
     const fov = base + sp * 9 + (t.boost > 0 ? 7 : 0);
@@ -889,11 +908,14 @@ function frame(dt) {
     if (!c.local && c.net) smoothRemote(c, dt);
     syncMesh(c, track, dt, ts);
     if (c.dead > 0) continue;
+    // Name tags right next to the camera would cover the screen.
+    if (c.label) c.label.visible = camera.position.distanceToSquared(c.mesh.position) > 18 * 18;
     const fx_ = Math.sin(c.h), fz = Math.cos(c.h);
-    if (c.hp < 55 && Math.random() < dt * (c.hp < 30 ? 35 : 14)) fx.smoke(c.x + fx_ * 1.6, c.y + c.yOff + 1.1, c.z + fz * 1.6, c.hp < 30 ? 0.9 : 0.4);
-    if (c.hp < 28 && Math.random() < dt * 30) fx.fire(c.x + fx_ * 1.5, c.y + c.yOff + 1.1, c.z + fz * 1.5);
+    const hl = c.health, front = c.spec.l * 0.35, top = c.spec.h * 0.65, rear = c.spec.l / 2 + 0.1;
+    if (hl < 0.55 && Math.random() < dt * (hl < 0.3 ? 35 : 14)) fx.smoke(c.x + fx_ * front, c.y + c.yOff + top, c.z + fz * front, hl < 0.3 ? 0.9 : 0.4);
+    if (hl < 0.28 && Math.random() < dt * 30) fx.fire(c.x + fx_ * front, c.y + c.yOff + top, c.z + fz * front);
     if (c.boost > 0) for (const s of [-0.6, 0.6]) {
-      fx.emit(c.x - fx_ * 2.3 + fz * s, c.y + c.yOff + 0.55, c.z - fz * 2.3 - fx_ * s, c.vx * 0.5 - fx_ * 6, 0.5, c.vz * 0.5 - fz * 6,
+      fx.emit(c.x - fx_ * rear + fz * s, c.y + c.yOff + 0.55, c.z - fz * rear - fx_ * s, c.vx * 0.5 - fx_ * 6, 0.5, c.vz * 0.5 - fz * 6,
         { life: 0.22, size: 0.7, grow: -1.5, color: [0.5, 0.75, 1], alpha: 0.9 });
     }
   }
@@ -925,7 +947,8 @@ function frame(dt) {
   updateCamera(dt);
   updateHud();
   const driving = me && me.dead <= 0 && (G.p === 'race' || G.p === 'res');
-  sound.engine(driving ? Math.min(1.3, Math.abs(me.fwd) / TOP) : 0, driving, me?.boost > 0);
+  sound.engine(driving ? Math.abs(me.fwd) / me.spec.top : 0, driving, me?.boost > 0,
+    me ? clamp(1.15 - 0.15 * me.spec.mass, 0.65, 1.1) : 1);
 }
 
 // ---------- HUD ----------
@@ -997,9 +1020,9 @@ function updateHud() {
   setText('posOf', `of ${order.length}`);
   setText('lap', me.fin != null ? 'FINISHED' : `LAP ${clamp(me.lap + 1, 1, G.laps)}/${G.laps}`);
   setText('time', fmtTime(Math.max(0, me.fin ?? raceTime())));
-  const hp = Math.max(0, Math.round(me.hp));
-  $('hpFill').style.width = hp + '%';
-  $('hpFill').className = hp < 30 ? 'low' : hp < 60 ? 'mid' : '';
+  const hp = Math.max(0, Math.round(me.hp)), hl = Math.max(0, me.health);
+  $('hpFill').style.width = hl * 100 + '%';
+  $('hpFill').className = hl < 0.3 ? 'low' : hl < 0.6 ? 'mid' : '';
   setText('hpText', me.dead > 0 ? 'WRECKED' : String(hp));
   setText('speed', `${Math.round(Math.abs(me.fwd) * 3.6)}<small> km/h</small>`);
   const icons = Object.values(ITEMS).map(i => i.icon);
@@ -1011,13 +1034,76 @@ function updateHud() {
 // ---------- Screens ----------
 let myColor = store.get('crash-color');
 if (!COLORS.includes(myColor)) myColor = pick(COLORS.slice(0, 8));
+let myVehicle = cleanVehicle(store.get('crash-vehicle'));
+if (DEV && params.get('veh')) myVehicle = cleanVehicle(params.get('veh'));   // ?dev&veh=bus
 function renderSwatches() {
   $('swatches').replaceChildren(...COLORS.map(c => el('button', {
     className: c === myColor ? 'on' : '', style: `background:${c}`, ariaLabel: `Color ${c}`,
-    onclick: () => { myColor = c; store.set('crash-color', c); renderSwatches(); },
+    onclick: () => { myColor = c; store.set('crash-color', c); renderSwatches(); renderThumbs(); rideChanged(); },
   })));
 }
 renderSwatches();
+
+// ---------- Garage ----------
+// Thumbnails are rendered once per color with a small separate renderer.
+let thumbs = {};
+function renderThumbs() {
+  try {
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setPixelRatio(1);
+    r.setSize(160, 110);
+    r.toneMapping = THREE.ACESFilmicToneMapping;
+    const s = new THREE.Scene();
+    s.add(new THREE.HemisphereLight(0xffffff, 0x556070, 2.2));
+    const d = new THREE.DirectionalLight(0xffffff, 2.2);
+    d.position.set(4, 8, 6);
+    s.add(d);
+    const cam = new THREE.PerspectiveCamera(30, 160 / 110, 0.1, 200);
+    for (const id of VEHICLE_IDS) {
+      const m = makeVehicleMesh(id, myColor);
+      s.add(m);
+      const bb = new THREE.Box3().setFromObject(m), mid = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+      const size = Math.max(sz.z, sz.x * 1.6, sz.y * 1.9);
+      cam.position.set(mid.x + size * 0.95, mid.y + size * 0.6, mid.z + size * 1.2);
+      cam.lookAt(mid);
+      r.render(s, cam);
+      thumbs[id] = r.domElement.toDataURL();
+      s.remove(m);
+    }
+    r.dispose();
+    r.forceContextLoss();
+  } catch (e) { console.warn('thumbnails', e); }
+  renderGarage();
+}
+const STATS = [
+  ['Speed', v => v.top, 40, 62],
+  ['Accel', v => v.accel, 16, 38],
+  ['Handling', v => v.turn * (0.6 + 0.4 * Math.min(1, v.grip / 8)), 1.4, 3.3],
+  ['Toughness', v => v.hp / v.armor, 55, 320],
+  ['Weight', v => v.mass, 0.5, 3.4],
+];
+function renderGarage() {
+  $('vehGrid').replaceChildren(...VEHICLE_IDS.map(id => el('button', {
+    className: id === myVehicle ? 'on' : '', title: VEHICLES[id].name,
+    onclick: () => { myVehicle = id; store.set('crash-vehicle', id); renderGarage(); rideChanged(); },
+  }, thumbs[id] ? el('img', { src: thumbs[id], alt: '' }) : '', el('span', { textContent: VEHICLES[id].name }))));
+  const v = VEHICLES[myVehicle];
+  $('vehName').textContent = v.name;
+  $('vehPerk').textContent = v.perk;
+  $('vehStats').replaceChildren(...STATS.map(([label, f, lo, hi]) => el('div', { className: 'stat' },
+    el('span', { textContent: label }),
+    el('i', {}, el('b', { style: `width:${Math.round(8 + 92 * clamp((f(v) - lo) / (hi - lo), 0, 1))}%` })))));
+}
+// Changing your ride in the waiting room tells everyone, so the next race uses it.
+function rideChanged() {
+  const p = peers.get(selfId);
+  if (!p) return;
+  p.v = myVehicle;
+  p.c = myColor;
+  send('hello', hello());
+  renderUI();
+}
+renderThumbs();
 $('nameInput').value = store.get('crash-name') || '';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -1102,12 +1188,16 @@ function renderUI() {
   $('hpFill').parentElement.parentElement.classList.toggle('hidden', !me);
   $('itemSlot').classList.toggle('hidden', !me);
 
+  // The color and vehicle picker lives in whichever screen is showing.
+  const rideHome = p === 'lobby' ? $('lobbyRide') : $('menuRide');
+  if ($('ride').parentElement !== rideHome) rideHome.append($('ride'));
+
   const host = peers.get(hostId);
   const list = [...peers].sort((a, b) => a[1].t - b[1].t);
   $('players').replaceChildren(...list.map(([id, pl], i) => el('li', {},
     el('span', { className: 'dot', style: `background:${pl.c}` }),
     el('span', { textContent: pl.n + (id === selfId ? ' (you)' : '') }),
-    el('small', { textContent: id === hostId ? 'host' : i >= MAX_CARS ? 'watching' : '' }))));
+    el('small', { textContent: [VEHICLES[pl.v]?.name, id === hostId ? 'host' : i >= MAX_CARS ? 'watching' : ''].filter(Boolean).join(' · ') }))));
   $('hostControls').classList.toggle('hidden', !isHost());
   $('botsVal').textContent = G.bots;
   $('lapsVal').textContent = G.laps;
@@ -1118,7 +1208,7 @@ function renderUI() {
   if (p === 'res' && G.res) {
     $('resBody').replaceChildren(...G.res.map((r, i) => el('tr', { className: r.id === selfId ? 'me' : '' },
       el('td', { textContent: r.left ? '–' : `${i + 1}` }),
-      el('td', {}, el('span', { className: 'dot', style: `background:${cleanColor(r.c)}` }), `${cleanText(r.n, 16)}${r.bot ? ' 🤖' : ''}`),
+      el('td', {}, el('span', { className: 'dot', style: `background:${cleanColor(r.c)}` }), `${cleanText(r.n, 16)}${r.bot ? ' 🤖' : ''}`, el('small', { className: 'veh', textContent: VEHICLES[r.v]?.name ?? '' })),
       el('td', { textContent: r.left ? 'Left' : r.fin != null ? fmtTime(num(r.fin)) : 'DNF' }),
       el('td', { textContent: String(num(r.kos)) }))));
     $('resHost').classList.toggle('hidden', !isHost());
@@ -1151,7 +1241,8 @@ renderUI();
 $('loading').remove();
 
 if (DEV) {
-  window.cc = { dev, get G() { return G; }, cars, get me() { return me; }, track, hostStart, missiles, mines, boxes, useItem, ranking, camera, renderer, scene };
+  window.cc = { dev, VEHICLES, Car, botDrive, get G() { return G; }, cars, get me() { return me; }, track, hostStart, missiles, mines, boxes, useItem, ranking, camera, renderer, scene };
+  if (params.get('bots')) G.bots = clamp(Number(params.get('bots')) | 0, 0, MAX_CARS - 1);
   if (params.has('solo')) {
     $('nameInput').value ||= 'Tester';
     enter(getName(), params.has('offline') ? 'TEST' : newCode()).then(() => setTimeout(hostStart, 300));

@@ -138,12 +138,13 @@ export class Sound {
       this.noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      // Engine: two detuned saws through a lowpass.
+      // Engine: a soft low hum (triangle plus a sine an octave down) through a gentle lowpass.
+      // Kept quiet and narrow in pitch on purpose; it plays the whole race.
       this.eng = ctx.createGain(); this.eng.gain.value = 0;
-      this.engF = ctx.createBiquadFilter(); this.engF.type = 'lowpass'; this.engF.frequency.value = 600;
-      this.oscs = [0, 7].map(det => {
-        const o = ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = det; o.frequency.value = 50;
-        o.connect(this.engF); o.start(); return o;
+      this.engF = ctx.createBiquadFilter(); this.engF.type = 'lowpass'; this.engF.frequency.value = 300; this.engF.Q.value = 0.5;
+      this.oscs = [['triangle', 1], ['sine', 0.5]].map(([type, mul]) => {
+        const o = ctx.createOscillator(); o.type = type; o.frequency.value = 50;
+        o.connect(this.engF); o.start(); return { o, mul };
       });
       this.engF.connect(this.eng).connect(this.master);
     } catch { this.ctx = null; }
@@ -153,13 +154,14 @@ export class Sound {
     try { localStorage.setItem('crash-muted', m ? '1' : '0'); } catch { }
     if (this.master) this.master.gain.value = m ? 0 : 0.6;
   }
-  engine(speedFrac, on, boost) {
+  // pitch scales the whole range: heavy vehicles hum lower, light ones higher.
+  engine(speedFrac, on, boost, pitch = 1) {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    const f = 45 + speedFrac * 120 + (boost ? 25 : 0);
-    for (const o of this.oscs) o.frequency.setTargetAtTime(f, t, 0.08);
-    this.engF.frequency.setTargetAtTime(400 + speedFrac * 1400, t, 0.1);
-    this.eng.gain.setTargetAtTime(on ? 0.05 + speedFrac * 0.06 : 0, t, 0.15);
+    const t = this.ctx.currentTime, s = Math.min(1, speedFrac);
+    const f = (55 + s * 55 + (boost ? 12 : 0)) * pitch;
+    for (const { o, mul } of this.oscs) o.frequency.setTargetAtTime(f * mul, t, 0.25);
+    this.engF.frequency.setTargetAtTime(220 + s * 380, t, 0.3);
+    this.eng.gain.setTargetAtTime(on ? 0.035 + s * 0.035 : 0, t, 0.3);
   }
   noise(dur, freq, vol, type = 'lowpass', sweep = 0) {
     if (!this.ctx) return;

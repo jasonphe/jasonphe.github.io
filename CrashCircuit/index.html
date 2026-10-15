@@ -58,9 +58,17 @@
   <div id="menu" class="screen">
     <div class="panel">
       <h1>Crash<span>Circuit</span></h1>
-      <p class="tag">Combat racing for 1 to 8 players. Grab item boxes, wreck your friends, cross the line first.</p>
+      <p class="tag">Combat racing for 1 to 8 players. Pick a ride, grab item boxes, wreck your friends, cross the line first.</p>
       <label class="field">Your name <input id="nameInput" maxlength="16" autocomplete="off" placeholder="Speedy"></label>
-      <div class="field">Car color <div id="swatches"></div></div>
+      <div id="menuRide">
+        <div id="ride">
+          <div class="field">Paint <div id="swatches"></div></div>
+          <div class="field">Vehicle
+            <div id="vehGrid"></div>
+            <div id="vehInfo"><b id="vehName"></b><p id="vehPerk"></p><div id="vehStats"></div></div>
+          </div>
+        </div>
+      </div>
       <div id="joinExisting" class="hidden">
         <button id="joinBtn" class="btn big">Join room</button>
         <button id="newInstead" class="link">Start a new room instead</button>
@@ -92,6 +100,8 @@
         <button id="startBtn" class="btn big">Start race</button>
       </div>
       <p id="waitMsg" class="muted"></p>
+      <h3 class="ride-title">Your ride</h3>
+      <div id="lobbyRide"></div>
     </div>
   </div>
 

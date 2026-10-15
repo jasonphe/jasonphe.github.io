@@ -41,7 +41,7 @@ button { cursor: pointer; }
   z-index: 10;
 }
 .panel {
-  width: min(440px, 100%);
+  width: min(520px, 100%);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -209,3 +209,25 @@ body.touch #itemKey { display: none; }
   #speed { font-size: 26px; }
   body.racing .corner { top: 128px; }
 }
+
+/* ---------- Garage ---------- */
+#vehGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#vehGrid button {
+  display: grid; justify-items: center; gap: 0;
+  padding: 2px 2px 5px; border-radius: 10px;
+  border: 2px solid transparent; background: rgba(255, 255, 255, .06);
+  font-size: 11px; font-weight: 600; color: var(--muted); line-height: 1.15;
+}
+#vehGrid button:hover { background: rgba(255, 255, 255, .12); }
+#vehGrid button.on { border-color: var(--accent); background: rgba(255, 212, 59, .14); color: var(--ink); }
+#vehGrid img { width: 100%; aspect-ratio: 160 / 110; display: block; }
+#vehInfo { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, .06); color: var(--ink); }
+#vehName { font-family: "Russo One", sans-serif; font-weight: 400; font-size: 18px; color: var(--accent); }
+#vehPerk { margin: 2px 0 8px; font-size: 13px; font-weight: 400; color: var(--muted); }
+#vehStats { display: grid; gap: 4px; }
+.stat { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.stat i { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.stat b { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #ff922b, #ffd43b); }
+.ride-title { font-family: "Russo One", sans-serif; font-weight: 400; margin: 18px 0 8px; }
+td .veh { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 20px; }
+@media (max-width: 420px) { #vehGrid { grid-template-columns: repeat(3, 1fr); } }
