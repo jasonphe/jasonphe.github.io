@@ -107,6 +107,66 @@ function colorSwatches(sw, initial, onPick) {
   input.onclick = () => { if (custom.classList.contains('picked')) use(); };
   sw.append(custom, button('#ffffff'));
 }
+// A paint bucket for the fill tool.
+const BUCKET_SVG = `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 11.5 11.5 5l7 7-6.5 6.5a1.5 1.5 0 0 1-2.1 0l-4.9-4.9a1.5 1.5 0 0 1 0-2.1Z" fill="#fff" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M5.5 12.5h12.5l-5.5 5.5a1.5 1.5 0 0 1-2.1 0Z" fill="#1c7ed6"/><path d="M9 7.5 6.5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20.5 15.5s-1.5 2-1.5 3a1.5 1.5 0 0 0 3 0c0-1-1.5-3-1.5-3Z" fill="#1c7ed6"/></svg>`;
+// The brush size buttons plus the fill bucket. onPick gets a size, or 'fill' for the bucket.
+function brushButtons(sz, sizes, initial, onPick) {
+  const select = b => sz.querySelectorAll('.size').forEach(x => x.classList.toggle('on', x === b));
+  sizes.forEach((s, i) => {
+    const b = el('button', { type: 'button', className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
+    const dot = el('i');
+    dot.style.width = dot.style.height = `${[4, 8, 14, 22][i]}px`;
+    b.append(dot);
+    b.onclick = () => { onPick(s); select(b); };
+    if (s === initial) b.classList.add('on');
+    sz.append(b);
+  });
+  const fill = el('button', { type: 'button', className: 'size fill', title: 'Fill', ariaLabel: 'Fill' });
+  fill.innerHTML = BUCKET_SVG;
+  fill.onclick = () => { onPick('fill'); select(fill); };
+  sz.append(fill);
+}
+// Flood fills the area around (x, y), given as 0-1 fractions of the canvas, with a #rrggbb color.
+// Close colors count as the same area so antialiased edges fill in, and the fill spreads one
+// extra pixel to cover the soft rim along lines.
+function floodFill(g, fx, fy, hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return;
+  const W = g.canvas.width, Hh = g.canvas.height;
+  const x0 = Math.min(W - 1, Math.max(0, Math.floor(fx * W)));
+  const y0 = Math.min(Hh - 1, Math.max(0, Math.floor(fy * Hh)));
+  const img = g.getImageData(0, 0, W, Hh);
+  const px = new Uint32Array(img.data.buffer);
+  const n = parseInt(m[1], 16);
+  // Canvas pixels are RGBA bytes, which read as ABGR on little-endian machines.
+  const fill = new Uint32Array(new Uint8Array([n >> 16, (n >> 8) & 255, n & 255, 255]).buffer)[0];
+  const t = px[y0 * W + x0];
+  const tr = t & 255, tg = (t >> 8) & 255, tb = (t >> 16) & 255;
+  const near = c => Math.abs((c & 255) - tr) + Math.abs(((c >> 8) & 255) - tg) + Math.abs(((c >> 16) & 255) - tb) <= 96;
+  if (near(fill)) return;
+  const hit = new Uint8Array(W * Hh);
+  const stack = [x0, y0];
+  while (stack.length) {
+    const y = stack.pop(), x = stack.pop();
+    let l = x, r = x;
+    const row = y * W;
+    if (hit[row + x] || !near(px[row + x])) continue;
+    while (l > 0 && !hit[row + l - 1] && near(px[row + l - 1])) l--;
+    while (r < W - 1 && !hit[row + r + 1] && near(px[row + r + 1])) r++;
+    for (let i = l; i <= r; i++) {
+      hit[row + i] = 1;
+      if (y > 0 && !hit[row - W + i] && near(px[row - W + i])) stack.push(i, y - 1);
+      if (y < Hh - 1 && !hit[row + W + i] && near(px[row + W + i])) stack.push(i, y + 1);
+    }
+  }
+  for (let y = 0; y < Hh; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (hit[i] || (x > 0 && hit[i - 1]) || (x < W - 1 && hit[i + 1]) || (y > 0 && hit[i - W]) || (y < Hh - 1 && hit[i + W])) px[i] = fill;
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
 function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -168,6 +228,7 @@ function paintAvatar(c, list) {
   g.lineCap = g.lineJoin = 'round';
   for (const s of list) {
     const p = s.p;
+    if (s.f) { floodFill(g, p[0], p[1], s.c); continue; }
     g.strokeStyle = g.fillStyle = s.c;
     g.lineWidth = s.w * W;
     g.beginPath();
@@ -218,6 +279,11 @@ function setupAvatarPad() {
     return [f((e.clientX - r.left) / r.width), f((e.clientY - r.top) / r.height)];
   };
   c.addEventListener('pointerdown', e => {
+    if (pad.size === 'fill') {
+      pad.strokes.push({ c: pad.color, f: 1, p: pos(e) });
+      redrawPad();
+      return;
+    }
     c.setPointerCapture(e.pointerId);
     pad.cur = { c: pad.color, w: pad.size, p: pos(e) };
     pad.strokes.push(pad.cur);
@@ -233,16 +299,7 @@ function setupAvatarPad() {
   c.addEventListener('pointercancel', end);
 
   colorSwatches($('avatarSwatches'), pad.color, c => { pad.color = c; });
-  const sz = $('avatarSizes');
-  AVATAR_SIZES.forEach((s, i) => {
-    const b = el('button', { type: 'button', className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
-    const dot = el('i');
-    dot.style.width = dot.style.height = `${[4, 8, 14, 22][i]}px`;
-    b.append(dot);
-    b.onclick = () => { pad.size = s; sz.querySelectorAll('.size').forEach(x => x.classList.toggle('on', x === b)); };
-    if (s === pad.size) b.classList.add('on');
-    sz.append(b);
-  });
+  brushButtons($('avatarSizes'), AVATAR_SIZES, pad.size, s => { pad.size = s; c.classList.toggle('filling', s === 'fill'); });
   $('avatarUndo').onclick = () => { pad.strokes.pop(); redrawPad(); };
   $('avatarClear').onclick = () => { pad.strokes = []; redrawPad(); };
   $('avatarDialog').addEventListener('close', () => {
@@ -423,7 +480,7 @@ const handlers = {
   dr(d, from) {
     if (from !== pub.drawer || !d || !Array.isArray(d.p)) return;
     let s = strokes.find(s => s.i === d.i);
-    if (!s) { s = { i: d.i, c: d.c, w: d.w, p: [] }; strokes.push(s); }
+    if (!s) { s = { i: d.i, c: d.c, w: d.w, f: d.f ? 1 : 0, p: [] }; strokes.push(s); }
     const startIdx = s.p.length;
     s.p.push(...d.p);
     drawStroke(s, startIdx);
@@ -680,6 +737,13 @@ function setupCanvas() {
   };
   canvas.addEventListener('pointerdown', e => {
     if (!iAmDrawer()) return;
+    if (size === 'fill') {
+      const s = { i: `${selfId}:${strokeN++}`, c: color, f: 1, p: pos(e) };
+      strokes.push(s);
+      send('dr', s);
+      drawStroke(s, 0);
+      return;
+    }
     canvas.setPointerCapture(e.pointerId);
     current = { i: `${selfId}:${strokeN++}`, c: color, w: size, p: pos(e) };
     strokes.push(current);
@@ -715,6 +779,7 @@ function flush() {
 function drawStroke(s, from) {
   const W = canvas.width, Hh = canvas.height, p = s.p;
   if (p.length < 2) return;
+  if (s.f) return floodFill(ctx, p[0], p[1], s.c);
   ctx.strokeStyle = ctx.fillStyle = s.c;
   ctx.lineWidth = s.w * W;
   ctx.lineCap = ctx.lineJoin = 'round';
@@ -740,16 +805,7 @@ function redraw() {
 
 function setupTools() {
   colorSwatches($('swatches'), color, c => { color = c; });
-  const sz = $('sizes');
-  SIZES.forEach((s, i) => {
-    const b = el('button', { className: 'size', title: ['Thin', 'Medium', 'Thick', 'Huge'][i] });
-    const dot = el('i');
-    dot.style.width = dot.style.height = `${[4, 8, 14, 22][i]}px`;
-    b.append(dot);
-    b.onclick = () => { size = s; sz.querySelectorAll('.size').forEach(x => x.classList.toggle('on', x === b)); };
-    if (s === size) b.classList.add('on');
-    sz.append(b);
-  });
+  brushButtons($('sizes'), SIZES, size, s => { size = s; canvas.classList.toggle('filling', s === 'fill'); });
   $('undoBtn').onclick = () => {
     if (!iAmDrawer()) return;
     const mine = strokes.filter(s => s.i.startsWith(selfId + ':'));

@@ -374,6 +374,8 @@ button { cursor: pointer; }
 }
 .size.on { border-color: var(--accent); }
 .size i { display: block; border-radius: 50%; background: var(--ink); }
+.size.fill { color: var(--ink); }
+.board canvas.can-draw.filling, #avatarPad.filling { cursor: cell; }
 
 .side { min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .players {
