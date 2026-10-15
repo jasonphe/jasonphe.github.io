@@ -20,13 +20,23 @@ const clampDraw = v => DRAW_TIMES.includes(Number(v)) ? Number(v) : DEFAULT_DRAW
 const REVEAL_MS = 6000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
-// Default words live in words.txt (one per line) so they're easy to edit.
-let defaultWords = [];
+// The host picks a word category. Each one's words live in words/<id>.txt (one per line)
+// so they're easy to edit. Every page loads them all, in case it becomes the host.
+const CATEGORIES = [
+  { id: 'everyday', name: 'Everyday things' },
+  { id: 'lol', name: 'League of Legends' },
+];
+const DEFAULT_CATEGORY = CATEGORIES[0].id;
+const clampCategory = v => CATEGORIES.some(c => c.id === v) ? v : DEFAULT_CATEGORY;
+const categoryName = id => CATEGORIES.find(c => c.id === id)?.name ?? '';
+const wordLists = {};
 const FALLBACK_WORDS = ['apple', 'cat', 'house', 'sun', 'tree', 'car', 'fish', 'star', 'boat'];
-fetch('words.txt')
-  .then(r => r.ok ? r.text() : Promise.reject(r.status))
-  .then(t => { defaultWords = parseWords(t); })
-  .catch(e => console.warn('Could not load words.txt', e));
+for (const { id } of CATEGORIES) {
+  fetch(`words/${id}.txt`)
+    .then(r => r.ok ? r.text() : Promise.reject(r.status))
+    .then(t => { wordLists[id] = parseWords(t); })
+    .catch(e => console.warn(`Could not load words/${id}.txt`, e));
+}
 
 const COLORS = ['#1f1f1f', '#e03131', '#f76707', '#fcc419', '#2f9e44', '#1c7ed6', '#7048e8', '#8b5a2b'];
 const SIZES = [0.006, 0.014, 0.03, 0.06];
@@ -344,7 +354,7 @@ let room, act = {};
 let roomCode;
 const peers = new Map();          // id -> { name, t, a } (includes me; a is the avatar image)
 let hostId = selfId;
-let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, penalty: 0, drawTime: DEFAULT_DRAW, opensIn: 0 };
+let pub = { phase: 'lobby', players: [], drawer: null, hint: '', len: 0, endsIn: 0, round: 0, rounds: 3, queue: [], word: null, gains: null, custom: null, hints: true, delay: 0, penalty: 0, drawTime: DEFAULT_DRAW, opensIn: 0, category: DEFAULT_CATEGORY };
 let guessOpen = 0;                // local clock time guessers can start guessing
 let deadline = 0;                 // local clock time the current phase ends
 let secret = {};                  // { choices } or { word } sent only to the drawer
@@ -585,7 +595,7 @@ function takeOverAsHost() {
   }
 }
 
-function startGame({ rounds, words, only, hints, delay, penalty, drawTime }) {
+function startGame({ rounds, words, only, hints, delay, penalty, drawTime, category }) {
   rounds = Math.min(5, Math.max(1, Number(rounds) || 3));
   H.custom = parseWords(words || '');
   H.only = !!only && H.custom.length >= 3;
@@ -595,6 +605,7 @@ function startGame({ rounds, words, only, hints, delay, penalty, drawTime }) {
   pub.delay = clampDelay(delay);
   pub.penalty = clampPenalty(penalty);
   pub.drawTime = clampDraw(drawTime);
+  pub.category = clampCategory(category);
   H.scores = {};
   pub.rounds = rounds;
   pub.round = 1;
@@ -643,16 +654,17 @@ function sendSecret(d) {
   else send('sec', d, pub.drawer);
 }
 
-// Picks 3 words for the drawer. Custom words get one slot each turn
-// (or all three with "only my words"), and nothing repeats until the pool runs out.
+// Picks 3 words for the drawer. Custom words get one slot each turn until each has been
+// offered once (or all three slots with "only my words"), and nothing repeats until the pool runs out.
 function chooseWords() {
-  const defaults = defaultWords.length ? defaultWords : FALLBACK_WORDS;
-  const fresh = list => { const f = list.filter(w => !H.used.has(norm(w))); return f.length ? f : list; };
+  const defaults = wordLists[pub.category]?.length ? wordLists[pub.category] : FALLBACK_WORDS;
+  const unused = list => list.filter(w => !H.used.has(norm(w)));
+  const fresh = list => { const f = unused(list); return f.length ? f : list; };
   let picks;
   if (H.only) {
     picks = shuffle(fresh(H.custom)).slice(0, 3);
   } else {
-    const mine = H.custom.length ? shuffle(fresh(H.custom)).slice(0, 1) : [];
+    const mine = shuffle(unused(H.custom)).slice(0, 1);
     const rest = shuffle(fresh(defaults)).filter(w => !mine.some(m => norm(m) === norm(w)));
     picks = shuffle([...mine, ...rest.slice(0, 3 - mine.length)]);
   }
@@ -1044,6 +1056,10 @@ function hostSettings() {
   const savedDraw = clampDraw(store.get('scribble-draw'));
   for (const t of DRAW_TIMES) drawTime.append(el('option', { value: t, textContent: `${t}s`, selected: t === savedDraw }));
 
+  const category = el('select', { id: 'setCategory' });
+  const savedCategory = clampCategory(store.get('scribble-category'));
+  for (const c of CATEGORIES) category.append(el('option', { value: c.id, textContent: c.name, selected: c.id === savedCategory }));
+
   const hints = el('input', { id: 'setHints', type: 'checkbox', checked: store.get('scribble-hints') !== '0' });
   const delay = el('input', {
     id: 'setDelay', type: 'number', min: 0, max: MAX_DELAY, step: 1, inputMode: 'numeric',
@@ -1067,6 +1083,7 @@ function hostSettings() {
   const box = el('details', { className: 'settings' },
     el('summary', {}, '⚙️ Settings', summary),
     settingRow(rounds, 'Rounds'),
+    settingRow(category, 'Words', 'Which built-in word list the artist picks from.'),
     settingRow(drawTime, 'Drawing time', 'How long the artist has to draw each word.'),
     settingRow(hints, 'Show letter count & hints', 'Guessers see a blank for each letter, and a couple of letters get revealed as time runs out.'),
     settingRow(delay, 'Guess delay (seconds)', 'Guessers have to wait this long before guessing, which gives the artist a head start. The delay is added on top of the normal drawing time.'),
@@ -1085,6 +1102,7 @@ function hostSettings() {
     const d = clampDelay(delay.value);
     const notes = [
       rounds.value !== '3' && `${rounds.value} round${rounds.value > 1 ? 's' : ''}`,
+      category.value !== DEFAULT_CATEGORY && categoryName(category.value),
       drawTime.value !== String(DEFAULT_DRAW) && `${drawTime.value}s turns`,
       !hints.checked && 'no hints',
       d && `${d}s delay`,
@@ -1094,6 +1112,7 @@ function hostSettings() {
     summary.textContent = notes.length ? ` · ${notes.join(' · ')}` : '';
   };
   rounds.onchange = () => { store.set('scribble-rounds', rounds.value); update(); };
+  category.onchange = () => { store.set('scribble-category', category.value); update(); };
   drawTime.onchange = () => { store.set('scribble-draw', drawTime.value); update(); };
   hints.onchange = () => { store.set('scribble-hints', hints.checked ? '1' : '0'); update(); };
   delay.oninput = () => { store.set('scribble-delay', clampDelay(delay.value)); update(); };
@@ -1103,7 +1122,7 @@ function hostSettings() {
   words.oninput = () => { store.set('scribble-words', words.value); update(); };
   only.onchange = () => { store.set('scribble-only', only.checked ? '1' : '0'); update(); };
   update();
-  settings = { rounds, drawTime, hints, delay, penalty, words, only, box };
+  settings = { rounds, category, drawTime, hints, delay, penalty, words, only, box };
   return settings;
 }
 
@@ -1112,6 +1131,7 @@ function hostControls(label) {
   if (!isHost()) {
     wrap.append(el('p', { textContent: `Waiting for ${nameOf(hostId)} to start…` }));
     const notes = [
+      pub.category && pub.category !== DEFAULT_CATEGORY && !pub.custom?.only && `Words: ${categoryName(pub.category)}.`,
       pub.drawTime !== DEFAULT_DRAW && `Artists get ${pub.drawTime}s to draw.`,
       pub.hints === false && 'Letter count and hints are off.',
       pub.penalty > 0 && `Wrong guesses cost ${pub.penalty} point${pub.penalty > 1 ? 's' : ''}.`,
@@ -1121,11 +1141,12 @@ function hostControls(label) {
     for (const n of notes) wrap.append(el('p', { className: 'fine', textContent: n }));
     return wrap;
   }
-  const { rounds, drawTime, hints, delay, penalty, words, only, box } = hostSettings();
+  const { rounds, category, drawTime, hints, delay, penalty, words, only, box } = hostSettings();
   const row = el('div', { className: 'host-row' });
   const b = el('button', { className: 'btn', textContent: label });
   b.onclick = () => peers.size < 2 ? toast('Need at least 2 players to start') : toHost('go', {
     rounds: rounds.value,
+    category: category.value,
     drawTime: Number(drawTime.value),
     hints: hints.checked,
     delay: clampDelay(delay.value),
