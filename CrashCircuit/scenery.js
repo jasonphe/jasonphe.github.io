@@ -163,16 +163,17 @@ export function windowTex(wall, glass, litColor, seed, litShare = 0.45) {
 }
 
 // Box buildings as two merged meshes (walls and roofs), so a whole city is two draw calls
-// per style. Each building: { x, z, w, d, h }. Walls are UV'd so windows keep their size.
+// per style. Each building: { x, z, w, d, h, y (base height) }. Walls run a few meters below
+// the base so buildings on slopes don't float. Walls are UV'd so windows keep their size.
 export function buildingMeshes(list, wallMat, roofMat) {
   const pos = [], nor = [], uv = [], rpos = [], rnor = [], ruv = [];
   const BAY = 12, FLOORS = 13;   // texture spans 4 bays of 3 m and 4 floors of 3.25 m
   for (const b of list) {
-    const { x, z, w, d, h } = b, hw = w / 2, hd = d / 2, uo = b.uo ?? 0;
+    const { x, z, w, d } = b, hw = w / 2, hd = d / 2, uo = b.uo ?? 0, y0 = (b.y ?? 0) - 4, h = (b.y ?? 0) + b.h;
     const sides = [[[-hw, hd], [hw, hd], [0, 0, 1], w], [[hw, hd], [hw, -hd], [1, 0, 0], d], [[hw, -hd], [-hw, -hd], [0, 0, -1], w], [[-hw, -hd], [-hw, hd], [-1, 0, 0], d]];
     for (const [a, c, n, len] of sides) {
-      const A = [x + a[0], 0, z + a[1]], Bp = [x + c[0], 0, z + c[1]], Cp = [x + c[0], h, z + c[1]], D = [x + a[0], h, z + a[1]];
-      const u1 = uo + len / BAY, v1 = h / FLOORS;
+      const A = [x + a[0], y0, z + a[1]], Bp = [x + c[0], y0, z + c[1]], Cp = [x + c[0], h, z + c[1]], D = [x + a[0], h, z + a[1]];
+      const u1 = uo + len / BAY, v1 = (h - y0) / FLOORS;
       for (const [p, t] of [[A, [uo, 0]], [Bp, [u1, 0]], [Cp, [u1, v1]], [A, [uo, 0]], [Cp, [u1, v1]], [D, [uo, v1]]]) {
         pos.push(...p); nor.push(...n); uv.push(...t);
       }
@@ -204,4 +205,24 @@ export function clouds(r, count, color, area) {
   }
   const m = new THREE.Mesh(merge(geos), new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35, roughness: 1, flatShading: true, fog: false }));
   return m;
+}
+
+// Smooth 2D value noise with octaves (fbm), for rolling terrain. Returns about -1..1.
+export function noise2(seed) {
+  const r = rng(seed), perm = new Uint8Array(512), vals = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { perm[i] = i; vals[i] = r() * 2 - 1; }
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+  const at = (i, j) => vals[perm[(perm[i & 255] + j) & 255]];
+  const vn = (x, z) => {
+    const xi = Math.floor(x), zi = Math.floor(z), fx = x - xi, fz = z - zi;
+    const u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+    const a = at(xi, zi), b = at(xi + 1, zi), c = at(xi, zi + 1), d = at(xi + 1, zi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  return (x, z, octaves = 4) => {
+    let s = 0, amp = 1, f = 1, norm = 0;
+    for (let o = 0; o < octaves; o++) { s += vn(x * f + o * 17.3, z * f - o * 9.1) * amp; norm += amp; amp *= 0.5; f *= 2.03; }
+    return s / norm;
+  };
 }

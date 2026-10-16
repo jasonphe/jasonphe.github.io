@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildTrack, WALL, N } from './track.js';
+import { buildTrack, N, CHECKPOINTS } from './track.js';
 import { MAPS, MAP_IDS, MAP_BY_ID } from './maps.js';
 import { Car, syncMesh, REF_TOP } from './car.js';
 import { VEHICLES, VEHICLE_IDS, makeVehicleMesh } from './vehicles.js';
@@ -108,7 +108,7 @@ let boxes = [];
 const fx = new Particles(scene);
 const weather = new Weather(scene);
 const sound = new Sound();
-const P = { i: 0, lat: 0, y: 0 };
+const P = {}, MQ = {}, SHM = { pen: 0 };   // scratch for ground probes and solid checks
 
 function resize() {
   const w = innerWidth, h = innerHeight;
@@ -166,7 +166,7 @@ function loadMap(id) {
   SUN_OFF.set(...th.sun.dir).normalize().multiplyScalar(160);
   renderer.toneMappingExposure = th.exposure ?? 1;
   boxes = track.boxSpots.map(s => {
-    const p = track.pointAt(s.i, s.lat);
+    const p = track.pointAt(s.i, s.lat, s.path);
     const m = new THREE.Mesh(boxGeo, boxMat);
     m.castShadow = true;
     m.position.set(p.x, p.y + 1.4, p.z);
@@ -352,7 +352,8 @@ const handlers = {
       c.boost = f & 1; c.shield = f & 2 ? 1 : 0; c.ghost = f & 8 ? 1 : 0; c.spin = f & 16 ? 1 : 0;
       c.dead = f & 4 ? 1 : 0;
       c.lap = num(e[9], -1); c.idx = clamp(num(e[10]) | 0, 0, N - 1);
-      c.yOff = num(e[11]); c.steer = num(e[12]);
+      c.vy = num(e[11]); c.steer = num(e[12]); c.next = clamp(num(e[13]) | 0, 0, CHECKPOINTS - 1);
+      c.air = !!(f & 32); c.offroad = !!(f & 64);
     }
   },
   fx(d, from) {
@@ -550,8 +551,7 @@ function dropMine(c) {
 function spawnMine(m) {
   m.t = 0;
   m.mesh = makeMineMesh();
-  track.project(m.x, m.z, -1, P);
-  m.y = P.y;
+  m.y = track.groundAt(m.x, m.z);
   m.mesh.position.set(m.x, m.y, m.z);
   scene.add(m.mesh);
   mines.set(m.id, m);
@@ -589,7 +589,7 @@ function waveAt(o, x, y, z) {
     if (c.dead > 0) continue;
     const k = 26 * f / c.spec.mass;
     c.vx += dx / (d || 1) * k; c.vz += dz / (d || 1) * k;
-    c.vy = 7 * f / Math.sqrt(c.spec.mass); c.yOff = Math.max(c.yOff, 0.01);
+    c.vy = 7 * f / Math.sqrt(c.spec.mass);
     if (f > 0.4 && !c.spec.spinProof) { c.spin = 0.6; c.spinDir = Math.random() < 0.5 ? -1 : 1; }
   }
 }
@@ -603,20 +603,20 @@ function updateMissiles(dt) {
       const turn = (3.5 + 40 / Math.max(5, Math.hypot(T.x - m.x, T.z - m.z))) * dt;
       m.h += clamp(wrap(Math.atan2(T.x - m.x, T.z - m.z) - m.h), -turn, turn);
     }
-    else m.h += clamp(wrap(track.headingAt(m.idx + 10) - m.h), -1.4 * dt, 1.4 * dt); // follow the road
+    else if (track.probe(m.x, m.z, MQ).path >= 0 && MQ.dist < 30) {
+      m.h += clamp(wrap(track.headingAt(MQ.i + 10, MQ.path) - m.h), -1.4 * dt, 1.4 * dt);   // follow the road
+    }
     m.x += Math.sin(m.h) * m.sp * dt;
     m.z += Math.cos(m.h) * m.sp * dt;
-    track.project(m.x, m.z, m.idx, P);
-    m.idx = P.i;
-    m.y = P.y + 0.9;
-    if (Math.abs(P.lat) > WALL - 0.2 || m.t > 5) {
+    m.y = track.groundAt(m.x, m.z) + 0.9;
+    if (m.t > 5 || track.solidHit(m.x, m.z, 0.3, m.y, SHM)) {
       explodeAt(m.x, m.y, m.z, 0.5);
       removeProjectile(m.id);
       continue;
     }
     for (const c of cars.values()) {
       if (!c.local || c.id === m.o || c.dead > 0 || c.ghost > 0) continue;
-      if (!c.near(m.x, m.z, 1.3)) continue;
+      if (!c.near(m.x, m.z, 1.3) || Math.abs(c.y + 0.8 - m.y) > 2.5) continue;
       hitBy(c, m.o, 34, Math.sin(m.h) * 10, Math.cos(m.h) * 10, 9);
       send('fx', { k: 'boom', id: m.id, x: r2(m.x), y: r2(m.y), z: r2(m.z) });
       explodeAt(m.x, m.y, m.z, 0.7);
@@ -632,7 +632,7 @@ function updateMines(dt) {
     if (m.t < 0.8) continue;  // arming
     for (const c of cars.values()) {
       if (!c.local || c.dead > 0 || c.ghost > 0 || c.spec.mineProof) continue;
-      if (!c.near(m.x, m.z, 1.0)) continue;
+      if (!c.near(m.x, m.z, 1.0) || c.y > m.y + 1.2) continue;   // jumped over it
       c.vx *= 0.45; c.vz *= 0.45;
       hitBy(c, m.o, 28, 0, 0, 12);
       send('fx', { k: 'boom', id: m.id, x: r2(m.x), y: r2(m.y), z: r2(m.z) });
@@ -655,7 +655,7 @@ function hitBy(c, by, dmg, px, pz, lift) {
   if (c.dead > 0) return;
   const m = c.spec.mass;
   c.vx += px / m; c.vz += pz / m;
-  c.vy = lift / Math.sqrt(m); c.yOff = Math.max(c.yOff, 0.01);
+  c.vy = lift / Math.sqrt(m);
   if (!c.spec.spinProof) { c.spin = 0.9; c.spinDir = Math.random() < 0.5 ? -1 : 1; }
 }
 function hurt(c, dmg, by) {
@@ -671,35 +671,56 @@ function hurt(c, dmg, by) {
   }
   if (c.hp <= 0) wreck(c);
 }
-function wreck(c) {
+function wreck(c, water = false) {
   c.hp = 0;
   c.dead = 2.6;
   c.item = null;
   const by = c.lastHit && now() - c.lastHit.t < 6000 ? c.lastHit.by : null;
-  const d = { k: 'ko', v: c.id, by, x: r2(c.x), y: r2(c.y), z: r2(c.z) };
+  const d = { k: 'ko', v: c.id, by, x: r2(c.x), y: r2(c.y), z: r2(c.z), w: water ? 1 : 0 };
   send('fx', d);
   onKo(d);
 }
 function onKo(d) {
-  explodeAt(d.x, d.y, d.z, 1.3);
+  if (d.w) splashAt(d.x, d.z); else explodeAt(d.x, d.y, d.z, 1.3);
   const v = cars.get(d.v), k = d.by && cars.get(d.by);
   if (v && !v.local) v.dead = 1;
   if (k) k.kos++;
-  feed(k ? [b(k), ' wrecked ', b(v)] : [b(v), ' crashed out']);
-  if (v === me) flashBig('WRECKED', '#ff6b6b');
+  feed(d.w ? (k ? [b(k), ' knocked ', b(v), ' into the sea'] : [b(v), ' went for a swim']) : k ? [b(k), ' wrecked ', b(v)] : [b(v), ' crashed out']);
+  if (v === me) flashBig(d.w ? 'SPLASH' : 'WRECKED', d.w ? '#4dabf7' : '#ff6b6b');
   else if (k === me) sub(`You wrecked ${v?.name ?? 'them'}!`);
 }
-function respawn(c) {
-  c.place(track, c.idx, 0);
-  Object.assign(c, { hp: c.maxHp, dead: 0, ghost: 2.5, spin: 0, boost: 0, steer: 0, lastHit: null });
+function splashAt(x, z) {
+  for (let k = 0; k < 60; k++) {
+    fx.emit(x + (Math.random() - 0.5) * 3, 0.2, z + (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 8, 6 + Math.random() * 10, (Math.random() - 0.5) * 8,
+      { life: 0.9 + Math.random() * 0.5, size: 0.8, grow: 1, color: [0.8, 0.92, 1], alpha: 0.85, grav: 20, drag: 0.5 });
+  }
+  const d = camera.position.distanceTo(new THREE.Vector3(x, 0, z));
+  sound.noise(0.8, 700, 0.4 * clamp(1 - d / 150, 0.05, 1), 'lowpass', 200);
 }
-function onWall(c, v) {
+// Back on the nearest road, facing along it.
+function respawn(c) {
+  if (track.probe(c.x, c.z, MQ).path >= 0) c.place(track, MQ.i, 0, MQ.path);
+  else c.place(track, c.idx, 0);
+  Object.assign(c, { hp: c.maxHp, dead: 0, ghost: 2.5, spin: 0, boost: 0, steer: 0, lastHit: null });
+  if (c.ai) c.ai.route = null;
+}
+// Hit something solid (a tree, a building) at speed v.
+function onBump(c, v) {
   if (v < 4) return;
-  const s = Math.sign((c.x - track.px[c.idx]) * track.nx[c.idx] + (c.z - track.pz[c.idx]) * track.nz[c.idx]);
-  const w = c.spec.w / 2;
-  fx.sparks(c.x + track.nx[c.idx] * s * w, c.y + 0.5, c.z + track.nz[c.idx] * s * w, Math.min(30, v * 1.5 | 0), 6);
+  fx.sparks(c.hitX ?? c.x, c.y + 0.6, c.hitZ ?? c.z, Math.min(30, v * 1.5 | 0), 6);
   if (c === me) sound.crash(v);
   if (v > 9) hurt(c, (v - 9) * 1.0, null);
+}
+// Came down from a jump.
+function onLand(c, v) {
+  if (v < 5) return;
+  const col = track.off.dust;
+  for (let k = 0; k < Math.min(30, v * 1.5); k++) {
+    const a = Math.random() * 6.3;
+    fx.emit(c.x, c.y + 0.3, c.z, Math.cos(a) * 6, 1 + Math.random() * 2, Math.sin(a) * 6, { life: 0.8, size: 1.2, grow: 2.5, color: col, alpha: 0.6, drag: 2 });
+  }
+  if (c === me) { sound.crash(v * 0.4); camState.shake = Math.max(camState.shake, Math.min(0.8, v / 30)); }
+  if (v > 21) hurt(c, (v - 21) * 1.5, null);   // big drops hurt
 }
 
 // Car-on-car bumps. Each page resolves the cars it drives against every other car,
@@ -722,7 +743,7 @@ function collide() {
       if (p > pen) { pen = p; nx = dx / d; nz = dz / d; }
     }
     if (pen <= 0) continue;
-    if (Math.abs(A.yOff - B.yOff) > 1.5) continue;
+    if (Math.abs(A.y - B.y) > 1.8) continue;   // one flew over the other
     const mA = A.spec.mass, mB = B.spec.mass, shareA = mB / (mA + mB), shareB = mA / (mA + mB);
     const both = A.local && B.local;
     if (A.local) { const p = pen * (both ? shareA : Math.min(1, shareA * 1.2)); A.x += nx * p; A.z += nz * p; }
@@ -746,30 +767,68 @@ function collide() {
 }
 
 // ---------- Bots ----------
+// Each bot decides, once per lap, whether it takes each branch.
+function botTakes(c, bi) {
+  const take = c.ai.take ??= {};
+  if (take[bi] === undefined) take[bi] = Math.random() < 0.5;
+  return take[bi];
+}
+// One sample further along this bot's route: through a branch if it chose to take it.
+function stepRoute(c, r) {
+  const paths = track.paths;
+  if (r.p === 0) {
+    const i = (r.i + 1) % N;
+    for (let bi = 1; bi < paths.length; bi++) if (paths[bi].from === i && botTakes(c, bi)) return { p: bi, i: 0 };
+    return { p: 0, i };
+  }
+  return r.i + 1 >= paths[r.p].n - 1 ? { p: 0, i: paths[r.p].to } : { p: r.p, i: r.i + 1 };
+}
+// Keep track of where the bot is along its own route. Near forks the nearest road can be
+// either one, so bots follow their route instead of whichever road happens to be closest.
+function followRoute(c) {
+  const b = c.ai, P2 = track.paths;
+  const d2 = r => (P2[r.p].px[r.i] - c.x) ** 2 + (P2[r.p].pz[r.i] - c.z) ** 2;
+  let r = b.route;
+  if (!r || d2(r) > 45 * 45) r = { p: Math.max(0, c.q.path), i: c.q.i };   // lost it: start from the nearest road
+  for (let k = 0; k < 60; k++) {
+    const nx = stepRoute(c, r);
+    if (d2(nx) < d2(r)) r = nx; else break;
+  }
+  b.route = r;
+}
+// Where `steps` samples ahead lands along the route this bot is taking.
+function routeAhead(c, steps) {
+  let r = c.ai.route ?? { p: Math.max(0, c.q.path), i: c.q.i };
+  for (let k = 0; k < steps; k++) r = stepRoute(c, r);
+  return r;
+}
 function botDrive(c, dt) {
   const b = c.ai || (c.ai = { lane: (Math.random() * 2 - 1) * 5, laneT: 0, stuck: 0, rev: 0, revSteer: 1, think: Math.random() });
   const sp = c.fwd;
   if (b.rev > 0) { b.rev -= dt; return { steer: b.revSteer, throttle: 0, brake: 1 }; }
-  if (sp < 3 && c.spin <= 0) {
+  if (sp < 3 && c.spin <= 0 && !c.air) {
     if ((b.stuck += dt) > 1.2) {
       b.stuck = 0; b.rev = 1.1;
-      track.project(c.x, c.z, c.idx, P);
-      b.revSteer = P.lat > 0 ? -1 : 1;
+      b.revSteer = (c.q.lat ?? 0) > 0 ? -1 : 1;
     }
   } else b.stuck = 0;
+  followRoute(c);
+  // Forget branch choices once well past them, so next lap is a fresh coin flip.
+  if (b.take && b.route.p === 0) for (const bi in b.take) if ((track.paths[bi].from - b.route.i + N) % N > 400) delete b.take[bi];
   if ((b.laneT -= dt) <= 0) { b.lane = (Math.random() * 2 - 1) * 6; b.laneT = 3 + Math.random() * 4; }
   const ahead = Math.round((7 + Math.max(0, sp) * 0.45) / track.step);
+  const at = routeAhead(c, ahead);
   let lane = b.lane;
-  const tp = track.pointAt(c.idx + ahead, lane);
+  const tp = track.pointAt(at.i, lane, at.p);
   for (const m of mines.values()) {
-    if ((m.x - tp.x) ** 2 + (m.z - tp.z) ** 2 < 36) {
-      track.project(m.x, m.z, -1, P);
-      lane = P.lat > lane ? P.lat - 5 : P.lat + 5;
+    if ((m.x - tp.x) ** 2 + (m.z - tp.z) ** 2 < 36 && track.probe(m.x, m.z, MQ).path >= 0) {
+      lane = MQ.lat > lane ? MQ.lat - 5 : MQ.lat + 5;
     }
   }
-  const p = lane === b.lane ? tp : track.pointAt(c.idx + ahead, clamp(lane, -8, 8));
+  const p = lane === b.lane ? tp : track.pointAt(at.i, clamp(lane, -8, 8), at.p);
   const steer = clamp(wrap(Math.atan2(p.x - c.x, p.z - c.z) - c.h) * 2.2, -1, 1);
-  const bend = Math.abs(wrap(track.headingAt(c.idx + Math.round(Math.max(0, sp) * 1.1 / track.step)) - c.h));
+  const far = routeAhead(c, Math.round(Math.max(0, sp) * 1.1 / track.step));
+  const bend = Math.abs(wrap(track.headingAt(far.i, far.p) - c.h));
   let throttle = 1, brake = 0;
   if (bend > 0.55 && sp > c.spec.top * 0.55) { throttle = 0; brake = bend > 0.9 ? 0.6 : 0.2; }
   if ((b.think -= dt) <= 0) { b.think = 0.4; botItem(c); }
@@ -785,7 +844,7 @@ function botItem(c) {
     case 'missile': go ||= !!targetAhead(c, 110); break;
     case 'mine': go ||= others.some(o => dist(o) < 35 && (o.x - c.x) * Math.sin(c.h) + (o.z - c.z) * Math.cos(c.h) < 0); break;
     case 'shield': go ||= [...missiles.values()].some(m => m.tg === c.id && Math.hypot(m.x - c.x, m.z - c.z) < 60) || c.heldT > 8; break;
-    case 'boost': go ||= Math.abs(wrap(track.headingAt(c.idx + 45) - c.h)) < 0.25; break;
+    case 'boost': { const a = routeAhead(c, 45); go ||= !c.offroad && Math.abs(wrap(track.headingAt(a.i, a.p) - c.h)) < 0.25; break; }
     case 'repair': go ||= c.health < 0.6; break;
     case 'wave': go ||= others.some(o => dist(o) < 11); break;
   }
@@ -836,7 +895,7 @@ function playerInput() {
 }
 function resetMe() {
   if (!me || me.dead > 0 || resetCD > 0 || !racing()) return;
-  me.place(track, me.idx, 0);
+  if (track.probe(me.x, me.z, MQ).path >= 0) me.place(track, MQ.i, 0, MQ.path); else me.place(track, me.idx, 0);
   me.ghost = 1.5;
   resetCD = 3;
 }
@@ -858,7 +917,11 @@ function simStep(dt) {
     }
     const inp = !go ? IDLE : c.bot || (DEV && c === me && dev.auto) ? botDrive(c, dt) : playerInput();
     const lap = c.lap;
-    onWall(c, c.step(dt, inp, track));
+    onBump(c, c.step(dt, inp, track));
+    if (c.landed) onLand(c, c.landed);
+    if (c.dead > 0) continue;
+    if (track.waterY != null && c.y < track.waterY - 0.7) { wreck(c, true); continue; }    // in the sea
+    if (c.q.path < 0 || c.q.dist > 160) { respawn(c); continue; }                        // lost in the wilderness
     if (c.lap > lap && G.p === 'race') onLap(c);
     if (go) pickups(c);
   }
@@ -890,8 +953,8 @@ function sendCars() {
   const out = [];
   for (const c of cars.values()) {
     if (!c.local) continue;
-    const f = (c.boost > 0 ? 1 : 0) | (c.shield > 0 ? 2 : 0) | (c.dead > 0 ? 4 : 0) | (c.ghost > 0 ? 8 : 0) | (c.spin > 0 ? 16 : 0);
-    out.push([c.id, r2(c.x), r2(c.y), r2(c.z), r2(c.h), r2(c.vx), r2(c.vz), Math.round(c.hp), f, c.lap, c.idx, r2(c.yOff), r2(c.steer)]);
+    const f = (c.boost > 0 ? 1 : 0) | (c.shield > 0 ? 2 : 0) | (c.dead > 0 ? 4 : 0) | (c.ghost > 0 ? 8 : 0) | (c.spin > 0 ? 16 : 0) | (c.air ? 32 : 0) | (c.offroad ? 64 : 0);
+    out.push([c.id, r2(c.x), r2(c.y), r2(c.z), r2(c.h), r2(c.vx), r2(c.vz), Math.round(c.hp), f, c.lap, c.idx, r2(c.vy), r2(c.steer), c.next]);
   }
   if (out.length) send('car', out);
 }
@@ -927,13 +990,14 @@ function updateCamera(dt) {
     if (camState.snap) Object.assign(camState, { h: t.h, y: t.y, x: t.x, z: t.z, snap: false });
     if (t.dead <= 0) {
       camState.h += wrap(t.h - camState.h) * (t.spin > 0 ? 0.3 * k : k);
-      camState.y += (t.y + t.yOff * 0.5 - camState.y) * k;
+      camState.y += (t.y - camState.y) * (t.air ? 0.6 * k : k);
       camState.x = t.x; camState.z = t.z;
     }
     const sp = Math.min(1, Math.abs(t.fwd) / REF_TOP);
     const back = t.spec.cam.back + sp * 1.4, up = t.spec.cam.up;
     const fx_ = Math.sin(camState.h), fz = Math.cos(camState.h);
     camera.position.set(camState.x - fx_ * back, camState.y + up, camState.z - fz * back);
+    camera.position.y = Math.max(camera.position.y, track.groundAt(camera.position.x, camera.position.z) + 1.5);
     camera.lookAt(camState.x + fx_ * 6, camState.y + 0.5 + t.spec.h * 0.5, camState.z + fz * 6);
     // Portrait screens get a taller view so the road ahead isn't cropped.
     const base = camera.aspect < 1 ? Math.min(92, 66 + (1 - camera.aspect) * 48) : 66;
@@ -966,10 +1030,17 @@ function frame(dt) {
     if (c.label) c.label.visible = camera.position.distanceToSquared(c.mesh.position) > 18 * 18;
     const fx_ = Math.sin(c.h), fz = Math.cos(c.h);
     const hl = c.health, front = c.spec.l * 0.35, top = c.spec.h * 0.65, rear = c.spec.l / 2 + 0.1;
-    if (hl < 0.55 && Math.random() < dt * (hl < 0.3 ? 35 : 14)) fx.smoke(c.x + fx_ * front, c.y + c.yOff + top, c.z + fz * front, hl < 0.3 ? 0.9 : 0.4);
-    if (hl < 0.28 && Math.random() < dt * 30) fx.fire(c.x + fx_ * front, c.y + c.yOff + top, c.z + fz * front);
+    if (hl < 0.55 && Math.random() < dt * (hl < 0.3 ? 35 : 14)) fx.smoke(c.x + fx_ * front, c.y + top, c.z + fz * front, hl < 0.3 ? 0.9 : 0.4);
+    if (hl < 0.28 && Math.random() < dt * 30) fx.fire(c.x + fx_ * front, c.y + top, c.z + fz * front);
+    // Off-road, the wheels throw up dirt, sand or snow.
+    if (c.offroad && !c.air && c.speed > 8 && Math.random() < dt * 40) {
+      const sd = Math.random() < 0.5 ? -1 : 1;
+      fx.emit(c.x - fx_ * rear * 0.8 + fz * sd * c.spec.w * 0.45, c.y + 0.3, c.z - fz * rear * 0.8 - fx_ * sd * c.spec.w * 0.45,
+        -c.vx * 0.15 + (Math.random() - 0.5) * 2, 1.5 + Math.random() * 2, -c.vz * 0.15 + (Math.random() - 0.5) * 2,
+        { life: 0.9, size: 0.9, grow: 2.2, color: track.off.dust, alpha: 0.55, drag: 1.5, grav: 3 });
+    }
     if (c.boost > 0) for (const s of [-0.6, 0.6]) {
-      fx.emit(c.x - fx_ * rear + fz * s, c.y + c.yOff + 0.55, c.z - fz * rear - fx_ * s, c.vx * 0.5 - fx_ * 6, 0.5, c.vz * 0.5 - fz * 6,
+      fx.emit(c.x - fx_ * rear + fz * s, c.y + 0.55, c.z - fz * rear - fx_ * s, c.vx * 0.5 - fx_ * 6, 0.5, c.vz * 0.5 - fz * 6,
         { life: 0.22, size: 0.7, grow: -1.5, color: [0.5, 0.75, 1], alpha: 0.9 });
     }
   }
@@ -1013,11 +1084,14 @@ const MAP_PAD = 18, MAP_S = mini.width - MAP_PAD * 2;
 let mapPath = new Path2D();
 function buildMapPath() {
   mapPath = new Path2D();
-  for (let i = 0; i <= N; i += 4) {
-    const [u, v] = track.mapXY(track.px[i % N], track.pz[i % N]);
-    mapPath[i ? 'lineTo' : 'moveTo'](MAP_PAD + u * MAP_S, MAP_PAD + v * MAP_S);
+  for (const p of track.paths) {
+    for (let i = 0; i < p.n; i += 4) {
+      const [u, v] = track.mapXY(p.px[i], p.pz[i]);
+      mapPath[i ? 'lineTo' : 'moveTo'](MAP_PAD + u * MAP_S, MAP_PAD + v * MAP_S);
+    }
+    if (p.closed) mapPath.closePath();
+    else { const [u, v] = track.mapXY(p.px[p.n - 1], p.pz[p.n - 1]); mapPath.lineTo(MAP_PAD + u * MAP_S, MAP_PAD + v * MAP_S); }
   }
-  mapPath.closePath();
 }
 function drawMinimap() {
   mg.clearRect(0, 0, mini.width, mini.height);
@@ -1033,10 +1107,15 @@ function drawMinimap() {
     if (ring) { mg.lineWidth = 3; mg.strokeStyle = ring; mg.stroke(); }
   };
   for (const m of missiles.values()) dot(m.x, m.z, 4, '#ff3b3b');
+  if (me && G.p === 'race' && me.fin == null) {
+    const ci = track.checkpoints[me.next];
+    dot(track.px[ci], track.pz[ci], 7, 'rgba(255,212,59,.35)', '#ffd43b');
+  }
   for (const c of cars.values()) if (c !== me && c.dead <= 0) dot(c.x, c.z, 8, c.color, '#000');
   if (me && me.dead <= 0) dot(me.x, me.z, 11, me.color, '#fff');
 }
 let countdownShown = null;
+let missedT = 0;
 function flashBig(text, color = '#ffd43b', ms = 1100) {
   const e = $('big');
   e.textContent = text;
@@ -1079,6 +1158,7 @@ function updateHud() {
   setText('posOf', `of ${order.length}`);
   setText('lap', me.fin != null ? 'FINISHED' : `LAP ${clamp(me.lap + 1, 1, G.laps)}/${G.laps}`);
   setText('time', fmtTime(Math.max(0, me.fin ?? raceTime())));
+  if (me.missed && me.fin == null && t > missedT) { sub('Missed a checkpoint! Turn back (yellow dot on the map).'); missedT = t + 3500; }
   const hp = Math.max(0, Math.round(me.hp)), hl = Math.max(0, me.health);
   $('hpFill').style.width = hl * 100 + '%';
   $('hpFill').className = hl < 0.3 ? 'low' : hl < 0.6 ? 'mid' : '';
