@@ -57,8 +57,12 @@ export const VEHICLES = {
   },
 };
 export const VEHICLE_IDS = Object.keys(VEHICLES);
+// Everything goes a bit faster than the stats above say; tune feel here, balance above.
+const SPEED = 1.15, ACCEL = 1.1;
 for (const [id, v] of Object.entries(VEHICLES)) {
   v.id = id;
+  v.top = Math.round(v.top * SPEED);
+  v.accel = Math.round(v.accel * ACCEL);
   Object.assign(v, { armor: 1, boostLen: 1, heal: 1, ...v });
   v.brake = 48;
   v.reverse = 14;

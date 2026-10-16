@@ -231,3 +231,18 @@ body.touch #itemKey { display: none; }
 .ride-title { font-family: "Russo One", sans-serif; font-weight: 400; margin: 18px 0 8px; }
 td .veh { display: block; font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 20px; }
 @media (max-width: 420px) { #vehGrid { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---------- Map picker ---------- */
+#mapPick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#mapPick button {
+  display: grid; justify-items: center; gap: 2px; padding: 8px 4px;
+  border-radius: 10px; border: 2px solid transparent; background: rgba(255, 255, 255, .06);
+  font-size: 12px; font-weight: 600; color: var(--muted); line-height: 1.15;
+}
+#mapPick button b { font-size: 24px; }
+#mapPick button:not(:disabled):hover { background: rgba(255, 255, 255, .12); }
+#mapPick button.on { border-color: var(--accent); background: rgba(255, 212, 59, .14); color: var(--ink); }
+#mapPick button:disabled { cursor: default; }
+#mapPick button:disabled:not(.on) { opacity: .5; }
+.blurb { margin: 2px 0 0; font-size: 13px; font-weight: 400; color: var(--muted); }
+h2 small { font-family: Rubik, sans-serif; font-size: 14px; color: var(--muted); margin-left: 6px; }

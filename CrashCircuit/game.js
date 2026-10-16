@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { buildTrack, WALL, N } from './track.js';
+import { MAPS, MAP_IDS, MAP_BY_ID } from './maps.js';
 import { Car, syncMesh, REF_TOP } from './car.js';
 import { VEHICLES, VEHICLE_IDS, makeVehicleMesh } from './vehicles.js';
-import { Particles, Sound } from './fx.js';
+import { Particles, Sound, Weather } from './fx.js';
 
 // ---------- Settings ----------
 const APP_ID = 'jasonphe-crash-circuit';
@@ -72,13 +73,27 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xc7e0f7, 160, 1100);
 const camera = new THREE.PerspectiveCamera(68, 1, 0.3, 4000);
 
+// Sky colors are passed as raw sRGB values so the horizon matches the fog exactly.
+const rawRGB = hex => new THREE.Vector3(((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255);
+const skyU = { top: { value: rawRGB(0x4d8ce6) }, horizon: { value: rawRGB(0xc7e0f7) }, sunDir: { value: new THREE.Vector3(0, 1, 0) }, glow: { value: 0 }, stars: { value: 0 } };
 const sky = new THREE.Mesh(new THREE.SphereGeometry(2500, 24, 12), new THREE.ShaderMaterial({
-  side: THREE.BackSide, depthWrite: false,
-  vertexShader: 'varying vec3 vP; void main() { vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-  fragmentShader: 'varying vec3 vP; void main() { float h = max(vP.y, 0.0); gl_FragColor = vec4(mix(vec3(0.78, 0.88, 0.97), vec3(0.3, 0.55, 0.9), pow(h, 0.55)), 1.0); }',
+  uniforms: skyU, side: THREE.BackSide, depthWrite: false, fog: false,
+  vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform vec3 top, horizon, sunDir; uniform float glow, stars; varying vec3 vP;
+    float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453); }
+    void main() {
+      vec3 d = normalize(vP);
+      vec3 c = mix(horizon, top, pow(max(d.y, 0.0), 0.55));
+      float s = max(dot(d, normalize(sunDir)), 0.0);
+      c += glow * (pow(s, 6.0) * vec3(1.0, 0.5, 0.2) * 0.4 + pow(s, 600.0) * vec3(1.0, 0.9, 0.7));
+      if (stars > 0.0 && d.y > 0.04) { vec3 cell = floor(d * 260.0); c += step(0.997, hash(cell)) * stars * (0.4 + 0.6 * hash(cell + 3.1)); }
+      gl_FragColor = vec4(c, 1.0);
+    }`,
 }));
 scene.add(sky);
-scene.add(new THREE.HemisphereLight(0xdcecff, 0x4b6a3a, 1.2));
+const hemi = new THREE.HemisphereLight(0xdcecff, 0x4b6a3a, 1.2);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.6);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -88,8 +103,10 @@ sun.shadow.normalBias = 0.05;
 scene.add(sun, sun.target);
 const SUN_OFF = new THREE.Vector3(-60, 120, -45);
 
-const track = buildTrack(scene);
+let track = null;          // the loaded map's track (loadMap)
+let boxes = [];
 const fx = new Particles(scene);
+const weather = new Weather(scene);
 const sound = new Sound();
 const P = { i: 0, lat: 0, y: 0 };
 
@@ -121,14 +138,45 @@ const qTex = (() => {
 })();
 const boxGeo = new THREE.BoxGeometry(1.7, 1.7, 1.7);
 const boxMat = new THREE.MeshStandardMaterial({ map: qTex, emissive: 0x332211, transparent: true, opacity: 0.9, roughness: 0.3 });
-const boxes = track.boxSpots.map(s => {
-  const p = track.pointAt(s.i, s.lat);
-  const m = new THREE.Mesh(boxGeo, boxMat);
-  m.castShadow = true;
-  m.position.set(p.x, p.y + 1.4, p.z);
-  scene.add(m);
-  return { x: p.x, y: p.y, z: p.z, m, back: 0, spin: Math.random() * 6 };
-});
+
+// ---------- Maps ----------
+// Build a map and apply its theme. Everything the old map made is torn down first.
+let curMap = null;
+function loadMap(id) {
+  const map = MAP_BY_ID[id] || MAPS[0];
+  if (curMap === map.id) return;
+  curMap = map.id;
+  track?.dispose();
+  for (const b of boxes) scene.remove(b.m);
+  track = buildTrack(scene, map);
+  const th = map.theme;
+  skyU.top.value = rawRGB(th.sky[0]);
+  skyU.horizon.value = rawRGB(th.sky[1]);
+  skyU.stars.value = th.stars ? 1 : 0;
+  skyU.glow.value = th.sunGlow ? 1 : 0;
+  skyU.sunDir.value.set(...th.sun.dir);
+  scene.fog.color.setHex(th.sky[1]);
+  scene.fog.near = th.fogNear;
+  scene.fog.far = th.fogFar;
+  hemi.color.setHex(th.hemi[0]);
+  hemi.groundColor.setHex(th.hemi[1]);
+  hemi.intensity = th.hemi[2];
+  sun.color.setHex(th.sun.color);
+  sun.intensity = th.sun.intensity;
+  SUN_OFF.set(...th.sun.dir).normalize().multiplyScalar(160);
+  renderer.toneMappingExposure = th.exposure ?? 1;
+  boxes = track.boxSpots.map(s => {
+    const p = track.pointAt(s.i, s.lat);
+    const m = new THREE.Mesh(boxGeo, boxMat);
+    m.castShadow = true;
+    m.position.set(p.x, p.y + 1.4, p.z);
+    scene.add(m);
+    return { x: p.x, y: p.y, z: p.z, m, back: 0, spin: Math.random() * 6 };
+  });
+  weather.set(th.weather);
+  buildMapPath();
+  camState.snap = true;
+}
 
 // Projectile models
 const missileParts = {
@@ -188,7 +236,7 @@ const missiles = new Map();
 const mines = new Map();
 const rings = [];
 // Shared race state, owned by the host: phase p is 'menu' | 'lobby' | 'race' | 'res'.
-let G = { p: 'menu', laps: 3, bots: 3, grid: [], res: null, race: 0 };
+let G = { p: 'menu', laps: 3, bots: 3, grid: [], res: null, race: 0, map: 'random', cur: pick(MAP_IDS) };
 let goAt = 0;                 // local time the lights go green
 let me = null;                // my car, when I'm racing
 let seq = 0;
@@ -323,7 +371,7 @@ const handlers = {
 };
 
 // ---------- Host ----------
-const phMsg = (s = G) => ({ p: s.p, laps: s.laps, bots: s.bots, grid: s.grid, res: s.res, race: s.race, go: goAt - now() });
+const phMsg = (s = G) => ({ p: s.p, laps: s.laps, bots: s.bots, grid: s.grid, res: s.res, race: s.race, map: s.map, cur: s.cur, go: goAt - now() });
 // The host changes the race state only through here, so it goes through applyPh like everyone else's.
 function hostBroadcast(next = G) {
   const m = phMsg(next);
@@ -339,7 +387,8 @@ function hostStart() {
   const rides = shuffle(VEHICLE_IDS);   // bots get different vehicles
   for (let k = 0; k < nb; k++) grid.push({ id: `bot${k}`, n: BOT_NAMES[k % BOT_NAMES.length], c: free[k % free.length] || pick(COLORS), v: rides[k % rides.length], bot: 1 });
   goAt = now() + COUNTDOWN_MS;
-  hostBroadcast({ ...G, p: 'race', grid: shuffle(grid), res: null, race: G.race + 1 });
+  const cur = G.map === 'random' ? pick(MAP_IDS) : G.map;
+  hostBroadcast({ ...G, p: 'race', grid: shuffle(grid), res: null, race: G.race + 1, cur });
 }
 function hostTick() {
   if (G.p !== 'race' || !racing()) return;
@@ -383,7 +432,10 @@ function applyPh(d) {
     grid: (Array.isArray(d.grid) ? d.grid : []).slice(0, MAX_CARS).map(g => ({ id: String(g.id), n: cleanText(g.n, 16) || 'Racer', c: cleanColor(g.c), v: cleanVehicle(g.v), bot: g.bot ? 1 : 0 })),
     res: Array.isArray(d.res) ? d.res : null,
     race: num(d.race) | 0,
+    map: d.map === 'random' || MAP_IDS.includes(d.map) ? d.map : 'random',
+    cur: MAP_IDS.includes(d.cur) ? d.cur : prev.cur,
   };
+  loadMap(G.cur);
   if (G.p === 'race' && (prev.p !== 'race' || prev.race !== G.race)) setupRace(num(d.go));
   if (G.p === 'lobby' && prev.p !== 'lobby') clearRace();
   if (G.p === 'res' && prev.p !== 'res' && me) sound.beep(true);
@@ -420,6 +472,7 @@ function setupRace(go) {
   });
   me = cars.get(selfId) || null;
   goAt = now() + go;
+  sub(`${track.map.icon} ${track.map.name}`);
   countdownShown = null;
   camState.snap = true;
 }
@@ -865,8 +918,9 @@ function updateCamera(dt) {
   if (!t || G.p === 'menu' || G.p === 'lobby') {
     camState.orbit += dt * 0.07;
     const a = camState.orbit;
-    camera.position.set(Math.cos(a) * 46, 13 + Math.sin(a * 0.7) * 3, Math.sin(a) * 46 + 10);
-    camera.lookAt(0, 3, 10);
+    const cx = track.px[0] + track.tx[0] * 12, cz = track.pz[0] + track.tz[0] * 12, cy = track.py[0];
+    camera.position.set(cx + Math.cos(a) * 46, cy + 13 + Math.sin(a * 0.7) * 3, cz + Math.sin(a) * 46);
+    camera.lookAt(cx, cy + 3, cz);
     camState.snap = true;
   } else {
     const k = 1 - Math.exp(-5 * dt);
@@ -897,7 +951,7 @@ function updateCamera(dt) {
     camState.shake = Math.max(0, camState.shake - dt * 2.5);
   }
   sky.position.copy(camera.position);
-  const f = t && t.inRace ? tmpV.set(t.x, t.y, t.z) : tmpV.set(0, 0, 10);
+  const f = t && t.inRace ? tmpV.set(t.x, t.y, t.z) : tmpV.set(track.px[0], track.py[0], track.pz[0]);
   sun.position.copy(f).add(SUN_OFF);
   sun.target.position.copy(f);
 }
@@ -944,6 +998,8 @@ function frame(dt) {
     if (r.t > 0.45) { scene.remove(r.m); rings.splice(i, 1); }
   }
   fx.update(dt);
+  for (const a of track.anims) a(dt, ts);
+  weather.update(dt, ts, camera.position);
   updateCamera(dt);
   updateHud();
   const driving = me && me.dead <= 0 && (G.p === 'race' || G.p === 'res');
@@ -954,12 +1010,15 @@ function frame(dt) {
 // ---------- HUD ----------
 const mini = $('mini'), mg = mini.getContext('2d');
 const MAP_PAD = 18, MAP_S = mini.width - MAP_PAD * 2;
-const mapPath = new Path2D();
-for (let i = 0; i <= N; i += 4) {
-  const [u, v] = track.mapXY(track.px[i % N], track.pz[i % N]);
-  mapPath[i ? 'lineTo' : 'moveTo'](MAP_PAD + u * MAP_S, MAP_PAD + v * MAP_S);
+let mapPath = new Path2D();
+function buildMapPath() {
+  mapPath = new Path2D();
+  for (let i = 0; i <= N; i += 4) {
+    const [u, v] = track.mapXY(track.px[i % N], track.pz[i % N]);
+    mapPath[i ? 'lineTo' : 'moveTo'](MAP_PAD + u * MAP_S, MAP_PAD + v * MAP_S);
+  }
+  mapPath.closePath();
 }
-mapPath.closePath();
 function drawMinimap() {
   mg.clearRect(0, 0, mini.width, mini.height);
   mg.lineJoin = 'round';
@@ -1076,8 +1135,8 @@ function renderThumbs() {
   renderGarage();
 }
 const STATS = [
-  ['Speed', v => v.top, 40, 62],
-  ['Accel', v => v.accel, 16, 38],
+  ['Speed', v => v.top, 50, 70],
+  ['Accel', v => v.accel, 18, 42],
   ['Handling', v => v.turn * (0.6 + 0.4 * Math.min(1, v.grip / 8)), 1.4, 3.3],
   ['Toughness', v => v.hp / v.armor, 55, 320],
   ['Weight', v => v.mass, 0.5, 3.4],
@@ -1199,6 +1258,11 @@ function renderUI() {
     el('span', { textContent: pl.n + (id === selfId ? ' (you)' : '') }),
     el('small', { textContent: [VEHICLES[pl.v]?.name, id === hostId ? 'host' : i >= MAX_CARS ? 'watching' : ''].filter(Boolean).join(' · ') }))));
   $('hostControls').classList.toggle('hidden', !isHost());
+  $('mapPick').replaceChildren(...[...MAPS, { id: 'random', name: 'Random', icon: '🎲' }].map(m => el('button', {
+    className: G.map === m.id ? 'on' : '', disabled: !isHost(), title: m.blurb ?? 'A different map every race',
+    onclick: () => { if (isHost()) hostBroadcast({ ...G, map: m.id, cur: m.id === 'random' ? G.cur : m.id }); },
+  }, el('b', { textContent: m.icon }), el('span', { textContent: m.name }))));
+  $('mapBlurb').textContent = MAP_BY_ID[G.map]?.blurb ?? 'A different map every race.';
   $('botsVal').textContent = G.bots;
   $('lapsVal').textContent = G.laps;
   if (room || selfId === 'me') $('waitMsg').textContent = isHost()
@@ -1206,6 +1270,7 @@ function renderUI() {
     : `Waiting for ${host?.n ?? 'the host'} to start the race…`;
 
   if (p === 'res' && G.res) {
+    $('resMap').textContent = MAP_BY_ID[G.cur]?.name ?? '';
     $('resBody').replaceChildren(...G.res.map((r, i) => el('tr', { className: r.id === selfId ? 'me' : '' },
       el('td', { textContent: r.left ? '–' : `${i + 1}` }),
       el('td', {}, el('span', { className: 'dot', style: `background:${cleanColor(r.c)}` }), `${cleanText(r.n, 16)}${r.bot ? ' 🤖' : ''}`, el('small', { className: 'veh', textContent: VEHICLES[r.v]?.name ?? '' })),
@@ -1215,6 +1280,9 @@ function renderUI() {
     $('resWait').textContent = isHost() ? '' : `Waiting for ${host?.n ?? 'the host'}…`;
   }
 }
+
+loadMap(params.get('map') || G.cur);   // ?map=city shows that map in the menu
+if (MAP_BY_ID[params.get('map')]) G.map = G.cur = params.get('map');
 
 // ---------- Main loop ----------
 let last = now(), acc = 0;
@@ -1241,7 +1309,7 @@ renderUI();
 $('loading').remove();
 
 if (DEV) {
-  window.cc = { dev, VEHICLES, Car, botDrive, get G() { return G; }, cars, get me() { return me; }, track, hostStart, missiles, mines, boxes, useItem, ranking, camera, renderer, scene };
+  window.cc = { dev, VEHICLES, MAPS, loadMap, Car, botDrive, get G() { return G; }, cars, get me() { return me; }, get track() { return track; }, get boxes() { return boxes; }, hostStart, missiles, mines, useItem, ranking, camera, renderer, scene };
   if (params.get('bots')) G.bots = clamp(Number(params.get('bots')) | 0, 0, MAX_CARS - 1);
   if (params.has('solo')) {
     $('nameInput').value ||= 'Tester';

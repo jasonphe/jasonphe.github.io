@@ -195,3 +195,81 @@ export class Sound {
   heal() { [523, 659, 784].forEach((f, k) => this.tone(f, 0.18, 0.08, 'triangle', k * 0.07)); }
   whoosh() { this.noise(0.6, 300, 0.3, 'bandpass', 2000); }
 }
+
+// ---------- Weather ----------
+// A box of particles that follows the camera: falling snow, jungle fireflies, desert dust.
+const WEATHER = {
+  snow: { n: 2600, color: 0xffffff, size: 0.32, opacity: 0.9 },
+  fireflies: { n: 420, color: 0xd8ff6a, size: 0.22, opacity: 1, additive: true },
+  dust: { n: 900, color: 0xe6c79a, size: 0.55, opacity: 0.4 },
+};
+const R = 60, H = 34;
+export class Weather {
+  constructor(scene) { this.scene = scene; this.pts = null; }
+  set(kind) {
+    if (this.pts) {
+      this.scene.remove(this.pts);
+      this.pts.geometry.dispose();
+      this.pts.material.dispose();
+      this.pts = null;
+    }
+    const cfg = WEATHER[kind];
+    this.kind = kind;
+    if (!cfg) return;
+    const pos = new Float32Array(cfg.n * 3);
+    this.ph = new Float32Array(cfg.n);
+    for (let i = 0; i < cfg.n; i++) {
+      pos[i * 3] = (Math.random() * 2 - 1) * R;
+      pos[i * 3 + 1] = Math.random() * H;
+      pos[i * 3 + 2] = (Math.random() * 2 - 1) * R;
+      this.ph[i] = Math.random() * 100;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+    if (!Weather.dot) {
+      const c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const x = c.getContext('2d'), gr = x.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = gr; x.fillRect(0, 0, 32, 32);
+      Weather.dot = new THREE.CanvasTexture(c);
+    }
+    const m = new THREE.PointsMaterial({
+      color: cfg.color, size: cfg.size, map: Weather.dot, transparent: true, opacity: cfg.opacity, depthWrite: false,
+      blending: cfg.additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    });
+    this.pts = new THREE.Points(g, m);
+    this.pts.frustumCulled = false;
+    this.base = new THREE.Vector3();
+    this.scene.add(this.pts);
+  }
+  // Particles live in a box around the camera and wrap around its edges.
+  update(dt, t, cam) {
+    if (!this.pts) return;
+    const p = this.pts.geometry.attributes.position.array, ph = this.ph, k = this.kind;
+    const ox = cam.x, oy = cam.y - 8, oz = cam.z;
+    for (let i = 0; i < ph.length; i++) {
+      const j = i * 3;
+      if (k === 'snow') {
+        p[j] += Math.sin(t * 0.8 + ph[i]) * 0.8 * dt;
+        p[j + 1] -= (2.5 + (ph[i] % 1) * 2) * dt;
+        p[j + 2] += Math.cos(t * 0.6 + ph[i]) * 0.6 * dt;
+      } else if (k === 'fireflies') {
+        p[j] += Math.sin(t * 0.7 + ph[i]) * 1.4 * dt;
+        p[j + 1] += Math.sin(t * 1.3 + ph[i] * 2) * 0.8 * dt;
+        p[j + 2] += Math.cos(t * 0.5 + ph[i]) * 1.4 * dt;
+      } else {
+        p[j] += 7 * dt;
+        p[j + 1] += Math.sin(t + ph[i]) * 0.3 * dt;
+        p[j + 2] += 2 * dt;
+      }
+      // Wrap into the box around the camera (positions are world space).
+      p[j] = ox + ((((p[j] - ox + R) % (2 * R)) + 2 * R) % (2 * R)) - R;
+      p[j + 2] = oz + ((((p[j + 2] - oz + R) % (2 * R)) + 2 * R) % (2 * R)) - R;
+      const top = k === 'fireflies' ? 10 : H;
+      p[j + 1] = oy + ((((p[j + 1] - oy) % top) + top) % top);
+    }
+    this.pts.material.opacity = k === 'fireflies' ? 0.6 + Math.sin(t * 4) * 0.4 : this.pts.material.opacity;
+    this.pts.geometry.attributes.position.needsUpdate = true;
+  }
+}

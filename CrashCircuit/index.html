@@ -11,7 +11,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
   </script>
 </head>
 <body>
@@ -94,6 +97,10 @@
       <h2>Room <span id="roomCode"></span></h2>
       <button id="inviteBtn" class="btn ghost small">Copy invite link</button>
       <ul id="players"></ul>
+      <div class="field">Track
+        <div id="mapPick"></div>
+        <p id="mapBlurb" class="blurb"></p>
+      </div>
       <div id="hostControls">
         <div class="stepper"><span>Bots</span><button data-s="bots" data-d="-1">−</button><b id="botsVal">3</b><button data-s="bots" data-d="1">+</button></div>
         <div class="stepper"><span>Laps</span><button data-s="laps" data-d="-1">−</button><b id="lapsVal">3</b><button data-s="laps" data-d="1">+</button></div>
@@ -108,7 +115,7 @@
   <!-- Results -->
   <div id="results" class="screen hidden">
     <div class="panel">
-      <h2>Results</h2>
+      <h2>Results <small id="resMap"></small></h2>
       <table><thead><tr><th></th><th>Driver</th><th>Time</th><th>KOs</th></tr></thead><tbody id="resBody"></tbody></table>
       <div id="resHost" class="row">
         <button id="againBtn" class="btn">Race again</button>

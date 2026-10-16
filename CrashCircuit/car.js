@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { WALL, N } from './track.js';
 import { VEHICLES, makeVehicleMesh } from './vehicles.js';
 
-export const REF_TOP = 54;    // the Racer's top speed, for sound and camera scaling
+export const REF_TOP = 62;    // the Racer's top speed, for camera scaling
 
 const P = { i: 0, lat: 0, y: 0 };
 
@@ -81,7 +81,7 @@ export class Car {
     this.steer += (steer - this.steer) * Math.min(1, dt * 9);
     const sp = Math.abs(vF);
     if (!airborne) this.h += this.steer * S.turn * Math.min(1, sp / 7) * (1 - 0.42 * Math.min(1, sp / S.top)) * Math.sign(vF) * dt;
-    vS *= Math.exp(-(airborne ? 0.5 : this.spin > 0 ? 1.5 : S.grip) * dt);
+    vS *= Math.exp(-(airborne ? 0.5 : this.spin > 0 ? 1.5 : S.grip * track.grip) * dt);   // ice and mud have less grip
     const nfx = Math.sin(this.h), nfz = Math.cos(this.h);
     this.vx = nfx * vF + nfz * vS;
     this.vz = nfz * vF - nfx * vS;
