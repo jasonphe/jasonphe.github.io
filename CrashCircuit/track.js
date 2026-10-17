@@ -9,7 +9,7 @@ import { rng, canvasTex, speckleTex, signTex, PROPS, noise2 } from './scenery.js
 export const HALF_W = 11;            // half the road width, in meters
 export const EDGE = HALF_W + 1.2;    // road plus rumble strips: on-road out to here
 export const N = 1200;               // samples around the main loop
-export const CHECKPOINTS = 8;        // gates around the lap (0 is the line), passed in order
+export const CHECKPOINTS = 4;        // gates around the lap (0 is the line), passed in order
 const FLAT = HALF_W + 9;             // terrain sits just under the road out to here
 const CELL = 20;                     // spatial hash cell for road samples, m
 const GRID = 5;                      // terrain mesh spacing, m
@@ -75,8 +75,25 @@ export function buildTrack(scene, map) {
       const t = (want - cum[j]) / ((cum[j + 1] - cum[j]) || 1);
       pts.push(seg[j].clone().lerp(seg[j + 1], Math.min(1, t)));
     }
+    // How far each branch sample is from the main road's centerline, and on which side.
+    // Where they overlap (near the forks) the branch takes the main road's height, so the
+    // two surfaces meet flush instead of one sitting on the other.
+    const gap = new Float32Array(n), gside = new Int8Array(n);
+    pts.forEach((pt, k) => {
+      let mi = 0, bd = Infinity;
+      for (let i = 0; i < N; i++) { const d = (pt.x - main.px[i]) ** 2 + (pt.z - main.pz[i]) ** 2; if (d < bd) { bd = d; mi = i; } }
+      gap[k] = Math.sqrt(bd);
+      gside[k] = (pt.x - main.px[mi]) * main.nx[mi] + (pt.z - main.pz[mi]) * main.nz[mi] >= 0 ? 1 : -1;
+      pt.y = main.py[mi] + (pt.y - main.py[mi]) * smooth(gap[k] / (2.5 * HALF_W));
+    });
     const p = makePath(paths.length, pts, false);
     p.from = i0; p.to = i1; p.name = spec.name;
+    // Which way is "away from the main road" in the branch's own left/right.
+    p.gap = gap;
+    p.away = Array.from(gside, (sd, k) => {
+      const mi = k < n / 2 ? i0 : i1;
+      return sd * (p.nx[k] * main.nx[mi] + p.nz[k] * main.nz[mi] >= 0 ? 1 : -1);
+    });
     const span = ((i1 - i0) % N + N) % N;
     for (let k = 0; k < n; k++) p.prog[k] = (i0 + span * k / (n - 1)) % N;
     paths.push(p);
@@ -433,10 +450,10 @@ export function buildTrack(scene, map) {
   function ribbon(p, edge, vScale, mat, shadows = true) {
     const pos = [], uv = [], index = [], n = p.n, count = p.closed ? n + 1 : n;
     for (let k = 0; k < count; k++) {
-      const [l, rr] = edge(k % n);
+      const [l, rr, ul = 0, ur = 1] = edge(k % n);
       pos.push(...l, ...rr);
       const vv = k * p.step / vScale;
-      uv.push(0, vv, 1, vv);
+      uv.push(ul, vv, ur, vv);
       if (k < count - 1) { const j = k * 2; index.push(j, j + 1, j + 2, j + 1, j + 3, j + 2); }
     }
     const g = new THREE.BufferGeometry();
@@ -468,12 +485,23 @@ export function buildTrack(scene, map) {
     // Branches draw over the main road where they overlap at the forks.
     const off = p.id ? { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 } : {};
     const at = (i, lat, dy) => [p.px[i] + p.nx[i] * lat, p.py[i] + dy, p.pz[i] + p.nz[i] * lat];
-    ribbon(p, i => [at(i, HALF_W, 0.04), at(i, -HALF_W, 0.04)], 14,
+    // A branch is clipped where it overlaps the main road: only the part outside the main
+    // road's edge is drawn, and its curb on the main road's side only once they've split.
+    // u = (HALF_W - lat) / (2 HALF_W) keeps the texture (and its lines) where it belongs.
+    const band = i => {
+      if (!p.gap) return [HALF_W, -HALF_W];
+      const inner = Math.max(-HALF_W, HALF_W - p.gap[i]);
+      return p.away[i] > 0 ? [HALF_W, inner] : [-inner, -HALF_W];
+    };
+    const u = lat => (HALF_W - lat) / (2 * HALF_W);
+    ribbon(p, i => { const [a, b] = band(i); return [at(i, a, 0.04), at(i, b, 0.04), u(a), u(b)]; }, 14,
       new THREE.MeshStandardMaterial({ map: roadTex, roughness: R.rough ?? 0.92, side: THREE.DoubleSide, ...off }));
     const curbMat = new THREE.MeshStandardMaterial({ map: curbTex, roughness: 0.8, side: THREE.DoubleSide, ...off });
     for (const s of [1, -1]) {
-      ribbon(p, i => [at(i, s * HALF_W, 0.05), at(i, s * EDGE, 0.06)], 4, curbMat);
-      ribbon(p, i => [at(i, s * EDGE, 0.06), at(i, s * EDGE, -0.6)], 10, sideMat, false);
+      // On a branch, the side facing the main road gets no curb until the roads have split.
+      const show = i => !p.gap || p.away[i] === s || p.gap[i] > 2 * EDGE;
+      ribbon(p, i => show(i) ? [at(i, s * HALF_W, 0.05), at(i, s * EDGE, 0.06)] : [at(i, s * HALF_W, 0.05), at(i, s * HALF_W, 0.05)], 4, curbMat);
+      ribbon(p, i => show(i) ? [at(i, s * EDGE, 0.06), at(i, s * EDGE, -0.6)] : [at(i, s * EDGE, -0.6), at(i, s * EDGE, -0.6)], 10, sideMat, false);
     }
   }
 

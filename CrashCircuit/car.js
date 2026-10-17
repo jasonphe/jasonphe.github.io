@@ -9,8 +9,13 @@ import { VEHICLES, makeVehicleMesh } from './vehicles.js';
 export const REF_TOP = 62;    // the Racer's top speed, for camera scaling
 const GRAV = 30;              // a bit more than real gravity: arcade jumps
 const STICK = 14;             // the ground can fall away this fast (m/s) before we take off
-const CP_WINDOW = 90;         // samples past a checkpoint that still count as passing it
-const NEAR_ROAD = 35;         // checkpoints only count within this distance of a road
+const NEAR_ROAD = 90;         // progress only updates within this distance of a road
+// A checkpoint counts anywhere in the stretch after it, up to just before the next one,
+// so shortcuts are fine; only skipping a whole quarter of the lap misses one.
+const CP_WINDOW = Math.round(N / CHECKPOINTS) - 30;
+// Handling at speed: how much weaker steering gets at top speed, how much of a turn the
+// car's momentum ignores (it slides instead), and how much grip hard steering costs.
+const HI_TURN = 0.6, HI_SLIDE = 0.6, HI_GRIP = 0.5;
 
 const SH = { pen: 0, nx: 0, nz: 0 };
 const PF = {}, PB = {};
@@ -106,14 +111,24 @@ export class Car {
     // Hills: gravity pulls along the slope.
     if (!air) vF -= 9.8 * 0.6 * Math.sin(this.pitch) * dt;
 
-    this.steer += (steer - this.steer) * Math.min(1, dt * 9);
-    const sp = Math.abs(vF);
-    if (!air) this.h += this.steer * S.turn * Math.min(1, sp / 7) * (1 - 0.42 * Math.min(1, sp / S.top)) * Math.sign(vF) * dt;
-    const grip = S.grip * track.grip * (rough ? off.grip : 1);
-    vS *= Math.exp(-(air ? 0.3 : this.spin > 0 ? 1.5 : grip) * dt);
+    // Steering: slower to respond, weaker, and less effective the faster you go. The car
+    // turns, but its momentum only partly follows; the rest is a slide that the tires
+    // scrub off, and hard steering at speed costs grip. Brake before big corners.
+    const sp = Math.abs(vF), v = Math.min(1, sp / S.top);
+    this.steer += (steer - this.steer) * Math.min(1, dt * (9 - 5 * v));
+    const dh = air ? 0 : this.steer * S.turn * Math.min(1, sp / 7) * (1 - HI_TURN * v ** 1.3) * Math.sign(vF) * dt;
+    this.h += dh;
+    let vx = fx * vF + fz * vS, vz = fz * vF - fx * vS;
+    const rot = dh * (1 - HI_SLIDE * v), rc = Math.cos(rot), rs = Math.sin(rot);
+    [vx, vz] = [vx * rc + vz * rs, vz * rc - vx * rs];
     const nfx = Math.sin(this.h), nfz = Math.cos(this.h);
-    this.vx = nfx * vF + nfz * vS;
-    this.vz = nfz * vF - nfx * vS;
+    const vF2 = vx * nfx + vz * nfz;
+    let vS2 = vx * nfz - vz * nfx;
+    const grip = S.grip * track.grip * (rough ? off.grip : 1) * (1 - HI_GRIP * v * v * Math.abs(this.steer));
+    vS2 *= Math.exp(-(air ? 0.3 : this.spin > 0 ? 1.5 : grip) * dt);
+    this.slip = vS2;
+    this.vx = nfx * vF2 + nfz * vS2;
+    this.vz = nfz * vF2 - nfx * vS2;
     this.x += this.vx * dt;
     this.z += this.vz * dt;
 

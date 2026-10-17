@@ -767,6 +767,7 @@ function collide() {
 }
 
 // ---------- Bots ----------
+const BOT_LAT = 20;   // how much sideways grip (m/s²) bots assume they have, before scaling
 // Each bot decides, once per lap, whether it takes each branch.
 function botTakes(c, bi) {
   const take = c.ai.take ??= {};
@@ -827,10 +828,21 @@ function botDrive(c, dt) {
   }
   const p = lane === b.lane ? tp : track.pointAt(at.i, clamp(lane, -8, 8), at.p);
   const steer = clamp(wrap(Math.atan2(p.x - c.x, p.z - c.z) - c.h) * 2.2, -1, 1);
-  const far = routeAhead(c, Math.round(Math.max(0, sp) * 1.1 / track.step));
-  const bend = Math.abs(wrap(track.headingAt(far.i, far.p) - c.h));
+  // Corner speed: how far the road turns over the next stretches gives each corner's
+  // radius, and so how fast the car can take it; brake early enough to get there.
+  const here = b.route, h0 = track.headingAt(here.i, here.p);
+  const lat = BOT_LAT * Math.sqrt(clamp(c.spec.grip / 7, 0.3, 1.4) * track.grip) * (c.offroad ? track.off.grip : 1);
+  let target = Infinity;
+  for (const d of [12, 25, 40, 60, 85, 115]) {
+    const a = routeAhead(c, Math.round(d / track.step));
+    const turn = Math.abs(wrap(track.headingAt(a.i, a.p) - h0));
+    if (turn < 0.08) continue;
+    const vCorner = Math.sqrt(lat * d / turn);
+    target = Math.min(target, Math.sqrt(vCorner * vCorner + 2 * c.spec.brake * 0.7 * Math.max(0, d - 8)));
+  }
   let throttle = 1, brake = 0;
-  if (bend > 0.55 && sp > c.spec.top * 0.55) { throttle = 0; brake = bend > 0.9 ? 0.6 : 0.2; }
+  if (sp > target) { throttle = 0; brake = Math.min(1, (sp - target) / 6); }
+  else if (sp > target * 0.94) throttle = 0.35;
   if ((b.think -= dt) <= 0) { b.think = 0.4; botItem(c); }
   return { steer, throttle, brake };
 }
