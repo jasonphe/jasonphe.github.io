@@ -56,6 +56,8 @@ BY_TEXT = {
         ["Let's blow up balloons!"]
         + [phrase(n, s) for n, s in BALLOON_FRIENDS]
     ),
+    # Fetch's clips are Jason's own recordings, split from one take. Running
+    # make_voices.py still fills in any new line, but --force would replace them all.
     "Fetch": (
         ["Let's play fetch!", "Fetch!", "Go get it!", "Good catch!", "Oops!", "Where did it go?", "Silly puppy!",
          "Good puppy!", "Good dog!", "Yay!", "Thank you, puppy!", "Speak!", "Roll over!", "Spin!", "Jump!"]

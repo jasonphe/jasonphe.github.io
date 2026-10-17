@@ -1051,6 +1051,8 @@
     if (Math.random() < 0.6) say("An alien!");
   }
 
+  // When each word starts in the "Three, two, one, blast off!" clip; the numbers and liftoff follow it
+  const COUNT_AT = [0, 0.89, 1.59, 2.39];
   function drawRocket(g, p, dt) {
     p.mt += dt;
     let shake = 0, flame = 0;
@@ -1061,7 +1063,7 @@
     if (p.mode === "count") {
       shake = Math.sin(time * 70) * 1.5 * S * Math.min(1, p.mt);
       if (Math.random() < dt * 10) smoke(1, 20);
-      if (p.mt > 1.5) { p.mode = "up"; p.mt = 0; p.vy = 0; rumble(); }
+      if (p.mt > COUNT_AT[3] + 0.05) { p.mode = "up"; p.mt = 0; p.vy = 0; rumble(); }
     } else if (p.mode === "up") {
       p.vy -= 900 * S * dt; p.dy += p.vy * dt; flame = 1;
       smoke(2, 8, 40);
@@ -1088,7 +1090,7 @@
     circle(g, x, rb - 56 * s, 7 * s); g.fillStyle = "#74c0fc"; g.fill(); g.strokeStyle = "#868e96"; g.lineWidth = 2.5 * s; g.stroke();
     if (p.mode === "count") {
       // Big countdown numbers for little ones who can't hear it
-      const n = Math.min(3, Math.floor(p.mt / 0.42)), txt = ["3", "2", "1", "Go!"][n], k = Math.min(1, (p.mt - n * 0.42) / 0.42);
+      const n = COUNT_AT.filter(t => p.mt >= t).length - 1, txt = ["3", "2", "1", "Go!"][n], k = Math.min(1, (p.mt - COUNT_AT[n]) / 0.5);
       g.save();
       g.font = `800 ${Math.round(40 * U * (1.3 - k * 0.3))}px "Baloo 2", sans-serif`;
       g.textAlign = "center"; g.textBaseline = "middle";
