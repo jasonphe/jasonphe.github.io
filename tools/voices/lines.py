@@ -33,6 +33,9 @@ BALLOON_FRIENDS = [("dog", "woof woof"), ("cat", "meow"), ("cow", "moo"), ("pig"
                    ("duck", "quack quack"), ("frog", "ribbit"), ("sheep", "baa"), ("monkey", "ooh ooh ah ah"),
                    ("bunny", None), ("bear", None), ("penguin", None), ("panda", None)]
 
+FETCH_TOYS = ["Ball", "Tennis ball", "Stick", "Frisbee", "Bone", "Rubber duck", "Beach ball", "Snowball", "Moon rock"]
+FETCH_PLACES = ["park", "beach", "snow", "moon"]
+
 BY_TEXT = {
     "ShapeSorter": (
         ["Let's sort the shapes!", "You did it!"]
@@ -52,6 +55,12 @@ BY_TEXT = {
     "BalloonFloat": (
         ["Let's blow up balloons!"]
         + [phrase(n, s) for n, s in BALLOON_FRIENDS]
+    ),
+    "Fetch": (
+        ["Let's play fetch!", "Fetch!", "Go get it!", "Good catch!", "Oops!", "Where did it go?", "Silly puppy!",
+         "Good puppy!", "Good dog!", "Yay!", "Thank you, puppy!", "Speak!", "Roll over!", "Spin!", "Jump!"]
+        + [f"{t}!" for t in FETCH_TOYS]
+        + [f"Let's go to the {p}!" for p in FETCH_PLACES]
     ),
 }
 
