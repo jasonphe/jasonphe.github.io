@@ -60,6 +60,9 @@ BY_TEXT = {
         ["Let's play fetch!", "Fetch!", "Go get it!", "Good catch!", "Oops!", "Where did it go?", "Silly puppy!",
          "Good puppy!", "Good dog!", "Yay!", "Thank you, puppy!", "Speak!", "Roll over!", "Spin!", "Jump!"]
         + [f"{t}!" for t in FETCH_TOYS]
+        # Tapping the scenery
+        + ["Apple!", "Hat!", "A bird!", "A butterfly!", "A crab!", "A fish!", "A bunny!", "An alien!", "A rainbow!",
+           "Three, two, one, blast off!"]
         + [f"Let's go to the {p}!" for p in FETCH_PLACES]
     ),
 }
