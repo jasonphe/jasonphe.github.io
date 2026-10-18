@@ -117,9 +117,9 @@
         <label><input type="checkbox" id="optVoice" checked> Voice</label>
       </div>
       <ul class="tips">
-        <li><b>Tap</b> anywhere to throw a toy there. Tap high in the sky for a big throw.</li>
+        <li><b>Tap</b> anywhere to throw a toy there. Tap high in the sky for a big throw. One toy at a time: the puppy brings it back before the next.</li>
         <li><b>Tap the puppy</b> and it does a trick: speak, roll over, spin or jump.</li>
-        <li><b>Tap things around the puppy</b> too: trees, flowers, clouds, the sea, the snowman, the rocket and more. Some of them drop a new toy to fetch.</li>
+        <li><b>Tap things around the puppy</b> too: trees, flowers, clouds, the sea, the snowman, the rocket and more. Some of them drop a toy to fetch when the puppy's free.</li>
         <li>Every 5 fetches the puppy runs off to a new place: the park, the beach, the snow and the moon.</li>
         <li>To leave, <b>hold the top-right corner</b> for 2 seconds.</li>
         <li>Computer: click, or press any key to throw.</li>
@@ -176,7 +176,7 @@
     { id: "snow", line: "Let's go to the snow!", toys: ["snowball", "ball", "stick", "snowball"], grav: 1, gear: "scarf", dust: "rgba(255, 255, 255, .95)" },
     { id: "moon", line: "Let's go to the moon!", toys: ["moonrock", "ball", "frisbee"], grav: 0.35, gear: "helmet", dust: "rgba(205, 205, 220, .85)" },
   ];
-  const PER_PLACE = 5, MAX_TOYS = 4;
+  const PER_PLACE = 5;
   const PRAISE = ["Good puppy!", "Good dog!", "Yay!", "Thank you, puppy!"];
   const TRICKS = [["Speak!", "speak"], ["Roll over!", "roll"], ["Spin!", "spin"], ["Jump!", "jump"]];
 
@@ -1248,7 +1248,7 @@
   // ---------- World ----------
   let place = 0, time = 0, playing = false;
   let toys = [], parts = [], flakes = [], clouds = [], critters = [];
-  let fetchCount = 0, pawsShown = 0, collectSlot = 0, lastKind = null, fade = null, lastThrow = -1;
+  let fetchCount = 0, pawsShown = 0, collectSlot = 0, lastKind = null, fade = null, lastNope = -1;
   const pawPop = new Array(PER_PLACE).fill(0);
   const dog = Object.assign(basePose(), { state: "wait", t: 0, nextBlink: 2, nextTilt: 3, tiltGoal: 0, tiltUntil: 0, barkT: 0, dustT: 0, trickN: 0, flags: {}, bubble: null });
 
@@ -1310,13 +1310,17 @@
     do { k = pick(list); } while (k === lastKind && new Set(list).size > 1);
     return (lastKind = k);
   }
-  const canThrow = () => playing && !fade && fetchCount < PER_PLACE && dog.state !== "leave";
+  // One toy out at a time, so mashing can't bury the puppy in toys: the next one
+  // can come once it has dropped the last one at home
+  const toyOut = () => toys.some(t => !t.dropped && !t.collect);
+  const canThrow = () => playing && !fade && fetchCount < PER_PLACE && dog.state !== "leave" && !toyOut();
 
   function throwToy(tx, ty) {
-    if (!canThrow()) { bark(1.15); hearts(2); return; }
-    // Mashing still throws plenty, just not a whole toy box at once
-    if (time - lastThrow < 0.2) return;
-    lastThrow = time;
+    if (!canThrow()) {
+      // While a toy's out, taps do nothing; once the puppy's about to move on, they get a happy bark now and then
+      if (playing && !toyOut() && time - lastNope > 1) { lastNope = time; bark(1.15); hearts(2); }
+      return;
+    }
     const kind = nextKind(), def = TOYS[kind];
     const r = def.r * S, floor = groundY - def.r * def.h * S;
     const G = 1500 * S * placeG() * def.g;
@@ -1335,12 +1339,6 @@
 
   // A new toy out in the world, thrown or knocked loose from the scenery
   function spawnToy(kind, x, y, vx, vy, extra) {
-    // Keep the yard from filling up: the oldest toy out there goes poof
-    const free = toys.filter(isFree);
-    if (free.length >= MAX_TOYS) {
-      const old = free.find(t => t !== dog.target);
-      if (old) poofToy(old);
-    }
     toys.push(Object.assign({
       kind, def: TOYS[kind], x, y, vx, vy, rot: rand(0, TAU), rv: rand(6, 10) * (Math.random() < 0.5 ? -1 : 1),
       armed: false, rest: false, held: false, dropped: false, collect: null, dropT: 0, age: 0, color: pick(TOY_COLORS),
